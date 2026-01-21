@@ -44,6 +44,18 @@ QtObject {
 
         // Theme > Colors
         { label: "Color Scheme", keywords: "palette variant light dark", section: 4, subSection: "colors", subLabel: "Theme > Colors", icon: Icons.palette, isIcon: true },
+        { label: "Color Variant", keywords: "background popup internal bar pane", section: 4, subSection: "colors", subLabel: "Theme > Colors", icon: Icons.palette, isIcon: true },
+        { label: "Background Variant", keywords: "wallpaper desktop color", section: 4, subSection: "colors", subLabel: "Theme > Colors", icon: Icons.palette, isIcon: true },
+        { label: "Popup Variant", keywords: "dialog modal color", section: 4, subSection: "colors", subLabel: "Theme > Colors", icon: Icons.palette, isIcon: true },
+        { label: "Internal BG Variant", keywords: "inside background color", section: 4, subSection: "colors", subLabel: "Theme > Colors", icon: Icons.palette, isIcon: true },
+        { label: "Bar BG Variant", keywords: "taskbar panel color", section: 4, subSection: "colors", subLabel: "Theme > Colors", icon: Icons.palette, isIcon: true },
+        { label: "Pane Variant", keywords: "sidebar panel color", section: 4, subSection: "colors", subLabel: "Theme > Colors", icon: Icons.palette, isIcon: true },
+        { label: "Gradient Mode", keywords: "linear radial halftone", section: 4, subSection: "colors", subLabel: "Theme > Colors", icon: Icons.palette, isIcon: true },
+        { label: "Item Color", keywords: "overbackground surface", section: 4, subSection: "colors", subLabel: "Theme > Colors", icon: Icons.palette, isIcon: true },
+        { label: "Color Opacity", keywords: "alpha transparency", section: 4, subSection: "colors", subLabel: "Theme > Colors", icon: Icons.palette, isIcon: true },
+        { label: "Color Border", keywords: "stroke outline", section: 4, subSection: "colors", subLabel: "Theme > Colors", icon: Icons.palette, isIcon: true },
+        { label: "Gradient Stops", keywords: "color position stops", section: 4, subSection: "colors", subLabel: "Theme > Colors", icon: Icons.palette, isIcon: true },
+        { label: "Gradient Angle", keywords: "direction rotation degrees", section: 4, subSection: "colors", subLabel: "Theme > Colors", icon: Icons.palette, isIcon: true },
 
         // --- Binds ---
         { label: "Key Bindings", keywords: "shortcuts keyboard hotkeys", section: 5, subSection: "", subLabel: "", icon: Icons.keyboard, isIcon: true },
