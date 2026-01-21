@@ -31,7 +31,10 @@ Rectangle {
 
     onSelectedIndexChanged: {
         if (filteredSections && selectedIndex >= 0 && selectedIndex < filteredSections.length) {
-            root.currentSection = filteredSections[selectedIndex].section;
+            const item = filteredSections[selectedIndex];
+            root.currentSection = item.section;
+            // Automatically show subsection preview when navigating search results
+            root.dispatchSubSection(item.section, item.subSection);
             root.scrollSidebarToSelection();
             // Use timer to ensure focus is restored AFTER any panel focus-stealing
             focusRestoreTimer.restart();
