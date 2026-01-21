@@ -17,12 +17,60 @@ Rectangle {
     // 0: Network, 1: Bluetooth, 2: Mixer, 3: Effects, 4: Theme, 5: Binds, 6: System, 7: Shell
     
     property int currentSection: 0 
+    property int selectedIndex: 0
     property string searchQuery: ""
+
+    onFilteredSectionsChanged: selectedIndex = 0
+
+    // Timer to restore focus after panel transitions
+    Timer {
+        id: focusRestoreTimer
+        interval: 50
+        onTriggered: searchInput.focusInput()
+    }
+
+    onSelectedIndexChanged: {
+        if (filteredSections && selectedIndex >= 0 && selectedIndex < filteredSections.length) {
+            root.currentSection = filteredSections[selectedIndex].section;
+            root.scrollSidebarToSelection();
+            // Use timer to ensure focus is restored AFTER any panel focus-stealing
+            focusRestoreTimer.restart();
+        }
+    }
 
     // Focus the search input (called from parent Dashboard)
     function focusSearchInput() {
         searchInput.focusInput();
     }
+
+    SettingsIndex { id: searchIndex }
+
+    function dispatchSubSection(sectionId, subSectionId) {
+        if (!subSectionId || subSectionId === "") return;
+        
+        if (sectionId === 4) themePanel.currentSection = subSectionId;
+        if (sectionId === 6) systemPanel.currentSection = subSectionId;
+        if (sectionId === 7) compositorPanel.currentSection = subSectionId;
+        if (sectionId === 8) shellPanel.currentSection = subSectionId;
+    }
+
+    // Scroll sidebar to ensure visible selection
+    function scrollSidebarToSelection() {
+        if (sidebarFlickable.height <= 0) return;
+        
+        const tabHeight = 40;
+        const tabSpacing = 4;
+        const itemY = root.selectedIndex * (tabHeight + tabSpacing);
+        
+        // Check bounds and scroll if needed
+        if (itemY < sidebarFlickable.contentY) {
+            sidebarFlickable.contentY = itemY;
+        } else if (itemY + tabHeight > sidebarFlickable.contentY + sidebarFlickable.height) {
+            sidebarFlickable.contentY = itemY + tabHeight - sidebarFlickable.height + 4; // +4 for bottom padding feeling
+        }
+    }
+
+
 
     // Fuzzy match: checks if all characters of query appear in order in target
     function fuzzyMatch(query, target) {
@@ -80,15 +128,19 @@ Rectangle {
     // Filtered sections based on search query
     readonly property var filteredSections: {
         if (searchQuery.length === 0) return sectionModel;
-        return sectionModel.filter(item => fuzzyMatch(searchQuery, item.label))
-            .map(item => ({ 
-                icon: item.icon,
-                label: item.label,
-                section: item.section,
-                isIcon: item.isIcon,
-                score: fuzzyScore(searchQuery, item.label) 
-            }))
-            .sort((a, b) => b.score - a.score);
+        
+        const query = searchQuery.toLowerCase();
+        return searchIndex.items.filter(item => {
+             return fuzzyMatch(query, item.label) || (item.keywords && item.keywords.includes(query));
+        }).map(item => ({ 
+            label: item.label,
+            section: item.section,
+            subSection: item.subSection || "",
+            subLabel: item.subLabel || "",
+            icon: item.icon,
+            isIcon: item.isIcon !== undefined ? item.isIcon : true,
+            score: fuzzyScore(query, item.label) 
+        })).sort((a, b) => b.score - a.score);
     }
 
     // Find the index of current section in filtered list
@@ -136,29 +188,34 @@ Rectangle {
                     }
 
                     onAccepted: {
-                        // If single result, select it
-                        if (root.filteredSections.length === 1) {
-                            root.currentSection = root.filteredSections[0].section;
+                        // If single result, select it; if multiple, select top one
+                        if (root.filteredSections.length > 0) {
+                            const item = root.filteredSections[root.selectedIndex];
+                            // Ensure section is synced (should be via binding, but force to be safe if dispatching immediately)
+                            root.currentSection = item.section;
+                            root.dispatchSubSection(item.section, item.subSection);
                         }
                     }
 
                     onDownPressed: {
                         // Navigate to next filtered section
-                        const currentIdx = root.getFilteredIndex(root.currentSection);
-                        if (currentIdx < root.filteredSections.length - 1) {
-                            root.currentSection = root.filteredSections[currentIdx + 1].section;
-                        } else if (root.filteredSections.length > 0) {
-                            root.currentSection = root.filteredSections[0].section;
+                        if (root.selectedIndex < root.filteredSections.length - 1) {
+                            root.selectedIndex++;
+                        } else {
+                            // Loop to top? Or stop? User said "move up down arrow key doesn't work normally".
+                            // Usually stopping at bottom is standard, or looping. 
+                            // Previous code looped to 0. Let's loop.
+                            root.selectedIndex = 0;
                         }
                     }
 
                     onUpPressed: {
                         // Navigate to previous filtered section
-                        const currentIdx = root.getFilteredIndex(root.currentSection);
-                        if (currentIdx > 0) {
-                            root.currentSection = root.filteredSections[currentIdx - 1].section;
-                        } else if (root.filteredSections.length > 0) {
-                            root.currentSection = root.filteredSections[root.filteredSections.length - 1].section;
+                        if (root.selectedIndex > 0) {
+                            root.selectedIndex--;
+                        } else {
+                            // Loop to bottom
+                            root.selectedIndex = root.filteredSections.length - 1;
                         }
                     }
                 }
@@ -186,10 +243,10 @@ Rectangle {
 
                         x: 0
                         y: {
-                            const idx = root.getFilteredIndex(root.currentSection);
+                            const idx = root.selectedIndex;
                             return idx >= 0 ? idx * (tabHeight + tabSpacing) : 0;
                         }
-                        visible: root.getFilteredIndex(root.currentSection) >= 0
+                        visible: root.selectedIndex >= 0 && root.selectedIndex < root.filteredSections.length
 
                         Behavior on y {
                             enabled: Config.animDuration > 0
@@ -219,7 +276,7 @@ Rectangle {
                                 flat: true
                                 hoverEnabled: true
 
-                                property bool isActive: root.currentSection === sidebarButton.modelData.section
+                                property bool isActive: index === root.selectedIndex
 
                                 background: Rectangle {
                                     color: "transparent"
@@ -237,7 +294,7 @@ Rectangle {
                                         color: sidebarButton.isActive ? Styling.srItem("overprimary") : Styling.srItem("common")
                                         anchors.verticalCenter: parent.verticalCenter
                                         leftPadding: 10
-                                        visible: sidebarButton.modelData.isIcon
+                                        visible: sidebarButton.modelData.isIcon && (root.searchQuery.length === 0 || !sidebarButton.modelData.subSection)
 
                                         Behavior on color {
                                             enabled: Config.animDuration > 0
@@ -253,7 +310,7 @@ Rectangle {
                                         width: 30
                                         height: 20
                                         anchors.verticalCenter: parent.verticalCenter
-                                        visible: !sidebarButton.modelData.isIcon
+                                        visible: !sidebarButton.modelData.isIcon && (root.searchQuery.length === 0 || !sidebarButton.modelData.subSection)
 
                                         Image {
                                             id: svgIcon
@@ -276,25 +333,40 @@ Rectangle {
                                     }
 
                                     // Text
-                                    Text {
-                                        text: sidebarButton.modelData.label
-                                        font.family: Config.theme.font
-                                        font.pixelSize: Styling.fontSize(0)
-                                        font.weight: sidebarButton.isActive ? Font.Bold : Font.Normal
-                                        color: sidebarButton.isActive ? Styling.srItem("overprimary") : Styling.srItem("common")
+                                    Column {
                                         anchors.verticalCenter: parent.verticalCenter
+                                        
+                                        Text {
+                                            text: sidebarButton.modelData.label
+                                            font.family: Config.theme.font
+                                            font.pixelSize: Styling.fontSize(0)
+                                            font.weight: sidebarButton.isActive ? Font.Bold : Font.Normal
+                                            color: sidebarButton.isActive ? Styling.srItem("overprimary") : Styling.srItem("common")
 
-                                        Behavior on color {
-                                            enabled: Config.animDuration > 0
-                                            ColorAnimation {
-                                                duration: Config.animDuration
-                                                easing.type: Easing.OutCubic
+                                            Behavior on color {
+                                                enabled: Config.animDuration > 0
+                                                ColorAnimation {
+                                                    duration: Config.animDuration
+                                                    easing.type: Easing.OutCubic
+                                                }
                                             }
+                                        }
+                                        
+                                        Text {
+                                            visible: !!sidebarButton.modelData.subLabel
+                                            text: sidebarButton.modelData.subLabel || ""
+                                            font.family: Config.theme.font
+                                            font.pixelSize: Styling.fontSize(-2)
+                                            color: Colors.overSurfaceVariant
                                         }
                                     }
                                 }
 
-                                onClicked: root.currentSection = sidebarButton.modelData.section
+                                onClicked: {
+                                    root.selectedIndex = index;
+                                    // currentSection updates via binding on selectedIndex
+                                    root.dispatchSubSection(sidebarButton.modelData.section, sidebarButton.modelData.subSection);
+                                }
                             }
                         }
                     }
@@ -304,11 +376,10 @@ Rectangle {
                         enabled: sidebarFlickable.contentHeight <= sidebarFlickable.height
                         acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
                         onWheel: event => {
-                            const currentIdx = root.getFilteredIndex(root.currentSection);
-                            if (event.angleDelta.y > 0 && currentIdx > 0) {
-                                root.currentSection = root.filteredSections[currentIdx - 1].section;
-                            } else if (event.angleDelta.y < 0 && currentIdx < root.filteredSections.length - 1) {
-                                root.currentSection = root.filteredSections[currentIdx + 1].section;
+                            if (event.angleDelta.y > 0 && root.selectedIndex > 0) {
+                                root.selectedIndex--;
+                            } else if (event.angleDelta.y < 0 && root.selectedIndex < root.filteredSections.length - 1) {
+                                root.selectedIndex++;
                             }
                         }
                     }
