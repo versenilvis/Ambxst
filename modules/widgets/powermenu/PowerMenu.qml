@@ -24,6 +24,11 @@ ActionGrid {
     }
 
     actions: [
+                {
+            icon: Icons.shutdown,
+            tooltip: "Power Off",
+            command: "systemctl poweroff"
+        },
         {
             icon: Icons.lock,
             tooltip: "Lock Session",
@@ -49,11 +54,6 @@ ActionGrid {
             tooltip: "Reboot",
             command: "systemctl reboot"
         },
-        {
-            icon: Icons.shutdown,
-            tooltip: "Power Off",
-            command: "systemctl poweroff"
-        }
     ]
 
     onActionTriggered: action => {
