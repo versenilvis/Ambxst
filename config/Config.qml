@@ -19,7 +19,6 @@ import "defaults/lockscreen.js" as LockscreenDefaults
 import "defaults/prefix.js" as PrefixDefaults
 import "defaults/system.js" as SystemDefaults
 import "defaults/dock.js" as DockDefaults
-import "defaults/ai.js" as AiDefaults
 import "ConfigValidator.js" as ConfigValidator
 
 Singleton {
@@ -44,10 +43,9 @@ Singleton {
     property bool prefixReady: false
     property bool systemReady: false
     property bool dockReady: false
-    property bool aiReady: false
     property bool keybindsInitialLoadComplete: false
 
-    property bool initialLoadComplete: themeReady && barReady && workspacesReady && overviewReady && notchReady && hyprlandReady && performanceReady && weatherReady && desktopReady && lockscreenReady && prefixReady && systemReady && dockReady && aiReady
+    property bool initialLoadComplete: themeReady && barReady && workspacesReady && overviewReady && notchReady && hyprlandReady && performanceReady && weatherReady && desktopReady && lockscreenReady && prefixReady && systemReady && dockReady
 
     // Aliases for backward compatibility
     property alias loader: themeLoader
@@ -77,7 +75,6 @@ Singleton {
             [ ! -f prefix.json ] && MISSING="$MISSING prefix"
             [ ! -f system.json ] && MISSING="$MISSING system"
             [ ! -f dock.json ] && MISSING="$MISSING dock"
-            [ ! -f ai.json ] && MISSING="$MISSING ai"
             echo "$MISSING"
         `]
 
@@ -148,11 +145,6 @@ Singleton {
                     console.log("dock.json missing, creating default...");
                     dockRawLoader.setText(JSON.stringify(DockDefaults.data, null, 4));
                     root.dockReady = true;
-                }
-                if (missing.includes("ai")) {
-                    console.log("ai.json missing, creating default...");
-                    aiRawLoader.setText(JSON.stringify(AiDefaults.data, null, 4));
-                    root.aiReady = true;
                 }
             }
         }
@@ -1161,46 +1153,6 @@ Singleton {
     }
 
     // ============================================
-    // AI MODULE
-    // ============================================
-    FileView {
-        id: aiRawLoader
-        path: root.configDir + "/ai.json"
-        onLoaded: {
-            if (!root.aiReady) {
-                validateModule("ai", aiRawLoader, AiDefaults.data, () => {
-                    root.aiReady = true;
-                });
-            }
-        }
-    }
-
-    FileView {
-        id: aiLoader
-        path: root.configDir + "/ai.json"
-        atomicWrites: true
-        watchChanges: true
-        onFileChanged: {
-            root.pauseAutoSave = true;
-            reload();
-            root.pauseAutoSave = false;
-        }
-        onPathChanged: reload()
-        onAdapterUpdated: {
-            if (root.aiReady && !root.pauseAutoSave) {
-                aiLoader.writeAdapter();
-            }
-        }
-
-        adapter: JsonAdapter {
-            property string systemPrompt: "You are a helpful assistant running on a Linux system. You have access to some tools to control the system."
-            property string tool: "none"
-            property list<var> extraModels: []
-            property string defaultModel: "gemini-pro"
-        }
-    }
-
-    // ============================================
     // KEYBINDS (kept separate as binds.json)
     // ============================================
     Process {
@@ -1277,7 +1229,7 @@ Singleton {
             }
 
             // Check dashboard binds
-            const dashboardKeys = ["assistant", "clipboard", "emoji", "notes", "tmux", "wallpapers", "widgets"];
+            const dashboardKeys = ["clipboard", "emoji", "notes", "tmux", "wallpapers", "widgets"];
             for (const key of dashboardKeys) {
                 if (!current.ambxst.dashboard[key] && adapter.ambxst.dashboard && adapter.ambxst.dashboard[key]) {
                     console.log("Adding missing dashboard bind:", key);
@@ -1407,12 +1359,6 @@ Singleton {
         adapter: JsonAdapter {
             property JsonObject ambxst: JsonObject {
                 property JsonObject dashboard: JsonObject {
-                    property JsonObject assistant: JsonObject {
-                        property list<string> modifiers: ["SUPER"]
-                        property string key: "A"
-                        property string dispatcher: "exec"
-                        property string argument: "ambxst run dashboard-assistant"
-                    }
                     property JsonObject clipboard: JsonObject {
                         property list<string> modifiers: ["SUPER"]
                         property string key: "V"
@@ -1527,7 +1473,6 @@ Singleton {
             // Functions to get defaults
             readonly property var defaultAmbxstBinds: {
                 "dashboard": {
-                    "assistant": { "modifiers": ["SUPER"], "key": "A", "dispatcher": "exec", "argument": "ambxst run dashboard-assistant", "flags": "" },
                     "clipboard": { "modifiers": ["SUPER"], "key": "V", "dispatcher": "exec", "argument": "ambxst run dashboard-clipboard", "flags": "" },
                     "emoji": { "modifiers": ["SUPER"], "key": "PERIOD", "dispatcher": "exec", "argument": "ambxst run dashboard-emoji", "flags": "" },
                     "notes": { "modifiers": ["SUPER"], "key": "N", "dispatcher": "exec", "argument": "ambxst run dashboard-notes", "flags": "" },

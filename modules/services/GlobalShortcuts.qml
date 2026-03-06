@@ -36,8 +36,7 @@ Item {
             case "dashboard-widgets": toggleDashboardTab(0); break;
             case "dashboard-wallpapers": toggleDashboardTab(1); break;
             case "dashboard-kanban": toggleDashboardTab(2); break;
-            case "dashboard-assistant": toggleDashboardTab(3); break;
-            case "dashboard-controls": toggleDashboardTab(4); break;
+            case "dashboard-controls": toggleDashboardTab(3); break;
             case "dashboard-clipboard": toggleDashboardWithPrefix(Config.prefix.clipboard + " "); break;
             case "dashboard-emoji": toggleDashboardWithPrefix(Config.prefix.emoji + " "); break;
             case "dashboard-tmux": toggleDashboardWithPrefix(Config.prefix.tmux + " "); break;
@@ -267,18 +266,10 @@ Item {
 
     GlobalShortcut {
         appid: root.appId
-        name: "dashboard-assistant"
-        description: "Open dashboard assistant tab"
-
-        onPressed: toggleDashboardTab(3)
-    }
-
-    GlobalShortcut {
-        appid: root.appId
         name: "dashboard-controls"
         description: "Open dashboard controls tab"
 
-        onPressed: toggleDashboardTab(4)
+        onPressed: toggleDashboardTab(3)
     }
 
     // Media player shortcuts

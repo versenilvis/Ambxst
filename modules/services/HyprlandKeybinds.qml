@@ -64,7 +64,6 @@ QtObject {
                 emoji: cloneKeybind(ambxst.dashboard.emoji),
                 tmux: cloneKeybind(ambxst.dashboard.tmux),
                 wallpapers: cloneKeybind(ambxst.dashboard.wallpapers),
-                assistant: cloneKeybind(ambxst.dashboard.assistant),
                 notes: cloneKeybind(ambxst.dashboard.notes)
             },
             system: {
@@ -184,7 +183,6 @@ QtObject {
                 unbindCommands.push(createUnbindCommand(previousAmbxstBinds.dashboard.emoji));
                 unbindCommands.push(createUnbindCommand(previousAmbxstBinds.dashboard.tmux));
                 unbindCommands.push(createUnbindCommand(previousAmbxstBinds.dashboard.wallpapers));
-                unbindCommands.push(createUnbindCommand(previousAmbxstBinds.dashboard.assistant));
                 unbindCommands.push(createUnbindCommand(previousAmbxstBinds.dashboard.notes));
             }
 
@@ -225,7 +223,6 @@ QtObject {
         unbindCommands.push(createUnbindCommand(dashboard.emoji));
         unbindCommands.push(createUnbindCommand(dashboard.tmux));
         unbindCommands.push(createUnbindCommand(dashboard.wallpapers));
-        unbindCommands.push(createUnbindCommand(dashboard.assistant));
         unbindCommands.push(createUnbindCommand(dashboard.notes));
 
         batchCommands.push(createBindCommand(dashboard.widgets, dashboard.widgets.flags || ""));
@@ -233,7 +230,6 @@ QtObject {
         batchCommands.push(createBindCommand(dashboard.emoji, dashboard.emoji.flags || ""));
         batchCommands.push(createBindCommand(dashboard.tmux, dashboard.tmux.flags || ""));
         batchCommands.push(createBindCommand(dashboard.wallpapers, dashboard.wallpapers.flags || ""));
-        batchCommands.push(createBindCommand(dashboard.assistant, dashboard.assistant.flags || ""));
         batchCommands.push(createBindCommand(dashboard.notes, dashboard.notes.flags || ""));
 
         // System keybinds

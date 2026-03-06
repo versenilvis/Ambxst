@@ -101,7 +101,6 @@ On **NixOS**:
 * [x] Game mode
 * [x] Night mode
 * [x] Power profile manager
-* [x] AI Assistant
 * [x] Weather
 * [x] Calendar
 * [x] Power menu
