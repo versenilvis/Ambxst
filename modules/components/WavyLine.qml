@@ -11,12 +11,12 @@ Item {
     property real fullLength: width
     property real speed: 2.4
 
-    // Factor de supersampling más agresivo
+    // Factor de supersampling optimizado
     readonly property real supersampleFactor: 4.0
 
-    layer.enabled: true
-    layer.smooth: true
-    layer.samples: 8  // MSAA para el layer principal
+    // layer.enabled: true
+    // layer.smooth: true
+    // layer.samples: 8  // MSAA para el layer principal
 
     // Contenedor para el shader renderizado a mayor resolución
     Item {
@@ -26,7 +26,7 @@ Item {
 
         ShaderEffect {
             id: wavyShader
-            // Renderizar a 4x la resolución
+            // Renderizar a 1x la resolución (optimizado)
             width: root.width * root.supersampleFactor
             height: root.height * root.supersampleFactor
 
@@ -53,7 +53,7 @@ Item {
             // Layer con MSAA y tamaño completo
             layer.enabled: true
             layer.smooth: true
-            layer.samples: 8  // Multisampling antialiasing
+            layer.samples: 4  // Multisampling antialiasing optimizado
             layer.textureSize: Qt.size(width, height)
             layer.mipmap: true
 
@@ -64,7 +64,7 @@ Item {
             Timer {
                 id: animationTimer
                 interval: 16
-                running: Config.performance.wavyLine
+                running: Config.performance.wavyLine && root.visible
                 repeat: true
                 onTriggered: {
                     var deltaTime = interval / 1000.0;

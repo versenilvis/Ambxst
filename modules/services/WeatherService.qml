@@ -462,7 +462,7 @@ QtObject {
 
     property Timer sunPositionTimer: Timer {
         interval: 60000  // 1 minute
-        running: true
+        running: !SuspendManager.isSuspending
         repeat: true
         onTriggered: root.calculateSunPosition()
     }

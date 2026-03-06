@@ -45,7 +45,7 @@ StyledRect {
     }
 
     Timer {
-        running: player.isPlaying
+        running: player.isPlaying && player.visible
         interval: 1000
         repeat: true
         onTriggered: {
@@ -75,6 +75,7 @@ StyledRect {
             id: backgroundArt
             anchors.fill: parent
             source: MprisController.activePlayer?.trackArtUrl ?? ""
+            sourceSize: Qt.size(64, 64)
             fillMode: Image.PreserveAspectCrop
             asynchronous: true
             visible: false

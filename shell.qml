@@ -296,9 +296,9 @@ ShellRoot {
             let _ = NightLightService.active
             _ = GameModeService.toggled
             _ = CaffeineService.inhibit
+            _ = IdleService.lockCmd // Force init
             _ = WeatherService.dataAvailable
             _ = SystemResources.cpuUsage
-            _ = IdleService.lockCmd // Force init
         }
     }
 }

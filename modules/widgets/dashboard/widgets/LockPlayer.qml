@@ -22,7 +22,7 @@ StyledRect {
     radius: Config.roundness > 0 ? (height / 2) * (Config.roundness / 16) : 0
 
     Timer {
-        running: lockPlayer.isPlaying
+        running: lockPlayer.isPlaying && lockPlayer.visible
         interval: 1000
         repeat: true
         onTriggered: {
@@ -102,6 +102,7 @@ StyledRect {
                     id: albumArt
                     anchors.fill: parent
                     source: MprisController.activePlayer?.trackArtUrl ?? ""
+                    sourceSize: Qt.size(128, 128)
                     fillMode: Image.PreserveAspectCrop
                     asynchronous: true
                     visible: false
