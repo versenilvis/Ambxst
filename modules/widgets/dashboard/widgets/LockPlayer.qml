@@ -79,8 +79,10 @@ StyledRect {
     RowLayout {
         id: contentLayout
         anchors.fill: parent
-        anchors.margins: 16
+        anchors.leftMargin: 24
         anchors.rightMargin: 28
+        anchors.topMargin: 16
+        anchors.bottomMargin: 16
         spacing: 16
         visible: MprisController.activePlayer
 
@@ -111,6 +113,18 @@ StyledRect {
                     blurEnabled: true
                     blurMax: 32
                     blur: playPauseHover.hovered ? 0.75 : 0
+
+                    maskEnabled: true
+                    maskThresholdMin: 0.5
+                    maskSpreadAtMin: 1.0
+                    maskSource: ShaderEffectSource {
+                        sourceItem: Rectangle {
+                            width: 64
+                            height: 64
+                            radius: Config.roundness > 0 ? (height / 2) * (Config.roundness / 16) : 0
+                            color: "white"
+                        }
+                    }
 
                     Behavior on blur {
                         enabled: Config.animDuration > 0

@@ -269,11 +269,11 @@ WlSessionLockSurface {
 
         anchors {
             left: parent.left
-            leftMargin: startAnim ? 32 : -(playerContainer.width + 64)
+            leftMargin: startAnim ? 48 : -(playerContainer.width + 64)
             top: isTopPosition ? parent.top : undefined
-            topMargin: isTopPosition ? 32 : 0
+            topMargin: isTopPosition ? 48 : 0
             bottom: !isTopPosition ? parent.bottom : undefined
-            bottomMargin: !isTopPosition ? 32 : 0
+            bottomMargin: !isTopPosition ? 48 : 0
         }
         width: 350
         height: playerContent.height
@@ -312,9 +312,9 @@ WlSessionLockSurface {
         anchors {
             horizontalCenter: parent.horizontalCenter
             top: isTopPosition ? parent.top : undefined
-            topMargin: isTopPosition ? (startAnim ? 32 : -80) : 0
+            topMargin: isTopPosition ? (startAnim ? 48 : -80) : 0
             bottom: !isTopPosition ? parent.bottom : undefined
-            bottomMargin: !isTopPosition ? (startAnim ? 32 : -80) : 0
+            bottomMargin: !isTopPosition ? (startAnim ? 48 : -80) : 0
         }
         width: 350
         height: 96
@@ -371,20 +371,20 @@ WlSessionLockSurface {
                 x: passwordInputBox.shakeOffset
             }
 
-            Row {
+            RowLayout {
                 anchors.fill: parent
-                anchors.leftMargin: 16
+                anchors.leftMargin: 24
                 anchors.rightMargin: 24
-                spacing: 12
+                spacing: 16
 
                 // Avatar (64x64)
                 Rectangle {
                     id: avatarContainer
-                    width: 64
-                    height: 64
+                    Layout.preferredWidth: 64
+                    Layout.preferredHeight: 64
+                    Layout.alignment: Qt.AlignVCenter
                     radius: Config.roundness > 0 ? (height / 2) * (Config.roundness / 16) : 0
                     color: "transparent"
-                    anchors.verticalCenter: parent.verticalCenter
 
                     Image {
                         id: userAvatar
@@ -402,9 +402,10 @@ WlSessionLockSurface {
                             maskSpreadAtMin: 1.0
                             maskSource: ShaderEffectSource {
                                 sourceItem: Rectangle {
-                                    width: userAvatar.width
-                                    height: userAvatar.height
+                                    width: 64
+                                    height: 64
                                     radius: Config.roundness > 0 ? (height / 2) * (Config.roundness / 16) : 0
+                                    color: "white"
                                 }
                             }
                         }
@@ -422,16 +423,16 @@ WlSessionLockSurface {
                 // Password field
                 StyledRect {
                     id: passwordFieldBg
-                    width: parent.width - avatarContainer.width - parent.spacing
-                    height: 48
-                    anchors.verticalCenter: parent.verticalCenter
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 48
+                    Layout.alignment: Qt.AlignVCenter
                     variant: passwordInputBox.showError ? "error" : "common"
                     radius: Config.roundness > 0 ? (height / 2) * (Config.roundness / 16) : 0
 
                     RowLayout {
                         anchors.fill: parent
                         anchors.leftMargin: 16
-                        anchors.rightMargin: 32
+                        anchors.rightMargin: 12
                         spacing: 8
 
                         // User icon / Spinner
