@@ -139,10 +139,10 @@ NotchAnimationBehavior {
 
                 // Calcular posición Y para un índice dado
                 function getYForIndex(idx) {
-                    if (idx <= 3) {
+                    if (idx <= 2) {
                         return idx * (width + root.tabSpacing);
                     } else {
-                        // Tab 4 (controls) está en la parte inferior
+                        // Tab 3 (controls) está en la parte inferior
                         return controlsButtonContainer.y;
                     }
                 }
@@ -238,7 +238,7 @@ NotchAnimationBehavior {
                 variant: controlsButton.hovered ? "focus" : "common"
                 z: -1
 
-                opacity: root.state.currentTab === 4 ? 0 : 1
+                opacity: root.state.currentTab === 3 ? 0 : 1
 
                 Behavior on opacity {
                     enabled: Config.animDuration > 0
@@ -268,7 +268,7 @@ NotchAnimationBehavior {
                     font.family: Icons.font
                     font.pixelSize: 20
                     font.weight: Font.Medium
-                    color: root.state.currentTab === 4 ? Styling.srItem("primary") : Colors.overBackground
+                    color: root.state.currentTab === 3 ? Styling.srItem("primary") : Colors.overBackground
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
 
@@ -281,7 +281,7 @@ NotchAnimationBehavior {
                     }
                 }
 
-                onClicked: stack.navigateToTab(4)
+                onClicked: stack.navigateToTab(3)
             }
         }
 
