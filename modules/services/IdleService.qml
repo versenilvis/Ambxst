@@ -112,7 +112,10 @@ Singleton {
 
     function checkListeners() {
         // Skip idle actions if media is playing (YouTube, Spotify, etc.)
-        if (MprisController.isPlaying) {
+        if (Config.system.idle.general.inhibit_on_media && MprisController.isPlaying) {
+            if (root.triggeredListeners.length > 0) {
+                root.resetIdleState();
+            }
             root.elapsedIdleTime = 0; // Reset timer while media plays
             return;
         }

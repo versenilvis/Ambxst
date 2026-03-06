@@ -6,7 +6,8 @@ var data = {
         "general": {
             "lock_cmd": "ambxst lock",
             "before_sleep_cmd": "loginctl lock-session",
-            "after_sleep_cmd": "ambxst screen on"
+            "after_sleep_cmd": "ambxst screen on",
+            "inhibit_on_media": true
         },
         "listeners": [
             {

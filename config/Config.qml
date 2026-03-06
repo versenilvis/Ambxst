@@ -1032,6 +1032,7 @@ Singleton {
                     property string lock_cmd: "ambxst lock"
                     property string before_sleep_cmd: "loginctl lock-session"
                     property string after_sleep_cmd: "ambxst screen on"
+                    property bool inhibit_on_media: true
                 }
                 property list<var> listeners: [
                     {

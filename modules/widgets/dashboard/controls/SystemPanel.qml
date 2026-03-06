@@ -631,6 +631,16 @@ Item {
                             }
                         }
 
+                        ToggleRow {
+                            Layout.fillWidth: true
+                            label: "Inhibit on Media"
+                            description: "Prevent idle actions while media is playing"
+                            checked: Config.system.idle.general.inhibit_on_media
+                            onToggled: checked => {
+                                Config.system.idle.general.inhibit_on_media = checked;
+                            }
+                        }
+
                         Text {
                             text: "Listeners"
                             font.family: Config.theme.font
