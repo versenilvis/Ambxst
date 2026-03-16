@@ -23,6 +23,14 @@ Singleton {
     }
     property MprisPlayer activePlayer: trackedPlayer ?? filteredPlayers[0] ?? null
 
+    property int metadataRevision: 0
+    Connections {
+        target: root.activePlayer
+        ignoreUnknownSignals: true
+        function onMetadataChanged() {
+            root.metadataRevision++;
+        }
+    }
     property string cacheFilePath: Quickshell.dataPath("lastPlayer.json")
     property bool isInitializing: true
     property string cachedDbusName: ""

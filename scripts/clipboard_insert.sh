@@ -72,3 +72,6 @@ WITH reindexed AS (
 UPDATE clipboard_items SET display_index = (SELECT new_idx FROM reindexed WHERE reindexed.id = clipboard_items.id) WHERE pinned = 0;
 COMMIT;
 EOSQL
+
+# Signal that an insert happened
+echo "REFRESH_LIST"
