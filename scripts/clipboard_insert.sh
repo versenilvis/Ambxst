@@ -5,6 +5,9 @@
 
 set -euo pipefail
 
+# Ensure UTF-8 locale for consistent character handling
+export LC_ALL=C.UTF-8
+
 DB_PATH="$1"
 HASH="$2"
 MIME_TYPE="$3"
@@ -26,22 +29,11 @@ if [ "$IS_IMAGE" = "0" ] && [ -z "$CONTENT" ]; then
 	exit 0
 fi
 
-# Create preview
-if [ "$IS_IMAGE" = "1" ]; then
-	PREVIEW="[Image]"
-elif [ ${#CONTENT} -gt 100 ]; then
-	PREVIEW="${CONTENT:0:97}..."
-else
-	PREVIEW="$CONTENT"
-fi
-
 # Get timestamp in milliseconds
 TIMESTAMP=$(date +%s)000
 
-# Write preview to temp file
-PREVIEW_FILE=$(mktemp)
-trap 'rm -f "$CONTENT_FILE" "$PREVIEW_FILE"' EXIT
-printf '%s' "$PREVIEW" >"$PREVIEW_FILE"
+# Use a temp file to preserve all unicode characters exactly
+trap 'rm -f "$CONTENT_FILE"' EXIT
 
 # Use sqlite3 with -cmd to read from files using readfile() function
 # This avoids all shell escaping issues
@@ -54,7 +46,12 @@ INSERT INTO clipboard_items
 VALUES (
     '${HASH}',
     '${MIME_TYPE}',
-    readfile('${PREVIEW_FILE}'),
+    CASE WHEN ${IS_IMAGE} = 1 THEN '[Image]' ELSE (
+        CASE WHEN length(CAST(readfile('${CONTENT_FILE}') AS TEXT)) > 100 
+        THEN substr(CAST(readfile('${CONTENT_FILE}') AS TEXT), 1, 97) || '...' 
+        ELSE CAST(readfile('${CONTENT_FILE}') AS TEXT) 
+        END
+    ) END,
     readfile('${CONTENT_FILE}'),
     ${IS_IMAGE},
     '${BINARY_PATH}',

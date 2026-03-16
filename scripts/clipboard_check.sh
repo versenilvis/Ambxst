@@ -3,6 +3,7 @@
 # Usage: clipboard_check.sh <db_path> <script_path> <data_dir>
 
 set -euo pipefail
+export LC_ALL=C.UTF-8
 
 DB_PATH="$1"
 SCRIPT_PATH="$2"
