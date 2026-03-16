@@ -142,11 +142,11 @@ Item {
             }
         }
 
-        // Central icon (Lightning/Plug for battery, PowerProfile icon otherwise)
+        // Central icon (Lightning for charging, tiered Battery icons for unplugged)
         Text {
             id: batteryIcon
             anchors.centerIn: parent
-            text: Battery.available ? (Battery.isPluggedIn ? Icons.plug : Icons.lightning) : PowerProfile.getProfileIcon(PowerProfile.currentProfile)
+            text: Battery.available ? (Battery.isPluggedIn ? Icons.lightning : Battery.getBatteryIcon()) : PowerProfile.getProfileIcon(PowerProfile.currentProfile)
             font.family: Icons.font
             font.pixelSize: Battery.available ? 14 : 18
             color: root.popupOpen ? buttonBg.item : Colors.overBackground
@@ -161,10 +161,15 @@ Item {
             Connections {
                 target: Battery
                 function onIsPluggedInChanged() {
-                    batteryIcon.text = Battery.available ? (Battery.isPluggedIn ? Icons.plug : Icons.lightning) : PowerProfile.getProfileIcon(PowerProfile.currentProfile);
+                    batteryIcon.text = Battery.available ? (Battery.isPluggedIn ? Icons.lightning : Battery.getBatteryIcon()) : PowerProfile.getProfileIcon(PowerProfile.currentProfile);
+                }
+                function onPercentageChanged() {
+                    if (!Battery.isPluggedIn) {
+                        batteryIcon.text = Battery.available ? Battery.getBatteryIcon() : PowerProfile.getProfileIcon(PowerProfile.currentProfile);
+                    }
                 }
                 function onAvailableChanged() {
-                    batteryIcon.text = Battery.available ? (Battery.isPluggedIn ? Icons.plug : Icons.lightning) : PowerProfile.getProfileIcon(PowerProfile.currentProfile);
+                    batteryIcon.text = Battery.available ? (Battery.isPluggedIn ? Icons.lightning : Battery.getBatteryIcon()) : PowerProfile.getProfileIcon(PowerProfile.currentProfile);
                 }
             }
         }
