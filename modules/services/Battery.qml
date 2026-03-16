@@ -38,4 +38,47 @@ Singleton {
         if (pct > 5) return Icons.batteryLow;
         return Icons.batteryEmpty;
     }
+
+    // Low Battery Notifications
+    property int _lastNotifiedThreshold: 100
+
+    onPercentageChanged: {
+        if (!available || isPluggedIn) {
+            _lastNotifiedThreshold = 100;
+            return;
+        }
+
+        const pct = Math.round(percentage);
+        
+        // Critical: 2%
+        if (pct <= 2 && _lastNotifiedThreshold > 2) {
+            _sendBatteryNotification("Critical Battery", `Battery is critically low at ${pct}%. Please plug in now!`, "critical");
+            _lastNotifiedThreshold = 2;
+        } 
+        // Warning: 10%
+        else if (pct <= 10 && _lastNotifiedThreshold > 10) {
+            _sendBatteryNotification("Low Battery", `Battery is at ${pct}%.`, "critical");
+            _lastNotifiedThreshold = 10;
+        } 
+        // Notice: 20%
+        else if (pct <= 20 && _lastNotifiedThreshold > 20) {
+            _sendBatteryNotification("Battery Low", `Battery is at ${pct}%.`, "normal");
+            _lastNotifiedThreshold = 20;
+        } 
+        // Reset threshold if battery level increases significantly
+        else if (pct > _lastNotifiedThreshold + 5) {
+            _lastNotifiedThreshold = 100;
+        }
+    }
+
+    function _sendBatteryNotification(title, body, urgency) {
+        Quickshell.execDetached([
+            "notify-send",
+            "-a", "System",
+            "-u", urgency,
+            "-i", "battery-low",
+            title,
+            body
+        ]);
+    }
 }
