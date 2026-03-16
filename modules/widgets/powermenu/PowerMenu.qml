@@ -30,14 +30,14 @@ ActionGrid {
             command: "systemctl poweroff"
         },
         {
-            icon: Icons.lock,
-            tooltip: "Lock Session",
-            command: "loginctl lock-session"
-        },
-        {
             icon: Icons.suspend,
             tooltip: "Suspend",
             command: "systemctl suspend"
+        },
+        {
+            icon: Icons.lock,
+            tooltip: "Lock Session",
+            command: "loginctl lock-session"
         },
         {
             icon: Icons.hibernate,
