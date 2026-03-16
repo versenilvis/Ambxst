@@ -186,8 +186,12 @@ Rectangle {
                     }
                     // ESC to escape dashboard
                     onEscapePressed: {
-                        searchInput.focus = false;
-                        root.forceActiveFocus();
+                        if (root.searchQuery.length === 0) {
+                            Visibilities.setActiveModule("");
+                        } else {
+                            searchInput.focus = false;
+                            root.forceActiveFocus();
+                        }
                     }
 
                     onAccepted: {

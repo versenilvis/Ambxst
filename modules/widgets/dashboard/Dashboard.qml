@@ -18,6 +18,7 @@ import qs.config
 
 NotchAnimationBehavior {
     id: root
+    focus: true
 
     property int leftPanelWidth
 
@@ -35,7 +36,6 @@ NotchAnimationBehavior {
     implicitWidth: nonAnimWidth
     implicitHeight: 430
 
-    focus: true
 
     // Usar el comportamiento estándar de animaciones del notch
     isVisible: GlobalStates.dashboardOpen
@@ -306,31 +306,31 @@ NotchAnimationBehavior {
                 id: stack
                 anchors.fill: parent
 
-                // Array de componentes para cargar dinámicamente
-                property var components: [unifiedLauncherComponent, wallpapersComponent, metricsComponent, quickSettingsComponent]
+                // Components container for lazy loading
+                Component { id: widgetsTabComp; WidgetsTab { leftPanelWidth: root.leftPanelWidth } }
+                Component { id: wallpapersTabComp; WallpapersTab {} }
+                Component { id: metricsTabComp; MetricsTab {} }
+                Component { id: settingsTabComp; SettingsTab {} }
 
-                // Cargar directamente el componente correcto según GlobalStates
+                readonly property var components: [widgetsTabComp, wallpapersTabComp, metricsTabComp, settingsTabComp]
                 initialItem: components[GlobalStates.dashboardCurrentTab]
 
-                // Handler para cuando el item actual cambia
+                // Handler for when the current item changes
                 onCurrentItemChanged: {
                     if (currentItem) {
-                        if (currentItem.focusSearchInput) {
+                        if (typeof currentItem.focusSearchInput === "function") {
                             focusUnifiedLauncherTimer.restart();
                         }
                     }
                 }
 
-                // Función para navegar a un tab específico
+                // Function to navigate to a specific tab
                 function navigateToTab(index) {
                     if (index >= 0 && index < components.length && index !== root.state.currentTab) {
-                        let targetComponent = components[index];
-
+                        let targetItem = components[index];
                         let direction = index > root.state.currentTab ? StackView.PushTransition : StackView.PopTransition;
+                        stack.replace(targetItem, {}, direction);
 
-                        stack.replace(targetComponent, {}, direction);
-
-                        // Reset launcher state when leaving unified launcher tab (tab 0)
                         if (root.state.currentTab === 0 && index !== 0) {
                             GlobalStates.clearLauncherState();
                         }
@@ -340,10 +340,12 @@ NotchAnimationBehavior {
 
                         if (index === 0) {
                             Notifications.hideAllPopups();
-                            focusUnifiedLauncherTimer.restart();
+                            if (typeof widgetsTab.focusSearchInput === "function")
+                                focusUnifiedLauncherTimer.restart();
                         }
                     }
                 }
+
 
                 pushEnter: Transition {
                     PropertyAnimation {
@@ -423,11 +425,18 @@ NotchAnimationBehavior {
                     property real swipeProgress: 0
 
                     onPressed: mouse => {
+                        root.forceActiveFocus();
                         startY = mouse.y;
                         startX = mouse.x;
                         swiping = false;
                         swipeProgress = 0;
+                        // DO NOT accept the event here, so it can propagate to sliders/buttons
+                        // but unfortunately if we don't accept it, we won't get positionChanged.
+                        // However, QML StackView content should still receive it if we use propagateComposedEvents
+                        // and handled correctly. 
+                        // Actually, better: accept it but only if it's not a click or if we are sure.
                     }
+
 
                     onPositionChanged: mouse => {
                         let deltaY = mouse.y - startY;
@@ -519,26 +528,5 @@ NotchAnimationBehavior {
         }
     }
 
-    // Component definitions for better performance (defined once, reused)
-    Component {
-        id: unifiedLauncherComponent
-        WidgetsTab {
-            leftPanelWidth: root.leftPanelWidth
-        }
-    }
-
-    Component {
-        id: quickSettingsComponent
-        SettingsTab {}
-    }
-
-    Component {
-        id: metricsComponent
-        MetricsTab {}
-    }
-
-    Component {
-        id: wallpapersComponent
-        WallpapersTab {}
-    }
 }
+

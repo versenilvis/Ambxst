@@ -27,7 +27,15 @@ PanelWindow {
 
     color: "transparent"
 
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+    WlrLayershell.keyboardFocus: screenNotchOpen ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
+
+    Shortcut {
+        sequence: "Escape"
+        enabled: notchPanel.screenNotchOpen
+        onActivated: {
+            Visibilities.setActiveModule("");
+        }
+    }
 
     // Get this screen's visibility state
     readonly property var screenVisibilities: Visibilities.getForScreen(screen.name)
@@ -141,7 +149,9 @@ PanelWindow {
         active: notchPanel.screenNotchOpen
 
         onCleared: {
-            Visibilities.setActiveModule("");
+            if (active && !Visibilities.contextMenuVisible) {
+                Visibilities.setActiveModule("");
+            }
         }
     }
 

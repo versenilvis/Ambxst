@@ -17,8 +17,6 @@ Item {
             if (event.key === Qt.Key_Escape) {
                 Visibilities.setActiveModule("");
                 event.accepted = true;
-            } else if (event.key === Qt.Key_Space) {
-                event.accepted = false;
             }
         }
 

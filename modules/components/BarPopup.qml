@@ -107,6 +107,13 @@ PopupWindow {
         }
     }
 
+    Shortcut {
+        sequence: "Escape"
+        enabled: root.isOpen
+        onActivated: root.close()
+    }
+
+
     // Animation behaviors
     Behavior on popupOpacity {
         enabled: Config.animDuration > 0
@@ -183,6 +190,7 @@ PopupWindow {
             popupScale = 1;
             focusActive = true;
         });
+
     }
 
     function close() {
