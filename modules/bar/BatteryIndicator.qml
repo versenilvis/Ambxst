@@ -192,128 +192,141 @@ Item {
         anchorItem: buttonBg
         bar: root.bar
 
-        contentWidth: Math.max(280, mainColumn.implicitWidth + batteryPopup.popupPadding * 2)
-        // Fixed height calculation to prevent expansion animation on first open
-        // Battery details (60px) + spacing (4px) + Profiles (36px)
-        contentHeight: (Battery.available ? 64 : 0) + 36 + batteryPopup.popupPadding * 2
+        contentWidth: 220
+        contentHeight: 80 + batteryPopup.popupPadding * 2
 
-        ColumnLayout {
-            id: mainColumn
+        RowLayout {
             anchors.fill: parent
-            spacing: 4
+            anchors.margins: 4
+            spacing: 6
 
+            // LEFT SIDE: Main Battery Display (Ultra Compact)
             StyledRect {
-                id: batteryDetailsContainer
+                id: batteryMainCard
                 Layout.fillWidth: true
-                Layout.preferredHeight: 60
-                visible: Battery.available
+                Layout.fillHeight: true
+                Layout.minimumWidth: 160
                 variant: "common"
                 enableShadow: false
-
                 radius: Styling.radius(0)
 
                 RowLayout {
-                    anchors.fill: parent
-                    anchors.margins: 12
-                    spacing: 12
+                    anchors.centerIn: parent
+                    spacing: 8
 
-                    Text {
+                    // Tiny circular progress
+                    Item {
+                        width: 40
+                        height: 40
                         Layout.alignment: Qt.AlignVCenter
-                        text: Battery.getBatteryIcon()
-                        font.family: Icons.font
-                        font.pixelSize: 24
-                        color: root.getBatteryColor()
+
+                        Canvas {
+                            id: batteryPopupCanvas
+                            anchors.fill: parent
+                            onPaint: {
+                                var ctx = getContext("2d");
+                                ctx.reset();
+                                var centerX = width/2; var centerY = height/2;
+                                ctx.lineCap = "round";
+                                
+                                // Background
+                                ctx.strokeStyle = Colors.outlineVariant;
+                                ctx.lineWidth = 4;
+                                ctx.beginPath(); ctx.arc(centerX, centerY, 16, 0, 2*Math.PI); ctx.stroke();
+
+                                // Fill
+                                ctx.strokeStyle = root.getBatteryColor();
+                                ctx.lineWidth = 4;
+                                ctx.beginPath(); 
+                                ctx.arc(centerX, centerY, 16, -Math.PI/2, (-Math.PI/2) + (Battery.percentage/100 * 2*Math.PI)); 
+                                ctx.stroke();
+                            }
+                            Connections { 
+                                target: Battery
+                                function onPercentageChanged() { batteryPopupCanvas.requestPaint(); } 
+                            }
+                        }
+                        
+                        Text {
+                            anchors.centerIn: parent
+                            text: Battery.available ? (Battery.isPluggedIn ? Icons.lightning : Battery.getBatteryIcon()) : ""
+                            font.family: Icons.font
+                            font.pixelSize: 12
+                            color: Colors.overBackground
+                        }
                     }
 
                     ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: 2
+                        Layout.alignment: Qt.AlignVCenter
+                        spacing: -2
 
                         Text {
-                            text: Math.round(Battery.percentage) + "% " + (Battery.isPluggedIn ? (Battery.isCharging ? "Charging" : "Full") : "On battery")
+                            text: Math.round(Battery.percentage) + "%"
                             font.family: Styling.defaultFont
-                            font.pixelSize: Styling.fontSize(0)
+                            font.pixelSize: 18
                             font.bold: true
                             color: Colors.overBackground
                         }
 
                         Text {
-                            text: Battery.isPluggedIn ? (Battery.timeToFull !== "" ? "Full in " + Battery.timeToFull : "") : (Battery.timeToEmpty !== "" ? Battery.timeToEmpty + " remaining" : "")
+                            visible: Battery.timeToEmpty !== "" || Battery.timeToFull !== ""
+                            text: Battery.isPluggedIn ? Battery.timeToFull : Battery.timeToEmpty
                             font.family: Styling.defaultFont
-                            font.pixelSize: Styling.fontSize(-1)
+                            font.pixelSize: Styling.fontSize(-3)
                             color: Colors.overBackground
-                            opacity: 0.8
-                            Layout.fillWidth: true
-                            elide: Text.ElideRight
+                            opacity: 0.6
                         }
                     }
                 }
             }
 
-            RowLayout {
-                id: profilesRow
-                Layout.fillWidth: true
-                spacing: 4
+            // RIGHT SIDE: Mini Power Profiles
+            Item {
+                Layout.preferredWidth: 36
+                Layout.fillHeight: true
 
-                Repeater {
-                    model: PowerProfile.availableProfiles
+                ColumnLayout {
+                    anchors.fill: parent
+                    spacing: 2
 
-                    delegate: StyledRect {
-                        id: profileButton
-                        required property string modelData
-                        required property int index
+                    Repeater {
+                        model: PowerProfile.availableProfiles
 
-                        Layout.fillWidth: true
-                        Layout.preferredWidth: 80
-                        height: 36
+                        delegate: StyledRect {
+                            id: profileButton
+                            required property string modelData
+                            required property int index
 
-                        readonly property bool isSelected: PowerProfile.currentProfile === modelData
-                        readonly property bool isFirst: index === 0
-                        readonly property bool isLast: index === PowerProfile.availableProfiles.length - 1
-                        property bool buttonHovered: false
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
 
-                        readonly property real defaultRadius: Styling.radius(0)
-                        readonly property real selectedRadius: Styling.radius(0) / 2
+                            readonly property bool isSelected: PowerProfile.currentProfile === modelData
+                            property bool buttonHovered: false
 
-                        variant: isSelected ? "primary" : (buttonHovered ? "focus" : "common")
-                        enableShadow: false
-
-                        topLeftRadius: isSelected ? (isFirst ? defaultRadius : selectedRadius) : defaultRadius
-                        bottomLeftRadius: isSelected ? (isFirst ? defaultRadius : selectedRadius) : defaultRadius
-                        topRightRadius: isSelected ? (isLast ? defaultRadius : selectedRadius) : defaultRadius
-                        bottomRightRadius: isSelected ? (isLast ? defaultRadius : selectedRadius) : defaultRadius
-
-                        RowLayout {
-                            anchors.centerIn: parent
-                            spacing: 8
+                            variant: isSelected ? "primary" : (buttonHovered ? "focus" : "common")
+                            enableShadow: false
+                            radius: Styling.radius(0)
 
                             Text {
+                                anchors.centerIn: parent
                                 text: PowerProfile.getProfileIcon(profileButton.modelData)
                                 font.family: Icons.font
-                                font.pixelSize: 14
+                                font.pixelSize: 12
                                 color: profileButton.item
                             }
 
-                            Text {
-                                id: profileLabel
-                                text: PowerProfile.getProfileDisplayName(profileButton.modelData)
-                                font.family: Styling.defaultFont
-                                font.pixelSize: Styling.fontSize(0)
-                                font.bold: true
-                                color: profileButton.item
+                            MouseArea {
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onEntered: profileButton.buttonHovered = true
+                                onExited: profileButton.buttonHovered = false
+                                onClicked: PowerProfile.setProfile(profileButton.modelData)
                             }
-                        }
 
-                        MouseArea {
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-
-                            onEntered: profileButton.buttonHovered = true
-                            onExited: profileButton.buttonHovered = false
-
-                            onClicked: {
-                                PowerProfile.setProfile(profileButton.modelData);
+                            StyledToolTip {
+                                visible: profileButton.buttonHovered
+                                tooltipText: PowerProfile.getProfileDisplayName(profileButton.modelData)
                             }
                         }
                     }
