@@ -80,7 +80,8 @@ Item {
 
                         Text {
                             anchors.centerIn: parent
-                            text: Icons.caretLeft
+                            text: Icons.caretUp
+                            font.family: Icons.font
                             font.pixelSize: 16
                             color: leftButton.buttonItem
                         }
@@ -105,7 +106,8 @@ Item {
 
                         Text {
                             anchors.centerIn: parent
-                            text: Icons.caretRight
+                            text: Icons.caretDown
+                            font.family: Icons.font
                             font.pixelSize: 16
                             color: rightButton.buttonItem
                         }
