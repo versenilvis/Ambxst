@@ -4,6 +4,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import qs.modules.theme
 
 Singleton {
     id: root
@@ -57,6 +58,26 @@ Singleton {
             disconnectProc.command = ["nmcli", "connection", "down", active.ssid];
             disconnectProc.running = true;
         }
+    }
+
+    function deleteWifiNetwork(ssid: string): void {
+        deleteProc.command = ["nmcli", "connection", "delete", ssid];
+        deleteProc.running = true;
+    }
+
+    function getWifiPassword(ssid: string, callback): void {
+        const proc = Quickshell.createChildProcess({
+            command: ["sh", "-c", `nmcli -t -s -f 802-11-wireless-security.psk connection show "${ssid}" | cut -d: -f2`],
+            onExited: (exitCode) => {
+                if (exitCode === 0) {
+                    callback(proc.stdout.readAll().trim());
+                } else {
+                    callback("");
+                }
+                proc.destroy();
+            }
+        });
+        proc.running = true;
     }
 
     function changePassword(network: WifiAccessPoint, password: string): void {
@@ -142,6 +163,14 @@ Singleton {
                 root.wifiScanning = false;
                 getNetworks.running = true;
             }
+        }
+    }
+
+    Process {
+        id: deleteProc
+        running: false
+        stdout: SplitParser {
+            onRead: getNetworks.running = true
         }
     }
 

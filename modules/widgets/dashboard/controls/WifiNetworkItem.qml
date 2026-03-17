@@ -15,7 +15,19 @@ Item {
 
     property bool expanded: false
 
+    property bool showProperties: false
+    property string savedPassword: ""
+    property bool revealPassword: false
+
     implicitHeight: contentColumn.implicitHeight + 16
+
+    onShowPropertiesChanged: {
+        if (showProperties && savedPassword === "") {
+            NetworkService.getWifiPassword(root.network.ssid, (pwd) => {
+                root.savedPassword = pwd;
+            });
+        }
+    }
 
     Behavior on implicitHeight {
         enabled: Config.animDuration > 0
@@ -179,13 +191,164 @@ Item {
                 }
             }
 
+            // Properties details (visible when showProperties is true)
+            ColumnLayout {
+                Layout.fillWidth: true
+                visible: root.showProperties
+                spacing: 4
+                
+                Rectangle {
+                    Layout.fillWidth: true
+                    height: 1
+                    color: Colors.overSurfaceVariant
+                    opacity: 0.2
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
+                    
+                    Text {
+                        text: "BSSID:"
+                        font.family: Config.theme.font
+                        font.pixelSize: Styling.fontSize(-2)
+                        color: Colors.overSurfaceVariant
+                        Layout.preferredWidth: 60
+                    }
+                    Text {
+                        text: root.network?.bssid ?? "Unknown"
+                        font.family: Config.theme.font
+                        font.pixelSize: Styling.fontSize(-2)
+                        color: Colors.overBackground
+                        Layout.fillWidth: true
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
+                    
+                    Text {
+                        text: "Frequency:"
+                        font.family: Config.theme.font
+                        font.pixelSize: Styling.fontSize(-2)
+                        color: Colors.overSurfaceVariant
+                        Layout.preferredWidth: 60
+                    }
+                    Text {
+                        text: root.network?.frequency + " MHz"
+                        font.family: Config.theme.font
+                        font.pixelSize: Styling.fontSize(-2)
+                        color: Colors.overBackground
+                        Layout.fillWidth: true
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
+                    visible: root.savedPassword !== ""
+                    
+                    Text {
+                        text: "Password:"
+                        font.family: Config.theme.font
+                        font.pixelSize: Styling.fontSize(-2)
+                        color: Colors.overSurfaceVariant
+                        Layout.preferredWidth: 60
+                    }
+                    
+                    Text {
+                        text: root.revealPassword ? root.savedPassword : "••••••••"
+                        font.family: Config.theme.font
+                        font.pixelSize: Styling.fontSize(-2)
+                        color: Colors.overBackground
+                        Layout.fillWidth: true
+                    }
+
+                    Button {
+                        flat: true
+                        implicitWidth: 24
+                        implicitHeight: 24
+                        background: null
+                        contentItem: Text {
+                            text: Icons.xeyes
+                            font.family: Icons.font
+                            font.pixelSize: 14
+                            color: root.revealPassword ? Colors.primary : Colors.overSurfaceVariant
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                        onClicked: root.revealPassword = !root.revealPassword
+                    }
+                }
+            }
+
             // Action buttons
             RowLayout {
                 Layout.fillWidth: true
                 spacing: 8
 
+                Button {
+                    id: propsButton
+                    flat: true
+                    implicitWidth: 32
+                    implicitHeight: 32
+                    
+                    background: StyledRect {
+                        variant: propsButton.hovered ? "focus" : "internalbg"
+                        radius: Styling.radius(4)
+                    }
+
+                    contentItem: Text {
+                        text: Icons.info
+                        font.family: Icons.font
+                        font.pixelSize: 14
+                        color: root.showProperties ? Colors.primary : Colors.overSurfaceVariant
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+
+                    onClicked: root.showProperties = !root.showProperties
+
+                    StyledToolTip {
+                        visible: propsButton.hovered
+                        tooltipText: "Network details"
+                    }
+                }
+
                 Item {
                     Layout.fillWidth: true
+                }
+
+                Button {
+                    id: forgetButton
+                    flat: true
+                    implicitWidth: 32
+                    implicitHeight: 32
+                    visible: !root.network?.active
+
+                    background: StyledRect {
+                        variant: forgetButton.hovered ? "focus" : "internalbg"
+                        radius: Styling.radius(4)
+                    }
+
+                    contentItem: Text {
+                        text: Icons.trash
+                        font.family: Icons.font
+                        font.pixelSize: 14
+                        color: Colors.error
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+
+                    onClicked: {
+                        NetworkService.deleteWifiNetwork(root.network.ssid);
+                    }
+
+                    StyledToolTip {
+                        visible: forgetButton.hovered
+                        tooltipText: "Forget network"
+                    }
                 }
 
                 Button {

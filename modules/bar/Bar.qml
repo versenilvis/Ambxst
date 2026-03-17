@@ -457,6 +457,14 @@ PanelWindow {
                     }
                 }
 
+                WifiIndicator {
+                    bar: panel
+                    Layout.alignment: Qt.AlignVCenter
+                    Layout.leftMargin: 8
+                    visible: panel.orientation === "horizontal"
+                }
+
+
                 Item {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
@@ -522,6 +530,7 @@ PanelWindow {
                     bar: panel
                     layerEnabled: Config.showBackground
                 }
+
 
                 PowerButton {
                     id: powerButton
@@ -655,6 +664,14 @@ PanelWindow {
                             }
                         }
 
+                        WifiIndicator {
+                            bar: panel
+                            Layout.alignment: Qt.AlignHCenter
+                            Layout.topMargin: 8
+                            visible: panel.orientation === "vertical"
+                        }
+
+
                         Bar.IntegratedDock {
                             bar: panel
                             orientation: panel.orientation
@@ -682,6 +699,7 @@ PanelWindow {
                     bar: panel
                     layerEnabled: Config.showBackground
                 }
+
 
                 PowerButton {
                     id: powerButtonVert
