@@ -532,9 +532,9 @@ PanelWindow {
                 }
 
 
-                PowerButton {
-                    id: powerButton
-                }
+                // PowerButton {
+                //     id: powerButton
+                // }
             }
 
             ColumnLayout {
@@ -701,10 +701,10 @@ PanelWindow {
                 }
 
 
-                PowerButton {
-                    id: powerButtonVert
-                    Layout.preferredHeight: 36
-                }
+                // PowerButton {
+                //     id: powerButtonVert
+                //     Layout.preferredHeight: 36
+                // }
             }
         }
     }
