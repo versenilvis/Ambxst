@@ -138,16 +138,16 @@ Item {
                 Layout.alignment: Qt.AlignHCenter
             }
 
-            Text {
-                id: secondsDisplayV
-                text: root.currentSeconds
-                color: root.popupOpen ? buttonBg.item : Colors.outline
-                font.pixelSize: Config.theme.fontSize - 2
-                font.family: Config.theme.font
-                horizontalAlignment: Text.AlignHCenter
-                wrapMode: Text.NoWrap
-                Layout.alignment: Qt.AlignHCenter
-            }
+            // Text {
+            //     id: secondsDisplayV
+            //     text: root.currentSeconds
+            //     color: root.popupOpen ? buttonBg.item : Colors.outline
+            //     font.pixelSize: Config.theme.fontSize - 2
+            //     font.family: Config.theme.font
+            //     horizontalAlignment: Text.AlignHCenter
+            //     wrapMode: Text.NoWrap
+            //     Layout.alignment: Qt.AlignHCenter
+            // }
         }
 
         MouseArea {
@@ -629,12 +629,12 @@ Item {
         repeat: true
         onTriggered: {
             var now = new Date();
-            var formatted = Qt.formatDateTime(now, "hh:mm:ss");
+            var formatted = Qt.formatDateTime(now, "hh:mm");
             var parts = formatted.split(":");
             root.currentTime = formatted;
             root.currentHours = parts[0];
             root.currentMinutes = parts[1];
-            root.currentSeconds = parts[2];
+            // root.currentSeconds = parts[2];
         }
     }
 
@@ -647,12 +647,12 @@ Item {
 
     Component.onCompleted: {
         var now = new Date();
-        var formatted = Qt.formatDateTime(now, "hh:mm:ss");
+        var formatted = Qt.formatDateTime(now, "hh:mm");
         var parts = formatted.split(":");
         root.currentTime = formatted;
         root.currentHours = parts[0];
         root.currentMinutes = parts[1];
-        root.currentSeconds = parts[2];
+        // root.currentSeconds = parts[2];
         updateDay();
     }
 }
