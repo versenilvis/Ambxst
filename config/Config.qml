@@ -1468,6 +1468,13 @@ Singleton {
                         property string argument: "ambxst quit"
                         property string flags: ""
                     }
+                    property JsonObject toggleBar: JsonObject {
+                        property list<string> modifiers: ["CTRL"]
+                        property string key: "ESCAPE"
+                        property string dispatcher: "exec"
+                        property string argument: "ambxst run toggle-bar"
+                        property string flags: ""
+                    }
                 }
             }
             // Functions to get defaults
@@ -1490,7 +1497,8 @@ Singleton {
                     "screenrecord": { "modifiers": ["SUPER", "SHIFT"], "key": "R", "dispatcher": "exec", "argument": "ambxst run screenrecord", "flags": "" },
                     "lens": { "modifiers": ["SUPER", "SHIFT"], "key": "A", "dispatcher": "exec", "argument": "ambxst run lens", "flags": "" },
                     "reload": { "modifiers": ["SUPER", "ALT"], "key": "B", "dispatcher": "exec", "argument": "ambxst reload", "flags": "" },
-                    "quit": { "modifiers": ["SUPER", "CTRL", "ALT"], "key": "B", "dispatcher": "exec", "argument": "ambxst quit", "flags": "" }
+                    "quit": { "modifiers": ["SUPER", "CTRL", "ALT"], "key": "B", "dispatcher": "exec", "argument": "ambxst quit", "flags": "" },
+                    "toggleBar": { "modifiers": ["CTRL"], "key": "ESCAPE", "dispatcher": "exec", "argument": "ambxst run toggle-bar", "flags": "" }
                 }
             }
 

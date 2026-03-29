@@ -73,8 +73,8 @@ PanelWindow {
         return toplevel.fullscreen === true;
     }
 
-    // Should auto-hide: when bar is NOT TOP (always), unpinned OR when fullscreen
-    // This ensures notch follows bar's auto-hide behavior regardless of position, but always hides if bar is not at the top
+    // Should auto-hide: when bar is not top, bar is unpinned, or fullscreen
+    // Notch hides together with bar, but can be revealed independently by hover
     readonly property bool shouldAutoHide: barPosition !== "top" || !barPinned || activeWindowFullscreen
 
     // Check if the bar for this screen is vertical
@@ -97,7 +97,7 @@ PanelWindow {
         
         // Show on interaction (hover, open, notifications)
         // This works even in fullscreen, ensuring hover always works
-        if (screenNotchOpen || hasActiveNotifications || hoverActive || barHoverActive) {
+        if (screenNotchOpen || hasActiveNotifications || hoverActive) {
             return true;
         }
         
@@ -115,7 +115,7 @@ PanelWindow {
     // Timer to delay hiding the notch after mouse leaves
     Timer {
         id: hideDelayTimer
-        interval: 1000
+        interval: 300
         repeat: false
         onTriggered: {
             if (!notchPanel.isMouseOverNotch) {

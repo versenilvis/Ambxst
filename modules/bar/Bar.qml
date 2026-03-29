@@ -35,12 +35,13 @@ PanelWindow {
         const toplevel = ToplevelManager.activeToplevel;
         if (!toplevel || !toplevel.activated)
             return false;
-        // Check if the toplevel is fullscreen
         return toplevel.fullscreen === true;
     }
 
-    // Whether auto-hide should be active (not pinned, or fullscreen forces it)
-    readonly property bool shouldAutoHide: !pinned || activeWindowFullscreen
+    // Whether auto-hide should be active
+    // When pinned, only auto-hide if fullscreen AND not available on fullscreen
+    // When unpinned, always auto-hide
+    readonly property bool shouldAutoHide: !pinned || (activeWindowFullscreen && !(Config.bar?.availableOnFullscreen ?? false))
 
     // Hover state with delay to prevent flickering
     property bool hoverActive: false
@@ -48,41 +49,18 @@ PanelWindow {
     // Track if mouse is over bar area
     readonly property bool isMouseOverBar: barMouseArea.containsMouse
 
-    // Check if notch hover is active (for synchronized reveal when bar is at top)
-    readonly property var notchPanelRef: Visibilities.notchPanels[screen.name]
-    readonly property bool notchHoverActive: {
-        if (barPosition !== "top")
-            return false;
-        // Access the notch panel's hoverActive property if available
-        if (notchPanelRef && typeof notchPanelRef.hoverActive !== 'undefined') {
-            return notchPanelRef.hoverActive;
-        }
-        return false;
-    }
-
-    // Check if notch is open (dashboard, powermenu, etc.)
+    // Check if notch is open (dashboard, powermenu, etc.) - bar should show when notch is expanded
     readonly property var screenVisibilities: Visibilities.getForScreen(screen.name)
     readonly property bool notchOpen: screenVisibilities ? (screenVisibilities.dashboard || screenVisibilities.powermenu || screenVisibilities.tools) : false
 
-    // Reveal logic
-    readonly property bool reveal: {
-        // If not auto-hiding, always reveal
-        if (!shouldAutoHide)
-            return true;
-
-        // If fullscreen and not available on fullscreen, hide
-        if (activeWindowFullscreen && !(Config.bar?.availableOnFullscreen ?? false)) {
-            return false;
-        }
-
-        // Show if: hovering (when enabled), notch hovering (when at top), notch open, or no active window
-        return hoverActive || notchHoverActive || notchOpen || !ToplevelManager.activeToplevel?.activated;
-    }
+    // Reveal logic: bar only shows when pinned and not in fullscreen
+    // No hover reveal, only Ctrl+Esc toggle controls visibility
+    readonly property bool reveal: !shouldAutoHide
 
     // Timer to delay hiding the bar after mouse leaves
     Timer {
         id: hideDelayTimer
-        interval: 1000
+        interval: 300
         repeat: false
         onTriggered: {
             if (!panel.isMouseOverBar) {

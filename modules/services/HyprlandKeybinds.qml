@@ -76,7 +76,8 @@ QtObject {
                 screenrecord: cloneKeybind(ambxst.system.screenrecord),
                 lens: cloneKeybind(ambxst.system.lens),
                 reload: ambxst.system.reload ? cloneKeybind(ambxst.system.reload) : null,
-                quit: ambxst.system.quit ? cloneKeybind(ambxst.system.quit) : null
+                quit: ambxst.system.quit ? cloneKeybind(ambxst.system.quit) : null,
+                toggleBar: ambxst.system.toggleBar ? cloneKeybind(ambxst.system.toggleBar) : null
             }
         };
 
@@ -198,6 +199,7 @@ QtObject {
                 unbindCommands.push(createUnbindCommand(previousAmbxstBinds.system.lens));
                 if (previousAmbxstBinds.system.reload) unbindCommands.push(createUnbindCommand(previousAmbxstBinds.system.reload));
                 if (previousAmbxstBinds.system.quit) unbindCommands.push(createUnbindCommand(previousAmbxstBinds.system.quit));
+                if (previousAmbxstBinds.system.toggleBar) unbindCommands.push(createUnbindCommand(previousAmbxstBinds.system.toggleBar));
             }
 
             // Unbind previous custom keybinds
@@ -244,6 +246,7 @@ QtObject {
         unbindCommands.push(createUnbindCommand(system.lens));
         if (system.reload) unbindCommands.push(createUnbindCommand(system.reload));
         if (system.quit) unbindCommands.push(createUnbindCommand(system.quit));
+        if (system.toggleBar) unbindCommands.push(createUnbindCommand(system.toggleBar));
 
         batchCommands.push(createBindCommand(system.overview, system.overview.flags || ""));
         batchCommands.push(createBindCommand(system.powermenu, system.powermenu.flags || ""));
@@ -255,6 +258,7 @@ QtObject {
         batchCommands.push(createBindCommand(system.lens, system.lens.flags || ""));
         if (system.reload) batchCommands.push(createBindCommand(system.reload, system.reload.flags || ""));
         if (system.quit) batchCommands.push(createBindCommand(system.quit, system.quit.flags || ""));
+        if (system.toggleBar) batchCommands.push(createBindCommand(system.toggleBar, system.toggleBar.flags || ""));
 
         // Procesar custom keybinds (new format with keys[] and actions[])
         const customBinds = Config.keybindsLoader.adapter.custom;

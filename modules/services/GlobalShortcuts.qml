@@ -63,6 +63,9 @@ Item {
                 break;
             case "media-next": MprisController.next(); break;
             case "media-prev": MprisController.previous(); break;
+            
+            // Bar
+            case "toggle-bar": toggleBarPinned(); break;
                 
             default: console.warn("Unknown IPC command:", command);
         }
@@ -81,6 +84,17 @@ Item {
             Visibilities.setActiveModule("");
         } else {
             Visibilities.setActiveModule(moduleName);
+        }
+    }
+
+    function toggleBarPinned() {
+        const panels = Visibilities.barPanels;
+        const screenNames = Object.keys(panels);
+        for (let i = 0; i < screenNames.length; i++) {
+            const p = panels[screenNames[i]];
+            if (p && typeof p.pinned !== 'undefined') {
+                p.pinned = !p.pinned;
+            }
         }
     }
 
@@ -299,5 +313,13 @@ Item {
                 MprisController.togglePlaying();
             }
         }
+    }
+
+    GlobalShortcut {
+        appid: root.appId
+        name: "toggle-bar"
+        description: "Toggle bar visibility (pin/unpin)"
+
+        onPressed: toggleBarPinned()
     }
 }
