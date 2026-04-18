@@ -53,15 +53,22 @@ QtObject {
         onExited: function(code) {
             // Watcher should keep running, restart if it exits
             if (root._initialized) {
-                console.warn("ClipboardService: watcher exited with code:", code, "- restarting...");
+                console.warn("ClipboardService: watcher exited with code:", code, "- restarting in 2s...");
                 Qt.callLater(function() {
                     if (root._initialized) {
-                        clipboardWatcher.running = true;
+                        restartWatcherTimer.start();
                     }
                 });
             }
         }
     }
+
+    property Timer restartWatcherTimer: Timer {
+        interval: 100
+        repeat: false
+        onTriggered: clipboardWatcher.running = true
+    }
+
 
     // Initialize database
     property Process initDbProcess: Process {
@@ -448,7 +455,7 @@ QtObject {
     }
 
     function initialize() {
-        initDbProcess.command = ["sh", "-c", "sqlite3 " + dbPath + " < " + schemaPath];
+        initDbProcess.command = ["sh", "-c", "sqlite3 '" + dbPath + "' < '" + schemaPath + "'"];
         initDbProcess.running = true;
     }
 
@@ -558,11 +565,6 @@ QtObject {
             "  FROM clipboard_items WHERE pinned = 1\n" +
             ")\n" +
             "UPDATE clipboard_items SET display_index = (SELECT new_idx FROM reindexed_pinned WHERE reindexed_pinned.id = clipboard_items.id) WHERE pinned = 1;\n" +
-            "WITH reindexed_unpinned AS (\n" +
-            "  SELECT id, ROW_NUMBER() OVER (ORDER BY display_index ASC, updated_at DESC, id DESC) - 1 AS new_idx\n" +
-            "  FROM clipboard_items WHERE pinned = 0\n" +
-            ")\n" +
-            "UPDATE clipboard_items SET display_index = (SELECT new_idx FROM reindexed_unpinned WHERE reindexed_unpinned.id = clipboard_items.id) WHERE pinned = 0;\n" +
             "COMMIT;\n" +
             "EOSQL"
         ];
@@ -743,11 +745,6 @@ QtObject {
             "  FROM clipboard_items WHERE pinned = 1\n" +
             ")\n" +
             "UPDATE clipboard_items SET display_index = (SELECT new_idx FROM reindexed_pinned WHERE reindexed_pinned.id = clipboard_items.id) WHERE pinned = 1;\n" +
-            "WITH reindexed_unpinned AS (\n" +
-            "  SELECT id, ROW_NUMBER() OVER (ORDER BY display_index ASC, updated_at DESC, id DESC) - 1 AS new_idx\n" +
-            "  FROM clipboard_items WHERE pinned = 0\n" +
-            ")\n" +
-            "UPDATE clipboard_items SET display_index = (SELECT new_idx FROM reindexed_unpinned WHERE reindexed_unpinned.id = clipboard_items.id) WHERE pinned = 0;\n" +
             "-- Create temp variables for the swap\n" +
             "CREATE TEMP TABLE IF NOT EXISTS swap_temp (idx1 INTEGER, idx2 INTEGER);\n" +
             "DELETE FROM swap_temp;\n" +

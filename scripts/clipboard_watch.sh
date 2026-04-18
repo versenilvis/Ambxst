@@ -14,9 +14,12 @@ check_clipboard() {
     fi
 }
 
-# Watch clipboard and check on every change
-wl-paste --watch sh -c "echo 'CLIPBOARD_CHANGE'" | while IFS= read -r line; do
+# Watch clipboard and exit on first change
+# This allows ClipboardService to detect the change via onStreamFinished
+wl-paste --watch echo "CLIPBOARD_CHANGE" | while IFS= read -r line; do
     if [ "$line" = "CLIPBOARD_CHANGE" ]; then
         check_clipboard
+        pkill -P $$ wl-paste 2>/dev/null || true
+        exit 0
     fi
 done

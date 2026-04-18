@@ -64,12 +64,6 @@ VALUES (
 ON CONFLICT(content_hash) DO UPDATE SET
 updated_at = ${TIMESTAMP},
 display_index = 0;
--- Reindex unpinned items (new item is at 0, others shift down)
-WITH reindexed AS (
-  SELECT id, ROW_NUMBER() OVER (ORDER BY updated_at DESC, id DESC) - 1 AS new_idx
-  FROM clipboard_items WHERE pinned = 0
-)
-UPDATE clipboard_items SET display_index = (SELECT new_idx FROM reindexed WHERE reindexed.id = clipboard_items.id) WHERE pinned = 0;
 COMMIT;
 EOSQL
 
