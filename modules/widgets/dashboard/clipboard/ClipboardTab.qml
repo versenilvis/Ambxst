@@ -207,10 +207,10 @@ Item {
 
         // Default icons
         if (item.isImage)
-            return Icons.image;
+            return "image";
         if (item.isFile)
-            return Icons.file;
-        return Icons.clip;
+            return "file";
+        return "clip";
     }
 
     // Helper function to get favicon URL for item
@@ -621,6 +621,34 @@ Item {
         }
     }
 
+    // Auto-decode thumbnails for visible images one by one to prevent thrashing
+    Timer {
+        id: thumbnailDecodeTimer
+        interval: 100
+        repeat: true
+        running: root.visible && root.allItems.length > 0 && !root.deleteMode && !root.aliasMode
+        onTriggered: {
+            // Wait for the current decoding process to finish
+            if (ClipboardService.loadImageProcess && ClipboardService.loadImageProcess.running) return;
+
+            // Find the first visible image that needs decoding
+            let contentY = Math.max(0, resultsList.contentY);
+            let startIndex = resultsList.indexAt(10, contentY + 10);
+            if (startIndex === -1) startIndex = 0;
+            
+            let endIndex = resultsList.indexAt(10, contentY + resultsList.height - 10);
+            if (endIndex === -1) endIndex = Math.min(startIndex + 15, root.allItems.length - 1);
+
+            for (let i = startIndex; i <= endIndex && i < root.allItems.length; i++) {
+                let item = root.allItems[i];
+                if (item && item.isImage && !ClipboardService.getImageData(item.id)) {
+                    ClipboardService.decodeToDataUrl(item.id, item.mime);
+                    return; // Process one at a time
+                }
+            }
+        }
+    }
+
     // Conexión para cargar imágenes cuando cambia la selección
     Connections {
         target: root
@@ -712,6 +740,7 @@ Item {
                     prefixIcon: root.prefixIcon
 
                     onSearchTextChanged: text => {
+                        root.expandedItemIndex = -1;
                         root.searchText = text;
                     }
 
@@ -1020,19 +1049,19 @@ Item {
                             var itemY = 0;
                             for (var i = 0; i < currentIndex && i < itemsModel.count; i++) {
                                 var itemData = itemsModel.get(i).itemData;
-                                var itemHeight = 48;
+                                var itemHeight = 56;
                                 if (i === root.expandedItemIndex && !root.deleteMode && !root.aliasMode) {
                                     var optionsCount = 4;
                                     if (itemData.isFile || itemData.isImage || ClipboardUtils.isUrl(itemData.preview)) {
                                         optionsCount++;
                                     }
                                     var listHeight = 36 * Math.min(3, optionsCount);
-                                    itemHeight = 48 + 4 + listHeight + 8;
+                                    itemHeight = 56 + 4 + listHeight + 8;
                                 }
                                 itemY += itemHeight;
                             }
 
-                            var currentItemHeight = 48;
+                            var currentItemHeight = 56;
                             if (currentIndex === root.expandedItemIndex && !root.deleteMode && !root.aliasMode && currentIndex < itemsModel.count) {
                                 var itemData = itemsModel.get(currentIndex).itemData;
                                 var optionsCount = 4;
@@ -1040,7 +1069,7 @@ Item {
                                     optionsCount++;
                                 }
                                 var listHeight = 36 * Math.min(3, optionsCount);
-                                currentItemHeight = 48 + 4 + listHeight + 8;
+                                currentItemHeight = 56 + 4 + listHeight + 8;
                             }
 
                             var viewportTop = resultsList.contentY;
@@ -1059,7 +1088,7 @@ Item {
                     highlight: Item {
                         width: resultsList.width
                         height: {
-                            let baseHeight = 48;
+                            let baseHeight = 56;
                             if (resultsList.currentIndex === root.expandedItemIndex && !root.deleteMode && !root.aliasMode) {
                                 var itemData = itemsModel.get(resultsList.currentIndex).itemData;
                                 var optionsCount = 4;
@@ -1076,7 +1105,7 @@ Item {
                         y: {
                             var yPos = 0;
                             for (var i = 0; i < resultsList.currentIndex && i < itemsModel.count; i++) {
-                                var itemHeight = 48;
+                                var itemHeight = 56;
                                 if (i === root.expandedItemIndex && !root.deleteMode && !root.aliasMode) {
                                     var itemData = itemsModel.get(i).itemData;
                                     var optionsCount = 4;
@@ -1084,7 +1113,7 @@ Item {
                                         optionsCount++;
                                     }
                                     var listHeight = 36 * Math.min(3, optionsCount);
-                                    itemHeight = 48 + 4 + listHeight + 8;
+                                    itemHeight = 56 + 4 + listHeight + 8;
                                 }
                                 yPos += itemHeight;
                             }
@@ -1108,7 +1137,7 @@ Item {
                         }
 
                         onHeightChanged: {
-                            if (root.expandedItemIndex >= 0 && height > 48) {
+                            if (root.expandedItemIndex >= 0 && height > 56) {
                                 Qt.callLater(() => {
                                     root.adjustScrollForExpandedItem(root.expandedItemIndex);
                                 });
@@ -1152,7 +1181,7 @@ Item {
 
                         width: resultsList.width
                         height: {
-                            let baseHeight = 48;
+                            let baseHeight = 56;
                             if (index === root.expandedItemIndex && !isInDeleteMode && !isInAliasMode) {
                                 var optionsCount = 4; // Base: Copy, Pin, Alias, Delete
                                 if (modelData.isFile || modelData.isImage || ClipboardUtils.isUrl(modelData.preview)) {
@@ -1218,7 +1247,7 @@ Item {
                             anchors.left: parent.left
                             anchors.right: parent.right
                             anchors.top: parent.top
-                            height: isExpanded ? 48 : parent.height
+                            height: isExpanded ? 56 : parent.height
                             hoverEnabled: !isDraggingForReorder && !resultsList.isScrolling
                             enabled: !root.deleteMode && !root.aliasMode
                             acceptedButtons: Qt.LeftButton | Qt.RightButton
@@ -1310,7 +1339,7 @@ Item {
                                             root.anyItemDragging = true;
 
                                             // Calculate target index based on drag position
-                                            let itemHeight = 48;
+                                            let itemHeight = 56;
                                             let targetIndex = index;
 
                                             if (deltaY > itemHeight / 2 && index < root.allItems.length - 1) {
@@ -1653,7 +1682,7 @@ Item {
                                 // Handle reorder on release if vertical drag occurred
                                 if (isVerticalDrag && isDraggingForReorder) {
                                     let deltaY = mouse.y - startY;
-                                    let itemHeight = 48;
+                                    let itemHeight = 56;
 
                                     if (Math.abs(deltaY) > itemHeight / 2) {
                                         if (deltaY > 0 && index < root.allItems.length - 1) {
@@ -2014,8 +2043,8 @@ Item {
                                     return 84;
                                 return 8;
                             }
-                            height: 32
-                            spacing: 8
+                            height: 40
+                            spacing: 12
 
                             Behavior on anchors.rightMargin {
                                 enabled: Config.animDuration > 0
@@ -2026,8 +2055,8 @@ Item {
                             }
 
                             Item {
-                                Layout.preferredWidth: 32
-                                Layout.preferredHeight: 32
+                                Layout.preferredWidth: 40
+                                Layout.preferredHeight: 40
                                 Layout.alignment: Qt.AlignTop
 
                                 StyledRect {
@@ -2087,7 +2116,11 @@ Item {
 
                                     Text {
                                         anchors.centerIn: parent
-                                        visible: (iconBackground.iconType !== "link") || (iconBackground.iconType === "link" && !iconBackground.faviconLoaded)
+                                        visible: {
+                                            if (iconBackground.iconType === "link" && iconBackground.faviconLoaded) return false;
+                                            if (iconBackground.iconType === "image" && thumbnailImage.status === Image.Ready) return false;
+                                            return true;
+                                        }
                                         text: {
                                             if (isInDeleteMode) {
                                                 return Icons.trash;
@@ -2115,8 +2148,8 @@ Item {
                                 Image {
                                     id: faviconImage
                                     anchors.fill: parent
-                                    sourceSize.width: 32
-                                    sourceSize.height: 32
+                                    sourceSize.width: 40
+                                    sourceSize.height: 40
                                     visible: iconBackground.iconType === "link" && iconBackground.faviconLoaded && status === Image.Ready
                                     fillMode: Image.PreserveAspectFit
                                     asynchronous: true
@@ -2147,6 +2180,31 @@ Item {
                                         if (iconBackground.faviconUrl !== "") {
                                             iconBackground.triedFallback = false;
                                             faviconImage.source = iconBackground.faviconUrl;
+                                        }
+                                    }
+                                }
+
+                                // Thumbnail preview for images
+                                ClippingRectangle {
+                                    anchors.fill: parent
+                                    radius: Styling.radius(-4)
+                                    visible: iconBackground.iconType === "image" && thumbnailImage.status === Image.Ready
+
+                                    Image {
+                                        id: thumbnailImage
+                                        anchors.fill: parent
+                                        sourceSize.width: 40
+                                        sourceSize.height: 40
+                                        fillMode: Image.PreserveAspectCrop
+                                        asynchronous: true
+                                        cache: true
+                                        source: {
+                                            // Tie execution to revision to force refresh when decoded
+                                            var rev = ClipboardService.revision;
+                                            if (iconBackground.iconType === "image" && modelData.id) {
+                                                return ClipboardService.getImageData(modelData.id) || "";
+                                            }
+                                            return "";
                                         }
                                     }
                                 }
