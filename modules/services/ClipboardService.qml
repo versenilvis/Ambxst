@@ -12,852 +12,290 @@ QtObject {
     property var linkPreviewCache: ({})
     property int revision: 0
     property bool _operationInProgress: false
-    
+
     readonly property string dbPath: Quickshell.dataPath("clipboard.db")
     readonly property string binaryDataDir: Quickshell.dataPath("clipboard-data")
-    readonly property string schemaPath: Qt.resolvedUrl("clipboard_init.sql").toString().replace("file://", "")
-    readonly property string insertScriptPath: Qt.resolvedUrl("../../scripts/clipboard_insert.sh").toString().replace("file://", "")
-    readonly property string checkScriptPath: Qt.resolvedUrl("../../scripts/clipboard_check.sh").toString().replace("file://", "")
-    readonly property string watchScriptPath: Qt.resolvedUrl("../../scripts/clipboard_watch.sh").toString().replace("file://", "")
+    readonly property string globalLogPath: Quickshell.dataPath("ambxst.log")
+    readonly property string daemonPath: Qt.resolvedUrl("../../daemon/clipboard/ambxst-clipboard").toString().replace("file://", "")
     readonly property string linkPreviewScriptPath: Qt.resolvedUrl("../../scripts/link_preview.py").toString().replace("file://", "")
+    readonly property string socketPath: "/tmp/ambxst-clipboard.sock"
 
     property bool _initialized: false
-
     signal listCompleted()
+    signal fullContentRetrieved(string itemId, string content)
+    signal linkPreviewFetched(string url, var metadata, string requestItemId)
 
-    // Clipboard watcher using custom script that monitors changes
-    property Process clipboardWatcher: Process {
+    property Process clipboardDaemon: Process {
         running: root._initialized
-        command: [watchScriptPath, checkScriptPath, dbPath, insertScriptPath, binaryDataDir]
-        
-        stdout: StdioCollector {
-            onStreamFinished: {
-                // When watcher outputs something, refresh the list
-                var lines = text.trim().split('\n');
-                for (var i = 0; i < lines.length; i++) {
-                    if (lines[i] === "REFRESH_LIST") {
-                        Qt.callLater(root.list);
+        command: [daemonPath, "-db", dbPath, "-data", binaryDataDir, "-log", globalLogPath]
+        stdout: SplitParser {
+            onRead: data => {
+                var line = data.trim();
+                if (!line) return;
+                try {
+                    var msg = JSON.parse(line);
+                    if (msg.event === "DATA" && msg.items) {
+                        root._applyItems(msg.items);
                     }
-                }
+                } catch (e) {}
             }
         }
-        
-        stderr: StdioCollector {
-            onStreamFinished: {
-                if (text.length > 0 && !text.includes("No selection")) {
-                    console.warn("ClipboardService: watcher stderr:", text);
-                }
-            }
-        }
-        
-        onExited: function(code) {
-            // Watcher should keep running, restart if it exits
-            if (root._initialized) {
-                console.warn("ClipboardService: watcher exited with code:", code, "- restarting in 2s...");
-                Qt.callLater(function() {
-                    if (root._initialized) {
-                        restartWatcherTimer.start();
-                    }
-                });
+        stderr: SplitParser { onRead: data => {} }
+        onRunningChanged: {
+            if (running) {
+                root._fetchListCmd();
+                initialListTimer.start();
+            } else if (root._initialized) {
+                restartTimer.start();
             }
         }
     }
 
-    property Timer restartWatcherTimer: Timer {
-        interval: 100
+    property Timer restartTimer: Timer {
+        interval: 2000
         repeat: false
         onTriggered: {
-            clipboardWatcher.running = false;
-            clipboardWatcher.running = true;
+            clipboardDaemon.running = false;
+            clipboardDaemon.running = true;
         }
     }
 
-    // Watchdog: if watcher dies for any reason, restart it
-    property Timer watcherWatchdog: Timer {
-        interval: 10000
-        repeat: true
-        running: root._initialized
-        onTriggered: {
-            if (root._initialized && !clipboardWatcher.running) {
-                console.warn("ClipboardService: watchdog detected dead watcher - restarting");
-                clipboardWatcher.running = true;
+    property Timer initialListTimer: Timer {
+        interval: 500
+        repeat: false
+        onTriggered: root._fetchListCmd()
+    }
+
+    property Process _cmdProcess: Process {
+        property string _pendingCmd: ""
+        onRunningChanged: {
+            if (!running && _pendingCmd !== "") {
+                _pendingCmd = "";
             }
         }
     }
 
-
-    // Initialize database
-    property Process initDbProcess: Process {
-        running: false
-        
-        onExited: function(code) {
-            if (code === 0) {
-                root._initialized = true;
-                ensureBinaryDataDir();
-                Qt.callLater(root.list);
-            } else {
-                console.warn("ClipboardService: Failed to initialize database");
-            }
-        }
-    }
-
-    property Process ensureDirProcess: Process {
-        running: false
-    }
-
-    // Single process to check and insert clipboard content (used for manual checks)
-    property Process checkAndInsertProcess: Process {
-        running: false
-        
-        stderr: StdioCollector {
-            onStreamFinished: {
-                if (text.length > 0 && !text.includes("No selection")) {
-                    console.warn("ClipboardService: checkAndInsertProcess stderr:", text);
-                }
-            }
-        }
-        
-        onExited: function(code) {
-            _operationInProgress = false;
-            if (code === 0) {
-                Qt.callLater(root.list);
-            }
-        }
-    }
-
-    // List all items from database
-    property Process listProcess: Process {
-        running: false
-        
-        stdout: StdioCollector {
-            waitForEnd: true
-            
-            onStreamFinished: {
-                var clipboardItems = [];
-                
-                var trimmedText = text.trim();
-                if (trimmedText.length === 0) {
-                    root.items = clipboardItems;
-                    root.listCompleted();
-                    root._operationInProgress = false;
-                    return;
-                }
-                
+    property Process _getContentProcess: Process {
+        property string _itemId: ""
+        stdout: SplitParser {
+            onRead: data => {
+                var line = data.trim();
+                if (!line) return;
                 try {
-                    var jsonArray = JSON.parse(trimmedText);
-                    
-                    for (var i = 0; i < jsonArray.length; i++) {
-                        var item = jsonArray[i];
-                        var isFile = item.mime_type === "text/uri-list";
-                        
-                        // For files, extract the filename from the URI for preview
-                        var preview = item.preview;
-                        if (isFile && item.full_content) {
-                            var uriContent = item.full_content.trim();
-                            if (uriContent.startsWith("file://")) {
-                                var filePath = uriContent.substring(7); // Remove "file://"
-                                var fileName = filePath.split('/').pop();
-                                // Decode URL encoding (e.g., %20 -> space)
-                                fileName = root.decodeUriString(fileName);
-                                preview = "[File] " + fileName;
-                            }
-                        } else if (item.is_image === 1) {
-                            preview = "[Image]";
-                        }
-                        
-                        clipboardItems.push({
-                            id: item.id.toString(),
-                            preview: preview,
-                            fullContent: item.preview,
-                            mime: item.mime_type,
-                            isImage: item.is_image === 1,
-                            isFile: isFile,
-                            binaryPath: item.binary_path || "",
-                            hash: item.content_hash || "",
-                            size: item.size || 0,
-                            createdAt: item.created_at || 0,
-                            pinned: item.pinned === 1,
-                            alias: item.alias || "",
-                            displayIndex: item.display_index !== null ? item.display_index : -1
-                        });
+                    var msg = JSON.parse(line);
+                    if (msg.ok && msg.data !== undefined) {
+                        root.fullContentRetrieved(_getContentProcess._itemId, msg.data);
                     }
-                } catch (e) {
-                    console.warn("ClipboardService: Failed to parse clipboard items:", e);
+                } catch(e) {}
+            }
+        }
+        stderr: SplitParser { onRead: data => {} }
+    }
+
+    property Process _getImageProcess: Process {
+        property string _itemId: ""
+        stdout: SplitParser {
+            onRead: data => {
+                var line = data.trim();
+                if (!line) return;
+                try {
+                    var msg = JSON.parse(line);
+                    if (msg.ok && msg.data) {
+                        root.imageDataById[_getImageProcess._itemId] = msg.data;
+                        root.revision++;
+                    }
+                } catch(e) {}
+            }
+        }
+        stderr: SplitParser { onRead: data => {} }
+    }
+
+    property Process loadImageProcess: _getImageProcess
+
+    property Process linkPreviewProcess: Process {
+        property string requestItemId: ""
+        property string _out: ""
+        stdout: SplitParser {
+            onRead: data => { linkPreviewProcess._out += data + "\n"; }
+        }
+        stderr: SplitParser { onRead: data => {} }
+        onExited: {
+            if (exitCode === 0 && _out.trim().length > 0) {
+                var raw = _out.trim();
+                root.linkPreviewCache[requestItemId] = raw;
+                root.revision++;
+                try {
+                    var meta = JSON.parse(raw);
+                    root.linkPreviewFetched(meta.url || "", meta, requestItemId);
+                } catch(e) {
+                    root.linkPreviewFetched(raw, {}, requestItemId);
                 }
-                
-                root.items = clipboardItems;
+            }
+            _out = "";
+        }
+    }
+
+    function _applyItems(jsonArray) {
+        if (jsonArray.length === root.items.length && jsonArray.length > 0) {
+            var first = jsonArray[0];
+            var cur = root.items[0];
+            if (cur && cur.hash === (first.content_hash || "") && cur.id === first.id.toString()) {
                 root.listCompleted();
-                root._operationInProgress = false;
+                return;
             }
         }
-        
-        stderr: StdioCollector {
-            onStreamFinished: {
-                if (text.length > 0) {
-                    console.warn("ClipboardService: listProcess stderr:", text);
+        var clipboardItems = [];
+        for (var i = 0; i < jsonArray.length; i++) {
+            var item = jsonArray[i];
+            var isFile = item.mime_type === "text/uri-list";
+            var preview = item.preview;
+            if (isFile && item.full_content) {
+                var uri = item.full_content.trim();
+                if (uri.startsWith("file://")) {
+                    var fp = uri.substring(7);
+                    var fn = fp.split('/').pop();
+                    try { fn = decodeURIComponent(fn); } catch(e) {}
+                    preview = "[File] " + fn;
                 }
+            } else if (item.is_image === 1) {
+                preview = "[Image]";
             }
-        }
-        
-        onExited: function(code) {
-            if (code !== 0) {
-                root.items = [];
-                root.listCompleted();
-                root._operationInProgress = false;
-            }
-        }
-    }
-
-    // Insert item into database - kept for backwards compatibility but deprecated
-    property Process insertProcess: Process {
-        property string itemHash: ""
-        property string itemContent: ""
-        property string tmpFile: ""
-        running: false
-        
-        stderr: StdioCollector {
-            onStreamFinished: {
-                if (text.length > 0) {
-                    console.warn("ClipboardService: insertProcess stderr:", text);
-                }
-            }
-        }
-        
-        onExited: function(code) {
-            if (code === 0) {
-                Qt.callLater(root.list);
-            } else {
-                console.warn("ClipboardService: insertProcess failed with code:", code);
-                root._operationInProgress = false;
-            }
-            
-            itemHash = "";
-            itemContent = "";
-            tmpFile = "";
-        }
-    }
-
-    // Get full content of an item
-    property Process getContentProcess: Process {
-        property string itemId: ""
-        running: false
-        
-        stdout: StdioCollector {
-            waitForEnd: true
-            
-            onStreamFinished: {
-                root.fullContentRetrieved(getContentProcess.itemId, text);
-            }
-        }
-        
-        onExited: function(code) {
-            if (code !== 0) {
-                root.fullContentRetrieved(getContentProcess.itemId, "");
-            }
-        }
-    }
-
-    // Delete item
-    property Process deleteProcess: Process {
-        property string itemId: ""
-        running: false
-        
-        stdout: StdioCollector {
-            waitForEnd: true
-            
-            onStreamFinished: {
-                var deletedHash = text.trim();
-                if (deletedHash.length > 0) {
-                    // Check if current clipboard content matches the deleted item
-                    clearClipboardIfMatches.deletedHash = deletedHash;
-                    clearClipboardIfMatches.running = true;
-                }
-            }
-        }
-        
-        stderr: StdioCollector {
-            onStreamFinished: {
-                if (text.length > 0) {
-                    console.warn("ClipboardService: deleteProcess stderr:", text);
-                }
-            }
-        }
-        
-        onExited: function(code) {
-            if (code === 0) {
-                Qt.callLater(root.list);
-            } else {
-                root._operationInProgress = false;
-            }
-        }
-    }
-    
-    // Clear system clipboard if it matches deleted item
-    property Process clearClipboardIfMatches: Process {
-        property string deletedHash: ""
-        running: false
-        
-        command: ["sh", "-c",
-            "# Get current clipboard hash for different types\n" +
-            "CURRENT_HASH=''; " +
-            "if CONTENT=$(wl-paste --type text/uri-list 2>/dev/null); then " +
-            "  CURRENT_HASH=$(echo -n \"$CONTENT\" | tr -d '\\r' | md5sum | cut -d' ' -f1); " +
-            "elif CONTENT=$(wl-paste --type text/plain 2>/dev/null); then " +
-            "  CURRENT_HASH=$(echo -n \"$CONTENT\" | md5sum | cut -d' ' -f1); " +
-            "elif IMAGE_MIME=$(wl-paste --list-types 2>/dev/null | grep '^image/' | head -1); then " +
-            "  [ -n \"$IMAGE_MIME\" ] && CURRENT_HASH=$(wl-paste --type \"$IMAGE_MIME\" 2>/dev/null | md5sum | cut -d' ' -f1); " +
-            "fi; " +
-            "# Clear clipboard if hashes match\n" +
-            "if [ \"$CURRENT_HASH\" = '" + deletedHash + "' ]; then " +
-            "  wl-copy --clear 2>/dev/null || true; " +
-            "fi"
-        ]
-        
-        stderr: StdioCollector {
-            onStreamFinished: {
-                if (text.length > 0 && !text.includes("No selection")) {
-                    console.warn("ClipboardService: clearClipboardIfMatches stderr:", text);
-                }
-            }
-        }
-    }
-
-    // Clear all items
-    property Process clearProcess: Process {
-        running: false
-        
-        onExited: function(code) {
-            if (code === 0) {
-                // Refresh list to show only pinned items
-                Qt.callLater(root.list);
-                // Clean binary data directory (will only remove files not referenced by pinned items)
-                cleanBinaryDataDirProcess.running = true;
-            }
-            // Always restart the watcher after clear (watcher was stopped before clear)
-            Qt.callLater(function() {
-                clipboardWatcher.running = true;
+            clipboardItems.push({
+                id: item.id.toString(),
+                preview: preview,
+                fullContent: item.full_content || item.preview,
+                mime: item.mime_type,
+                isImage: item.is_image === 1,
+                isFile: isFile,
+                binaryPath: item.binary_path || "",
+                hash: item.content_hash || "",
+                size: item.size || 0,
+                createdAt: item.created_at || 0,
+                pinned: item.pinned === 1,
+                alias: item.alias || "",
+                displayIndex: (item.display_index !== null && item.display_index !== undefined) ? item.display_index : -1
             });
         }
-    }
-    
-    // Toggle pin status
-    property Process togglePinProcess: Process {
-        property string itemId: ""
-        running: false
-        
-        stderr: StdioCollector {
-            onStreamFinished: {
-                if (text.length > 0) {
-                    console.warn("ClipboardService: togglePinProcess stderr:", text);
-                }
-            }
-        }
-        
-        onExited: function(code) {
-            if (code === 0) {
-                Qt.callLater(root.list);
-            } else {
-                root._operationInProgress = false;
-            }
-        }
-    }
-    
-    // Set alias for item
-    property Process setAliasProcess: Process {
-        property string itemId: ""
-        running: false
-        
-        stderr: StdioCollector {
-            onStreamFinished: {
-                if (text.length > 0) {
-                    console.warn("ClipboardService: setAliasProcess stderr:", text);
-                }
-            }
-        }
-        
-        onExited: function(code) {
-            if (code === 0) {
-                Qt.callLater(root.list);
-            } else {
-                root._operationInProgress = false;
-            }
-        }
-    }
-    
-    // Clean binary data directory - only remove orphaned files
-    property Process cleanBinaryDataDirProcess: Process {
-        running: false
-        command: ["sh", "-c", 
-            "cd '" + binaryDataDir + "' && " +
-            "for f in *; do " +
-            "  [ -f \"$f\" ] || continue; " +
-            "  sqlite3 '" + dbPath + "' \"SELECT COUNT(*) FROM clipboard_items WHERE binary_path = '" + binaryDataDir + "/$f';\" | grep -q '^0$' && rm -f \"$f\"; " +
-            "done"
-        ]
+        root.items = clipboardItems;
+        root.listCompleted();
+        root._operationInProgress = false;
     }
 
-    // Load image data
-    property Process loadImageProcess: Process {
-        property string itemId: ""
-        property string mimeType: ""
-        running: false
-        
-        stdout: StdioCollector {
-            waitForEnd: true
-            
-            onStreamFinished: {
-                if (text.length > 0) {
-                    var cleanBase64 = text.replace(/\s/g, '');
-                    var dataUrl = "data:" + loadImageProcess.mimeType + ";base64," + cleanBase64;
-                    root.imageDataById[loadImageProcess.itemId] = dataUrl;
-                    root.revision++;
-                }
-            }
-        }
+    function _runDaemonCmd(jsonStr) {
+        _cmdProcess.command = [daemonPath, "-socket", socketPath, "-cmd", jsonStr];
+        _cmdProcess.running = true;
     }
-    
-    // Link preview metadata fetcher
-    property Process linkPreviewProcess: Process {
-        property string requestUrl: ""
-        property string requestItemId: ""
-        running: false
-        
-        stdout: StdioCollector {
-            waitForEnd: true
-            
-            onStreamFinished: {
+
+    property Process _listProcess: Process {
+        property string _out: ""
+        stdout: SplitParser {
+            onRead: data => {
+                var line = data.trim();
+                if (!line) return;
                 try {
-                    var metadata = JSON.parse(text);
-                    // Use request_url from the response - this is the original URL we requested
-                    // This is crucial because requestUrl property may have been overwritten
-                    // by a subsequent request before this response arrived
-                    var responseUrl = metadata.request_url || metadata.url || linkPreviewProcess.requestUrl;
-                    
-                    // Cache the result if successful, using the URL from the response
-                    if (!metadata.error && responseUrl) {
-                        root.linkPreviewCache[responseUrl] = metadata;
+                    var msg = JSON.parse(line);
+                    if (msg.ok && msg.data) {
+                        root._applyItems(msg.data);
                     }
-                    // Note: requestItemId may also be stale, but the receiver validates it
-                    root.linkPreviewFetched(responseUrl, metadata, linkPreviewProcess.requestItemId);
-                } catch (e) {
-                    console.warn("ClipboardService: Failed to parse link preview:", e);
-                    root.linkPreviewFetched(linkPreviewProcess.requestUrl, {'error': 'Failed to parse response'}, linkPreviewProcess.requestItemId);
-                }
+                } catch(e) {}
             }
         }
-        
-        stderr: StdioCollector {
-            onStreamFinished: {
-                if (text.length > 0) {
-                    console.warn("ClipboardService: linkPreviewProcess stderr:", text);
-                }
-            }
-        }
-        
-        onExited: function(code) {
-            if (code !== 0) {
-                root.linkPreviewFetched(linkPreviewProcess.requestUrl, {'error': 'Failed to fetch preview'}, linkPreviewProcess.requestItemId);
-            }
-        }
+        stderr: SplitParser { onRead: data => {} }
     }
 
-    signal fullContentRetrieved(string itemId, string content)
-    signal linkPreviewFetched(string url, var metadata, string itemId)
-    
-    // Function to decode URL-encoded strings
-    function decodeUriString(str) {
-        try {
-            return decodeURIComponent(str);
-        } catch (e) {
-            // If decoding fails, return original string
-            return str;
-        }
-    }
-
-    function initialize() {
-        initDbProcess.command = ["sh", "-c", "sqlite3 '" + dbPath + "' < '" + schemaPath + "'"];
-        initDbProcess.running = true;
-    }
-
-    function ensureBinaryDataDir() {
-        ensureDirProcess.command = ["mkdir", "-p", binaryDataDir];
-        ensureDirProcess.running = true;
-    }
-
-    function checkClipboard() {
-        if (!_initialized || _operationInProgress) return;
-        _operationInProgress = true;
-        checkAndInsertProcess.command = [checkScriptPath, dbPath, insertScriptPath, binaryDataDir];
-        checkAndInsertProcess.running = true;
-    }
-
-    function getImageHash(mimeType) {
-        // Deprecated - now handled by clipboard_check.sh
-    }
-
-    function insertTextItemFromFile(hash, tmpFile) {
-        // Deprecated - now handled by clipboard_check.sh
-    }
-    
-    function insertFileItemFromFile(hash, tmpFile) {
-        // Deprecated - now handled by clipboard_check.sh
-    }
-    
-    property Process writeTmpProcess: Process {
-        property string itemHash: ""
-        property string itemContent: ""
-        running: false
-        
-        stdout: StdioCollector {
-            waitForEnd: true
-            
-            onStreamFinished: {
-                // Deprecated
-            }
-        }
-    }
-
-    function insertImageItem(hash, mimeType) {
-        // Deprecated - now handled by clipboard_check.sh
+    function _fetchListCmd() {
+        if (_listProcess.running) return;
+        _listProcess.command = [daemonPath, "-socket", socketPath, "-cmd", '{"cmd":"LIST"}'];
+        _listProcess.running = true;
     }
 
     function list() {
-        if (!_initialized) return;
-        _operationInProgress = true;
-        // Use JSON mode for reliable parsing, with timeout to avoid locks
-        // ORDER BY pinned DESC, display_index ASC to show pinned items first (ordered by index), then unpinned items (ordered by index)
-        listProcess.command = ["sh", "-c", 
-            "export LC_ALL=C.UTF-8; sqlite3 '" + dbPath + "' <<'EOSQL'\n.timeout 5000\n.mode json\nSELECT id, mime_type, preview, is_image, binary_path, content_hash, size, created_at, pinned, alias, display_index FROM clipboard_items ORDER BY pinned DESC, display_index ASC, updated_at DESC, id DESC LIMIT 100;\nEOSQL"
-        ];
-        listProcess.running = true;
+        _fetchListCmd();
     }
 
-    function getFullContent(id) {
-        if (!_initialized) return;
-        getContentProcess.itemId = id;
-        getContentProcess.command = ["sh", "-c", "export LC_ALL=C.UTF-8; sqlite3 '" + dbPath + "' '.timeout 5000' 'SELECT full_content FROM clipboard_items WHERE id = " + id + ";'"];
-        getContentProcess.running = true;
+    function remove(itemId) {
+        _runDaemonCmd('{"cmd":"DELETE","id":"' + itemId + '"}');
     }
 
-    function deleteItem(id) {
-        if (!_initialized) return;
-        _operationInProgress = true;
-        deleteProcess.itemId = id;
-        
-        // First, get the item's hash to check if it's currently in clipboard
-        deleteProcess.command = ["sh", "-c", 
-            "HASH=$(sqlite3 '" + dbPath + "' '.timeout 5000' 'SELECT content_hash FROM clipboard_items WHERE id = " + id + ";'); " +
-            "sqlite3 '" + dbPath + "' '.timeout 5000' 'DELETE FROM clipboard_items WHERE id = " + id + ";'; " +
-            "echo \"$HASH\""
-        ];
-        deleteProcess.running = true;
+    function deleteItem(itemId) {
+        remove(itemId);
     }
 
     function clear() {
-        if (!_initialized) return;
-        // stop watcher before clearing so the wl-copy --clear event doesn't confuse it
-        clipboardWatcher.running = false;
-        clearProcess.command = ["sh", "-c",
-            "sqlite3 '" + dbPath + "' '.timeout 5000' 'DELETE FROM clipboard_items WHERE pinned = 0;'; " +
-            "wl-copy --clear 2>/dev/null || true"
-        ];
-        clearProcess.running = true;
+        _runDaemonCmd('{"cmd":"CLEAR"}');
     }
 
-    function togglePin(id) {
-        if (!_initialized) return;
-        _operationInProgress = true;
-        togglePinProcess.itemId = id;
-        togglePinProcess.command = ["sh", "-c", 
-            "sqlite3 '" + dbPath + "' <<'EOSQL'\n" +
-            ".timeout 5000\n" +
-            "BEGIN TRANSACTION;\n" +
-            "-- Toggle pin status\n" +
-            "UPDATE clipboard_items SET pinned = CASE WHEN pinned = 1 THEN 0 ELSE 1 END WHERE id = " + id + ";\n" +
-            "-- Get new pinned status\n" +
-            "-- If item is now pinned (pinned=1), set its index to 0 and shift others\n" +
-            "-- If item is now unpinned (pinned=0), set its index to 0 and shift others\n" +
-            "UPDATE clipboard_items SET display_index = CASE \n" +
-            "  WHEN id = " + id + " THEN 0\n" +
-            "  ELSE display_index + 1\n" +
-            "END WHERE pinned = (SELECT pinned FROM clipboard_items WHERE id = " + id + ");\n" +
-            "-- Compact indices to remove gaps for both pinned and unpinned\n" +
-            "WITH reindexed_pinned AS (\n" +
-            "  SELECT id, ROW_NUMBER() OVER (ORDER BY display_index ASC, updated_at DESC, id DESC) - 1 AS new_idx\n" +
-            "  FROM clipboard_items WHERE pinned = 1\n" +
-            ")\n" +
-            "UPDATE clipboard_items SET display_index = (SELECT new_idx FROM reindexed_pinned WHERE reindexed_pinned.id = clipboard_items.id) WHERE pinned = 1;\n" +
-            "COMMIT;\n" +
-            "EOSQL"
-        ];
-        togglePinProcess.running = true;
+    function togglePin(itemId) {
+        _runDaemonCmd('{"cmd":"TOGGLE_PIN","id":"' + itemId + '"}');
     }
 
-    function setAlias(id, alias) {
-        if (!_initialized) return;
-        _operationInProgress = true;
-        setAliasProcess.itemId = id;
-        // Escape single quotes in alias by replacing ' with ''
-        var escapedAlias = alias.replace(/'/g, "''");
-        if (alias.trim() === "") {
-            setAliasProcess.command = ["sh", "-c", "sqlite3 '" + dbPath + "' '.timeout 5000' 'UPDATE clipboard_items SET alias = NULL WHERE id = " + id + ";'"];
-        } else {
-            setAliasProcess.command = ["sh", "-c", "sqlite3 '" + dbPath + "' '.timeout 5000' \"UPDATE clipboard_items SET alias = '" + escapedAlias + "' WHERE id = " + id + ";\""];
-        }
-        setAliasProcess.running = true;
+    function togglePinned(itemId) {
+        togglePin(itemId);
     }
 
-    function decodeToDataUrl(id, mime) {
-        if (imageDataById[id]) {
-            return;
-        }
-        
-        for (var i = 0; i < items.length; i++) {
-            if (items[i].id === id) {
-                var binaryPath = items[i].binaryPath;
-                if (binaryPath && binaryPath.length > 0) {
-                    loadImageProcess.itemId = id;
-                    loadImageProcess.mimeType = mime;
-                    loadImageProcess.command = ["base64", "-w", "0", binaryPath];
-                    loadImageProcess.running = true;
-                }
+    function setAlias(itemId, alias) {
+        var escaped = alias.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+        _runDaemonCmd('{"cmd":"SET_ALIAS","id":"' + itemId + '","alias":"' + escaped + '"}');
+    }
+
+    function copyToClipboard(itemId) {
+        _runDaemonCmd('{"cmd":"COPY_TO_CLIPBOARD","id":"' + itemId + '"}');
+    }
+
+    function swapItems(id1, id2) {
+        _runDaemonCmd('{"cmd":"SWAP","id":"' + id1 + '","id2":"' + id2 + '"}');
+    }
+
+    function moveItemUp(itemId) {
+        for (var i = 1; i < items.length; i++) {
+            if (items[i].id === itemId) {
+                swapItems(items[i].id, items[i-1].id);
                 break;
             }
         }
     }
 
-    function getImageData(id) {
-        return imageDataById[id] || "";
-    }
-    
-    function fetchLinkPreview(url, itemId) {
-        if (!_initialized) return;
-        
-        // Check cache first
-        if (linkPreviewCache[url]) {
-            Qt.callLater(function() {
-                root.linkPreviewFetched(url, linkPreviewCache[url], itemId);
-            });
-            return;
+    function moveItemDown(itemId) {
+        for (var i = 0; i < items.length - 1; i++) {
+            if (items[i].id === itemId) {
+                swapItems(items[i].id, items[i+1].id);
+                break;
+            }
         }
-        
-        linkPreviewProcess.requestUrl = url;
+    }
+
+    function getFullContent(itemId) {
+        _getContentProcess._itemId = itemId;
+        _getContentProcess.command = [daemonPath, "-socket", socketPath, "-cmd", '{"cmd":"GET_CONTENT","id":"' + itemId + '"}'];
+        _getContentProcess.running = true;
+    }
+
+    function getImageData(itemId) {
+        return root.imageDataById[itemId] || null;
+    }
+
+    function decodeToDataUrl(itemId, mime) {
+        if (_getImageProcess.running) return;
+        _getImageProcess._itemId = itemId;
+        _getImageProcess.command = [daemonPath, "-socket", socketPath, "-cmd", '{"cmd":"GET_IMAGE","id":"' + itemId + '"}'];
+        _getImageProcess.running = true;
+    }
+
+    function fetchLinkPreview(url, itemId) {
+        if (root.linkPreviewCache[itemId]) return;
         linkPreviewProcess.requestItemId = itemId;
         linkPreviewProcess.command = ["python3", linkPreviewScriptPath, url, "5"];
         linkPreviewProcess.running = true;
     }
-    
-    // Reorder item by moving it to a new index
-    function reorderItem(itemId, newIndex) {
-        if (!_initialized) return;
-        
-        // Get current item info
-        var item = null;
-        for (var i = 0; i < items.length; i++) {
-            if (items[i].id === itemId) {
-                item = items[i];
-                break;
-            }
-        }
-        
-        if (!item) return;
-        
-        var isPinned = item.pinned ? 1 : 0;
-        
-        // Validate newIndex is non-negative
-        if (newIndex < 0) newIndex = 0;
-        
-        // Execute reordering with conflict resolution
-        reorderProcess.command = ["sh", "-c", 
-            "sqlite3 '" + dbPath + "' <<'EOSQL'\n" +
-            ".timeout 5000\n" +
-            "BEGIN TRANSACTION;\n" +
-            "-- Shift other items to make room\n" +
-            "UPDATE clipboard_items SET display_index = display_index + 1 WHERE pinned = " + isPinned + " AND display_index >= " + newIndex + " AND id != " + itemId + ";\n" +
-            "-- Set new index for target item\n" +
-            "UPDATE clipboard_items SET display_index = " + newIndex + " WHERE id = " + itemId + ";\n" +
-            "-- Compact indices to remove gaps\n" +
-            "WITH reindexed AS (\n" +
-            "  SELECT id, ROW_NUMBER() OVER (ORDER BY display_index ASC, updated_at DESC, id DESC) - 1 AS new_idx\n" +
-            "  FROM clipboard_items WHERE pinned = " + isPinned + "\n" +
-            ")\n" +
-            "UPDATE clipboard_items SET display_index = (SELECT new_idx FROM reindexed WHERE reindexed.id = clipboard_items.id) WHERE pinned = " + isPinned + ";\n" +
-            "COMMIT;\n" +
-            "EOSQL"
-        ];
-        reorderProcess.running = true;
-    }
-    
-    // Move item up (decrease index)
-    function moveItemUp(itemId) {
-        var item = null;
-        var currentIdx = -1;
-        for (var i = 0; i < items.length; i++) {
-            if (items[i].id === itemId) {
-                item = items[i];
-                currentIdx = i;
-                break;
-            }
-        }
-        
-        if (!item || currentIdx < 0) return;
-        
-        // Can't move up if first item
-        if (currentIdx === 0) return;
-        
-        // Check if previous item has same pinned status
-        var prevItem = items[currentIdx - 1];
-        if (prevItem.pinned !== item.pinned) return;
-        
-        // Optimistic update: Swap in local array
-        var temp = items[currentIdx];
-        items[currentIdx] = items[currentIdx - 1];
-        items[currentIdx - 1] = temp;
-        
-        // Notify UI to update immediately
-        listCompleted();
-        
-        // Swap indices with previous item
-        swapItems(itemId, prevItem.id);
-    }
-    
-    // Move item down (increase index)
-    function moveItemDown(itemId) {
-        var item = null;
-        var currentIdx = -1;
-        for (var i = 0; i < items.length; i++) {
-            if (items[i].id === itemId) {
-                item = items[i];
-                currentIdx = i;
-                break;
-            }
-        }
-        
-        if (!item || currentIdx < 0) return;
-        
-        // Can't move down if last item
-        if (currentIdx >= items.length - 1) return;
-        
-        // Check if next item has same pinned status
-        var nextItem = items[currentIdx + 1];
-        if (nextItem.pinned !== item.pinned) return;
-        
-        // Optimistic update: Swap in local array
-        var temp = items[currentIdx];
-        items[currentIdx] = items[currentIdx + 1];
-        items[currentIdx + 1] = temp;
-        
-        // Notify UI to update immediately
-        listCompleted();
-        
-        // Swap indices with next item
-        swapItems(itemId, nextItem.id);
-    }
-    
-    // Swap display indices between two items
-    function swapItems(itemId1, itemId2) {
-        if (!_initialized) return;
-        
-        var cmd = "sqlite3 '" + dbPath + "' <<'EOSQL'\n" +
-            ".timeout 5000\n" +
-            "BEGIN TRANSACTION;\n" +
-            "-- Reindex to ensure unique indices\n" +
-            "WITH reindexed_pinned AS (\n" +
-            "  SELECT id, ROW_NUMBER() OVER (ORDER BY display_index ASC, updated_at DESC, id DESC) - 1 AS new_idx\n" +
-            "  FROM clipboard_items WHERE pinned = 1\n" +
-            ")\n" +
-            "UPDATE clipboard_items SET display_index = (SELECT new_idx FROM reindexed_pinned WHERE reindexed_pinned.id = clipboard_items.id) WHERE pinned = 1;\n" +
-            "-- Create temp variables for the swap\n" +
-            "CREATE TEMP TABLE IF NOT EXISTS swap_temp (idx1 INTEGER, idx2 INTEGER);\n" +
-            "DELETE FROM swap_temp;\n" +
-            "INSERT INTO swap_temp (idx1, idx2) \n" +
-            "  SELECT \n" +
-            "    (SELECT display_index FROM clipboard_items WHERE id = " + itemId1 + "),\n" +
-            "    (SELECT display_index FROM clipboard_items WHERE id = " + itemId2 + ");\n" +
-            "-- Perform the swap\n" +
-            "UPDATE clipboard_items SET display_index = (SELECT idx2 FROM swap_temp) WHERE id = " + itemId1 + ";\n" +
-            "UPDATE clipboard_items SET display_index = (SELECT idx1 FROM swap_temp) WHERE id = " + itemId2 + ";\n" +
-            "-- Clean up\n" +
-            "DELETE FROM swap_temp;\n" +
-            "COMMIT;\n" +
-            "EOSQL";
-            
-        var proc = Qt.createQmlObject('import Quickshell.Io; Process {}', root);
-        proc.command = ["sh", "-c", cmd];
-        
-        proc.onExited.connect(function(code) {
-             if (code === 0) {
-                 Qt.callLater(root.list);
-             } else {
-                 console.warn("ClipboardService: dynamic swapProcess failed with code:", code);
-             }
-             proc.destroy();
-        });
-        
-        proc.running = true;
-    }
-    
 
-    property Process reorderProcess: Process {
-        running: false
-        
-        stderr: StdioCollector {
-            onStreamFinished: {
-                if (text.length > 0) {
-                    console.warn("ClipboardService: reorderProcess stderr:", text);
-                }
-            }
-        }
-        
-        onExited: function(code) {
-            if (code === 0) {
-                Qt.callLater(root.list);
-            }
-        }
-    }
-    
-    // Emoji paste process - persists even when dashboard closes
-    property Process emojiTypeProcess: Process {
-        running: false
-        
-        stderr: StdioCollector {
-            onStreamFinished: {
-                if (text.length > 0) {
-                    console.warn("ClipboardService: emojiTypeProcess stderr:", text);
-                }
-            }
-        }
-        
-        onExited: function(code) {
-            if (code !== 0) {
-                console.warn("ClipboardService: emojiTypeProcess failed with code:", code);
-            }
-        }
-    }
-    
-    property Timer emojiTypeTimer: Timer {
-        interval: 250
-        repeat: false
-        onTriggered: {
-            // Simulate Ctrl+V: press Ctrl, press V, release V, release Ctrl
-            emojiTypeProcess.command = ["wtype", "-M", "ctrl", "-P", "v", "-p", "v", "-m", "ctrl"];
-            emojiTypeProcess.running = true;
-        }
-    }
-    
-    // Function to copy and paste emoji via Ctrl+V
     function copyAndTypeEmoji(emojiText) {
-        // Copy to clipboard
-        var copyCmd = ["bash", "-c", "echo -n '" + emojiText.replace(/'/g, "'\\''") + "' | wl-copy"];
-        var copyProc = Qt.createQmlObject('import Quickshell.Io; Process {}', root);
-        copyProc.command = copyCmd;
-        copyProc.running = true;
-        
-        // Schedule Ctrl+V paste
-        emojiTypeTimer.start();
+        var p = Qt.createQmlObject('import Quickshell.Io; Process {}', Qt.application);
+        p.command = ["sh", "-c", "printf '%s' '" + emojiText.replace(/'/g, "'\\''") + "' | wl-copy && sleep 0.1 && wtype -M ctrl -P v -p v -m ctrl"];
+        p.onExited.connect(function() { p.destroy(); });
+        p.running = true;
     }
 
     Component.onCompleted: {
-        initialize();
+        root._initialized = true;
     }
 }

@@ -1087,9 +1087,10 @@ Item {
 
                     highlight: Item {
                         width: resultsList.width
+                        visible: resultsList.currentIndex >= 0
                         height: {
                             let baseHeight = 56;
-                            if (resultsList.currentIndex === root.expandedItemIndex && !root.deleteMode && !root.aliasMode) {
+                            if (resultsList.currentIndex >= 0 && resultsList.currentIndex === root.expandedItemIndex && !root.deleteMode && !root.aliasMode) {
                                 var itemData = itemsModel.get(resultsList.currentIndex).itemData;
                                 var optionsCount = 4;
                                 if (itemData.isFile || itemData.isImage || ClipboardUtils.isUrl(itemData.preview)) {
