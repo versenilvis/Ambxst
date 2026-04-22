@@ -66,7 +66,23 @@ QtObject {
     property Timer restartWatcherTimer: Timer {
         interval: 100
         repeat: false
-        onTriggered: clipboardWatcher.running = true
+        onTriggered: {
+            clipboardWatcher.running = false;
+            clipboardWatcher.running = true;
+        }
+    }
+
+    // Watchdog: if watcher dies for any reason, restart it
+    property Timer watcherWatchdog: Timer {
+        interval: 10000
+        repeat: true
+        running: root._initialized
+        onTriggered: {
+            if (root._initialized && !clipboardWatcher.running) {
+                console.warn("ClipboardService: watchdog detected dead watcher - restarting");
+                clipboardWatcher.running = true;
+            }
+        }
     }
 
 
@@ -317,6 +333,10 @@ QtObject {
                 // Clean binary data directory (will only remove files not referenced by pinned items)
                 cleanBinaryDataDirProcess.running = true;
             }
+            // Always restart the watcher after clear (watcher was stopped before clear)
+            Qt.callLater(function() {
+                clipboardWatcher.running = true;
+            });
         }
     }
     
@@ -535,7 +555,9 @@ QtObject {
 
     function clear() {
         if (!_initialized) return;
-        clearProcess.command = ["sh", "-c", 
+        // stop watcher before clearing so the wl-copy --clear event doesn't confuse it
+        clipboardWatcher.running = false;
+        clearProcess.command = ["sh", "-c",
             "sqlite3 '" + dbPath + "' '.timeout 5000' 'DELETE FROM clipboard_items WHERE pinned = 0;'; " +
             "wl-copy --clear 2>/dev/null || true"
         ];
