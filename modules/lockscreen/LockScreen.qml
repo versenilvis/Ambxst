@@ -723,11 +723,19 @@ WlSessionLockSurface {
 
     // Initialize when component is created (when lock becomes active)
     Component.onCompleted: {
-        // Capture screen immediately
-        screencopyBackground.captureFrame();
-
-        // Start animations
+        // Start animations immediately
         startAnim = true;
         passwordInput.forceActiveFocus();
+
+        // Only capture screen if this lockscreen was just activated (within 1 second).
+        // This prevents ScreencopyView from crashing Hyprland/Quickshell when a monitor
+        // wakes from sleep while the system is already locked.
+        if (root.screen && (Date.now() - GlobalStates.lockscreenTimestamp < 1000)) {
+            try {
+                screencopyBackground.captureFrame();
+            } catch(e) {
+                console.warn("Failed to capture lockscreen frame:", e);
+            }
+        }
     }
 }

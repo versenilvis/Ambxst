@@ -195,7 +195,7 @@ func (s *server) handleCommand(line string) []byte {
 			if item.IsImage == 1 && item.BinaryPath != "" {
 				go runShell("wl-copy --type " + item.MimeType + " < " + item.BinaryPath)
 			} else {
-				go runShell("printf '%s' " + shellQuote(item.FullContent) + " | wl-copy")
+				go runShell("printf '%s' " + shellQuote(item.FullContent) + " | wl-copy --type " + item.MimeType)
 			}
 		}
 

@@ -162,6 +162,13 @@ Singleton {
 
     // Lockscreen state
     property bool lockscreenVisible: false
+    property real lockscreenTimestamp: 0
+
+    onLockscreenVisibleChanged: {
+        if (lockscreenVisible) {
+            lockscreenTimestamp = Date.now();
+        }
+    }
 
     // Ambxst Settings state
     property bool settingsVisible: false
