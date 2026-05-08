@@ -573,24 +573,7 @@ Item {
     }
 
     function copyToClipboard(itemId) {
-        // Find the item to determine its type
-        for (var i = 0; i < root.allItems.length; i++) {
-            if (root.allItems[i].id === itemId) {
-                var item = root.allItems[i];
-                if (item.isImage && item.binaryPath) {
-                    // Copy image with correct MIME type
-                    copyProcess.command = ["sh", "-c", "cat '" + item.binaryPath + "' | wl-copy --type '" + item.mime + "'"];
-                } else if (item.isFile) {
-                    // Copy file URI with text/uri-list MIME type, removing carriage returns
-                    copyProcess.command = ["sh", "-c", "sqlite3 '" + ClipboardService.dbPath + "' \"SELECT full_content FROM clipboard_items WHERE id = " + itemId + ";\" | tr -d '\\r' | wl-copy --type text/uri-list"];
-                } else {
-                    // Copy text as plain text
-                    copyProcess.command = ["sh", "-c", "sqlite3 '" + ClipboardService.dbPath + "' \"SELECT full_content FROM clipboard_items WHERE id = " + itemId + ";\" | wl-copy"];
-                }
-                copyProcess.running = true;
-                break;
-            }
-        }
+        ClipboardService.copyToClipboard(itemId);
     }
 
     // Signal to request opening an item
@@ -700,18 +683,7 @@ Item {
         }
     }
 
-    // Proceso para copiar al portapapeles
-    Process {
-        id: copyProcess
-        running: false
 
-        onExited: function (code) {
-        // No cerrar el dashboard después de copiar
-        // if (code === 0) {
-        //     root.itemSelected();
-        // }
-        }
-    }
 
     RowLayout {
         id: mainLayout

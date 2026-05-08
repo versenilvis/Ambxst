@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"log"
 	"os/exec"
@@ -110,16 +109,16 @@ func checkAndInsert(ctx context.Context, db *DB, dataDir string) (bool, error) {
 }
 
 func wlPaste(ctx context.Context, mimeType string) (string, error) {
-	cmd := exec.CommandContext(ctx, "wl-paste", "--type", mimeType)
+	cmd := exec.CommandContext(ctx, "wl-paste", "--no-newline", "--type", mimeType)
 	out, err := cmd.Output()
 	if err != nil {
 		return "", err
 	}
-	return string(bytes.TrimRight(out, "\n")), nil
+	return string(out), nil
 }
 
 func wlPasteBytes(ctx context.Context, mimeType string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, "wl-paste", "--type", mimeType)
+	cmd := exec.CommandContext(ctx, "wl-paste", "--no-newline", "--type", mimeType)
 	return cmd.Output()
 }
 
