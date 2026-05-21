@@ -22,6 +22,7 @@ QtObject {
     property string captureMode: "normal"
     
     property string screenshotsDir: ""
+    property string screenshotsAreaDir: ""
     property string finalPath: ""
     
     property var _activeWorkspaceIds: []
@@ -61,6 +62,17 @@ QtObject {
     property Process ensureDirProcess: Process {
         id: ensureDirProcess
         command: ["mkdir", "-p", root.screenshotsDir]
+        onExited: exitCode => {
+            if (exitCode === 0) {
+                root.screenshotsAreaDir = root.screenshotsDir.replace(/\/Screenshots$/, "/Screenshots_Area");
+                ensureAreaDirProcess.running = true;
+            }
+        }
+    }
+
+    property Process ensureAreaDirProcess: Process {
+        id: ensureAreaDirProcess
+        command: ["mkdir", "-p", root.screenshotsAreaDir]
     }
 
     // Dynamic list of freeze processes, managed via bash for simplicity?
@@ -268,11 +280,11 @@ QtObject {
         if (root.captureMode === "lens") {
             root.finalPath = root.lensPath;
         } else {
-            if (root.screenshotsDir === "") {
-                root.screenshotsDir = Quickshell.env("HOME") + "/Pictures/Screenshots"
+            if (root.screenshotsAreaDir === "") {
+                root.screenshotsAreaDir = Quickshell.env("HOME") + "/Pictures/Screenshots_Area"
             }
             var filename = "Screenshot_" + getTimestamp() + ".png"
-            root.finalPath = root.screenshotsDir + "/" + filename
+            root.finalPath = root.screenshotsAreaDir + "/" + filename
         }
         
         // Find monitor for these global logical coordinates
