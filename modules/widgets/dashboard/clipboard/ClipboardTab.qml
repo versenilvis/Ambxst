@@ -2445,6 +2445,8 @@ Item {
                     Image {
                         id: previewImage
                         anchors.fill: parent
+                        sourceSize.width: parent.width > 0 ? parent.width : 0
+                        sourceSize.height: parent.height > 0 ? parent.height : 0
                         fillMode: Image.PreserveAspectFit
                         visible: previewPanel.currentItem && (previewPanel.currentItem.isImage || isImageFile) && !isGifImage
                         source: {
@@ -2494,6 +2496,8 @@ Item {
                     AnimatedImage {
                         id: previewGif
                         anchors.fill: parent
+                        sourceSize.width: parent.width > 0 ? parent.width : 0
+                        sourceSize.height: parent.height > 0 ? parent.height : 0
                         fillMode: Image.PreserveAspectFit
                         visible: previewPanel.currentItem && (previewPanel.currentItem.isImage || isImageFile) && isGifImage
                         source: {
@@ -2719,6 +2723,7 @@ Item {
                                         Image {
                                             id: videoThumbnail
                                             anchors.fill: parent
+                                            sourceSize.width: 512
                                             source: root.linkPreviewData && root.linkPreviewData.image ? root.linkPreviewData.image : ""
                                             fillMode: Image.PreserveAspectCrop
                                             asynchronous: true
@@ -2918,6 +2923,8 @@ Item {
 
                                         Image {
                                             anchors.fill: parent
+                                            sourceSize.width: 100
+                                            sourceSize.height: 100
                                             source: root.linkPreviewData && root.linkPreviewData.image ? root.linkPreviewData.image : ""
                                             fillMode: Image.PreserveAspectCrop
                                             asynchronous: true
@@ -3034,6 +3041,8 @@ Item {
                                                 anchors.centerIn: parent
                                                 width: 24
                                                 height: 24
+                                                sourceSize.width: 24
+                                                sourceSize.height: 24
                                                 visible: previewPanel.currentItem !== null && status === Image.Ready
                                                 fillMode: Image.PreserveAspectFit
                                                 asynchronous: true

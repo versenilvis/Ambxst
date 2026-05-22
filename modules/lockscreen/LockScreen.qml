@@ -56,6 +56,8 @@ WlSessionLockSurface {
     Image {
         id: wallpaperBackground
         anchors.fill: parent
+        sourceSize.width: parent.width > 0 ? parent.width : 0
+        sourceSize.height: parent.height > 0 ? parent.height : 0
         fillMode: Image.PreserveAspectCrop
         asynchronous: true
         smooth: true
@@ -386,6 +388,8 @@ WlSessionLockSurface {
                     Image {
                         id: userAvatar
                         anchors.fill: parent
+                        sourceSize.width: 64
+                        sourceSize.height: 64
                         source: `file://${Quickshell.env("HOME")}/.face.icon`
                         fillMode: Image.PreserveAspectCrop
                         smooth: true

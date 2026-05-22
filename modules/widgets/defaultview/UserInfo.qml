@@ -62,6 +62,8 @@ Item {
 
                     Image {
                         anchors.fill: parent
+                        sourceSize.width: 24
+                        sourceSize.height: 24
                         source: `file://${Quickshell.env("HOME")}/.face.icon`
                         fillMode: Image.PreserveAspectCrop
                     }

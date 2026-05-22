@@ -841,6 +841,8 @@ FocusScope {
     Component {
         id: staticImageComponent
         Image {
+            sourceSize.width: 256
+            sourceSize.height: 256
             source: {
                 if (!parent.sourceFile)
                     return "";

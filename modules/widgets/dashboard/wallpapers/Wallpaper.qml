@@ -979,6 +979,8 @@ PanelWindow {
             Image {
                 width: parent.width
                 height: parent.height
+                sourceSize.width: parent.width > 0 ? parent.width : 0
+                sourceSize.height: parent.height > 0 ? parent.height : 0
                 source: parent.sourceFile ? "file://" + parent.sourceFile : ""
                 fillMode: Image.PreserveAspectCrop
                 asynchronous: true
