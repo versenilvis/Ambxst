@@ -431,8 +431,8 @@ Item {
                                             Layout.alignment: Qt.AlignTop
                                             size: iconSize
                                             radius: Styling.radius(4)
-                                            appIcon: notification ? (notification.cachedAppIcon || notification.appIcon) : ""
-                                            image: notification ? (notification.cachedImage || notification.image) : ""
+                                            appIcon: notification ? notification.appIcon : ""
+                                            image: notification ? notification.image : ""
                                             summary: notification ? notification.summary : ""
                                             urgency: notification ? notification.urgency : NotificationUrgency.Normal
 

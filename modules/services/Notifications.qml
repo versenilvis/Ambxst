@@ -9,71 +9,7 @@ import Quickshell.Services.Notifications
 Singleton {
     id: root
 
-    component Notif: QtObject {
-        required property int id
-        property Notification notification
-        property list<var> actions: notification?.actions.map(action => ({
-                    "identifier": action.identifier,
-                    "text": action.text
-                })) ?? []
-        property bool popup: false
-        // Capturar valores inmediatamente para evitar binding issues
-        property string appIcon: ""
-        property string appName: ""
-        property string body: ""
-        property string image: ""
-        property string summary: ""
-        property double time
-        property string urgency: "normal"
-        property Timer timer
-
-        // Propiedades para cache de imágenes
-        property string cachedAppIcon: ""
-        property string cachedImage: ""
-
-        // Indica si esta notificación fue cargada desde cache
-        property bool isCached: false
-
-        // Inicializar valores cuando se asigna la notification
-        onNotificationChanged: {
-            if (notification) {
-                appIcon = notification.appIcon ?? "";
-                appName = notification.appName ?? "";
-                body = notification.body ?? "";
-                image = notification.image ?? "";
-                summary = notification.summary ?? "";
-                urgency = notification.urgency.toString() ?? "normal";
-
-                // Cachear imágenes
-                if (appIcon && !appIcon.startsWith("data:")) {
-                    root.cacheImageAsBase64(appIcon, function (cachedData) {
-                        cachedAppIcon = cachedData;
-                    });
-                }
-                if (image && !image.startsWith("data:")) {
-                    root.cacheImageAsBase64(image, function (cachedData) {
-                        cachedImage = cachedData;
-                    });
-                }
-
-                // Escuchar cuando la notificación es cerrada por la aplicación
-                notification.closed.connect(function (reason) {
-                    // CloseRequested = 3: la aplicación solicitó cerrar la notificación
-                    if (reason === 3) {
-                        root.discardNotification(id);
-                    }
-                });
-            }
-        }
-
-        Component.onDestruction: {
-            if (timer) {
-                timer.stop();
-                timer.destroy();
-                timer = null;
-            }
-        }
-    }
+    readonly property int maxStoredNotifications: 50
 
     function notifToJSON(notif) {
         return {
@@ -86,8 +22,6 @@ Singleton {
             "summary": notif.summary,
             "time": notif.time,
             "urgency": notif.urgency,
-            "cachedAppIcon": notif.cachedAppIcon,
-            "cachedImage": notif.cachedImage,
             "isCached": notif.isCached
         };
     }
@@ -118,6 +52,7 @@ Singleton {
         }
 
         function triggerTimeout() {
+            delete root.timersById[id];
             root.timeoutNotification(id);
             destroy();
         }
@@ -132,16 +67,13 @@ Singleton {
     }
 
     property bool silent: false
-    property list<Notif> list: []
+    property var list: []
     property var popupList: list.filter(notif => notif.popup)
     property bool popupInhibited: silent
     property var latestTimeForApp: ({})
     property var totalCounts: ({})  // Conteo total independiente del almacenamiento: {appName: {summary: count}}
+    property var timersById: ({})
 
-    Component {
-        id: notifComponent
-        Notif {}
-    }
     Component {
         id: notifTimerComponent
         NotifTimer {}
@@ -158,29 +90,49 @@ Singleton {
     }
 
     function jsonToNotif(json) {
-        return notifComponent.createObject(root, {
+        return {
             "id": json.id,
-            "actions": json.actions,
-            "appIcon": json.cachedAppIcon || json.appIcon  // Usar cached si disponible
-            ,
+            "actions": json.actions || [],
+            "appIcon": json.appIcon || "",
             "appName": json.appName,
             "body": json.body,
-            "image": json.cachedImage || json.image  // Usar cached si disponible
-            ,
+            "image": json.image || "",
             "summary": json.summary,
             "time": json.time,
             "urgency": json.urgency,
-            "cachedAppIcon": json.cachedAppIcon || "",
-            "cachedImage": json.cachedImage || "",
-            "isCached": json.isCached || true  // Default to true for loaded notifications
-            ,
+            "isCached": json.isCached !== undefined ? json.isCached : true,
             "popup": false  // No popup para notificaciones cargadas
+        };
+    }
+
+    function notificationToObject(notification) {
+        const id = notification.id + root.idOffset;
+        notification.closed.connect(function (reason) {
+            if (reason === 3) {
+                root.discardNotification(id);
+            }
         });
+        return {
+            "id": id,
+            "actions": notification.actions ? notification.actions.map(action => ({
+                        "identifier": action.identifier,
+                        "text": action.text
+                    })) : [],
+            "appIcon": notification.appIcon || "",
+            "appName": notification.appName || "",
+            "body": notification.body || "",
+            "image": notification.image || "",
+            "summary": notification.summary || "",
+            "time": Date.now(),
+            "urgency": notification.urgency !== undefined ? notification.urgency.toString() : "normal",
+            "isCached": false,
+            "popup": false
+        };
     }
 
     function saveNotifications() {
         // Limitar notificaciones almacenadas a 5 por summary para evitar almacenamiento excesivo
-        const limitedList = limitNotificationsPerSummary(root.list);
+        const limitedList = trimStoredNotifications(limitNotificationsPerSummary(root.list));
         notifFileView.setText(stringifyList(limitedList));
     }
 
@@ -208,7 +160,7 @@ Singleton {
     function loadNotifications() {
         try {
             const data = JSON.parse(notifFileView.text());
-            root.list = data.map(jsonToNotif);
+            root.list = trimStoredNotifications(data.map(jsonToNotif));
             // Set idOffset to max id + 1
             let maxId = 0;
             root.list.forEach(notif => {
@@ -303,22 +255,18 @@ Singleton {
             }
 
             notification.tracked = true;
-            const newNotifObject = notifComponent.createObject(root, {
-                "id": notification.id + root.idOffset,
-                "notification": notification,
-                "time": Date.now()
-            });
+            const newNotifObject = notificationToObject(notification);
 
             // Usar Qt.callLater para evitar race conditions al actualizar la lista
             Qt.callLater(() => {
-                root.list = [...root.list, newNotifObject];
+                root.list = trimStoredNotifications([...root.list, newNotifObject]);
                 saveNotifications();
             });
 
             // Popup - ahora se muestra en el notch en lugar de popup window
             if (!root.popupInhibited) {
                 newNotifObject.popup = true;
-                newNotifObject.timer = notifTimerComponent.createObject(root, {
+                root.timersById[newNotifObject.id] = notifTimerComponent.createObject(root, {
                     "id": newNotifObject.id,
                     "interval": notification.expireTimeout < 0 ? 5000 : notification.expireTimeout // Aumentado para notch
                 });
@@ -328,11 +276,24 @@ Singleton {
         }
     }
 
+    function trimStoredNotifications(notifications) {
+        if (notifications.length <= root.maxStoredNotifications)
+            return notifications;
+
+        const sorted = notifications.slice(0).sort((a, b) => b.time - a.time);
+        const keepById = {};
+        sorted.slice(0, root.maxStoredNotifications).forEach(notif => {
+            keepById[notif.id] = true;
+        });
+        return notifications.filter(notif => keepById[notif.id]);
+    }
+
     function discardNotification(id) {
         const index = root.list.findIndex(notif => notif.id === id);
         const notifServerIndex = notifServer.trackedNotifications.values.findIndex(notif => notif.id + root.idOffset === id);
         if (index !== -1) {
             root.list.splice(index, 1);
+            destroyTimer(id);
             triggerListChange();
             saveNotifications();
         }
@@ -356,6 +317,7 @@ Singleton {
 
         if (removedCount > 0) {
             root.list = newList;
+            ids.forEach(id => destroyTimer(id));
             triggerListChange();
             saveNotifications();
         }
@@ -370,6 +332,7 @@ Singleton {
     }
 
     function discardAllNotifications() {
+        Object.keys(root.timersById).forEach(id => destroyTimer(id));
         root.list = [];
         triggerListChange();
         saveNotifications();
@@ -389,8 +352,10 @@ Singleton {
         property int notificationId: -1
         onTriggered: {
             const index = root.list.findIndex(notif => notif.id === notificationId);
-            if (index !== -1 && root.list[index] != null)
+            if (index !== -1 && root.list[index] != null) {
                 root.list[index].popup = false;
+                triggerListChange();
+            }
             root.timeout(notificationId);
         }
     }
@@ -407,7 +372,9 @@ Singleton {
         });
         root.popupList.forEach(notif => {
             notif.popup = false;
+            destroyTimer(notif.id);
         });
+        triggerListChange();
     }
 
     function attemptInvokeAction(id, notifIdentifier, autoDiscard = true) {
@@ -424,32 +391,36 @@ Singleton {
 
     function pauseGroupTimers(appName) {
         root.popupList.forEach(notif => {
-            if (notif.appName === appName && notif.timer) {
-                notif.timer.pause();
+            const timer = root.timersById[notif.id];
+            if (notif.appName === appName && timer) {
+                timer.pause();
             }
         });
     }
 
     function resumeGroupTimers(appName) {
         root.popupList.forEach(notif => {
-            if (notif.appName === appName && notif.timer) {
-                notif.timer.resume();
+            const timer = root.timersById[notif.id];
+            if (notif.appName === appName && timer) {
+                timer.resume();
             }
         });
     }
 
     function pauseAllTimers() {
         root.popupList.forEach(notif => {
-            if (notif.timer) {
-                notif.timer.pause();
+            const timer = root.timersById[notif.id];
+            if (timer) {
+                timer.pause();
             }
         });
     }
 
     function resumeAllTimers() {
         root.popupList.forEach(notif => {
-            if (notif.timer) {
-                notif.timer.resume();
+            const timer = root.timersById[notif.id];
+            if (timer) {
+                timer.resume();
             }
         });
     }
@@ -457,96 +428,22 @@ Singleton {
     function hideAllPopups() {
         root.popupList.forEach(notif => {
             notif.popup = false;
-            if (notif.timer) {
-                notif.timer.stop();
-                notif.timer.destroy();
-                notif.timer = null;
-            }
+            destroyTimer(notif.id);
         });
+        triggerListChange();
     }
 
     function triggerListChange() {
         root.list = root.list.slice(0);
     }
 
-    property int activeXhrCount: 0
-    property int maxConcurrentXhr: 3
-
-    function cacheImageAsBase64(imageUrl, callback) {
-        if (!imageUrl || imageUrl.startsWith("data:")) {
-            callback(imageUrl);
+    function destroyTimer(id) {
+        const timer = root.timersById[id];
+        if (!timer)
             return;
-        }
-
-        if (!imageUrl.startsWith("http://") && !imageUrl.startsWith("https://")) {
-            callback(imageUrl);
-            return;
-        }
-
-        if (imageUrl.length > 2048) {
-            callback(imageUrl);
-            return;
-        }
-
-        if (activeXhrCount >= maxConcurrentXhr) {
-            callback(imageUrl);
-            return;
-        }
-
-        activeXhrCount++;
-        var xhr = new XMLHttpRequest();
-        xhr.open("GET", imageUrl, true);
-        xhr.responseType = "arraybuffer";
-        xhr.timeout = 5000;
-
-        var cleanupXhr = function () {
-            activeXhrCount--;
-            xhr = null;
-        };
-
-        xhr.onload = function () {
-            if (xhr.status === 200 && xhr.response) {
-                try {
-                    var arrayBuffer = xhr.response;
-                    var bytes = new Uint8Array(arrayBuffer);
-                    var binary = '';
-                    var len = Math.min(bytes.byteLength, 1024 * 1024);
-                    for (var i = 0; i < len; i++) {
-                        binary += String.fromCharCode(bytes[i]);
-                    }
-                    var base64 = btoa(binary);
-
-                    var mimeType = "image/png";
-                    var lowerUrl = imageUrl.toLowerCase();
-                    if (lowerUrl.includes(".jpg") || lowerUrl.includes(".jpeg")) {
-                        mimeType = "image/jpeg";
-                    } else if (lowerUrl.includes(".gif")) {
-                        mimeType = "image/gif";
-                    } else if (lowerUrl.includes(".webp")) {
-                        mimeType = "image/webp";
-                    }
-
-                    callback("data:" + mimeType + ";base64," + base64);
-                } catch (e) {
-                    callback(imageUrl);
-                }
-            } else {
-                callback(imageUrl);
-            }
-            cleanupXhr();
-        };
-
-        xhr.onerror = function () {
-            callback(imageUrl);
-            cleanupXhr();
-        };
-
-        xhr.ontimeout = function () {
-            callback(imageUrl);
-            cleanupXhr();
-        };
-
-        xhr.send();
+        timer.stop();
+        timer.destroy();
+        delete root.timersById[id];
     }
 
     Component.onCompleted: {

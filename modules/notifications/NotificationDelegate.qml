@@ -135,8 +135,8 @@ Item {
                             Layout.alignment: Qt.AlignTop
                             size: onlyNotification ? 48 : 32
                             radius: Styling.radius(4)
-                            appIcon: latestNotification ? (latestNotification.cachedAppIcon || latestNotification.appIcon) : ""
-                            image: latestNotification ? (latestNotification.cachedImage || latestNotification.image) : ""
+                            appIcon: latestNotification ? latestNotification.appIcon : ""
+                            image: latestNotification ? latestNotification.image : ""
                             summary: latestNotification ? latestNotification.summary : ""
                             urgency: latestNotification ? latestNotification.urgency : NotificationUrgency.Normal
                         }
@@ -264,8 +264,8 @@ Item {
                             Layout.alignment: Qt.AlignTop
                             size: expanded ? 48 : 32
                             radius: Styling.radius(4)
-                            appIcon: latestNotification ? (latestNotification.cachedAppIcon || latestNotification.appIcon) : ""
-                            image: latestNotification ? (latestNotification.cachedImage || latestNotification.image) : ""
+                            appIcon: latestNotification ? latestNotification.appIcon : ""
+                            image: latestNotification ? latestNotification.image : ""
                             summary: latestNotification ? latestNotification.summary : ""
                             urgency: latestNotification ? latestNotification.urgency : NotificationUrgency.Normal
                         }

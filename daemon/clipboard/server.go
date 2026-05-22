@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -34,7 +33,7 @@ func newServer(db *DB, dataDir, socketPath string) *server {
 }
 
 func (s *server) broadcastItems() {
-	items, err := s.db.List()
+	items, err := s.db.List(defaultListLimit, 0)
 	if err != nil {
 		log.Printf("broadcastItems: %v", err)
 		return
@@ -130,17 +129,19 @@ func (s *server) handleConn(conn net.Conn) {
 }
 
 type cmd struct {
-	Cmd   string `json:"cmd"`
-	ID    string `json:"id"`
-	ID2   string `json:"id2"`
-	Alias string `json:"alias"`
-	ReqID string `json:"req_id"`
+	Cmd    string `json:"cmd"`
+	ID     string `json:"id"`
+	ID2    string `json:"id2"`
+	Alias  string `json:"alias"`
+	Limit  int    `json:"limit"`
+	Offset int    `json:"offset"`
+	ReqID  string `json:"req_id"`
 }
 
 func (s *server) handleCommand(line string) []byte {
 	var c cmd
 	if err := json.Unmarshal([]byte(line), &c); err != nil {
-		return errResp("invalid json: " + err.Error(), "")
+		return errResp("invalid json: "+err.Error(), "")
 	}
 
 	var data any
@@ -148,7 +149,7 @@ func (s *server) handleCommand(line string) []byte {
 
 	switch c.Cmd {
 	case "LIST":
-		data, err = s.db.List()
+		data, err = s.db.List(c.Limit, c.Offset)
 
 	case "GET_CONTENT":
 		data, err = s.db.GetFullContent(c.ID)
@@ -168,22 +169,6 @@ func (s *server) handleCommand(line string) []byte {
 
 	case "SET_ALIAS":
 		err = s.db.SetAlias(c.ID, c.Alias)
-
-	case "GET_IMAGE":
-		var path, mime string
-		path, mime, err = s.db.GetBinaryPath(c.ID)
-		if err == nil {
-			if path == "" {
-				err = fmt.Errorf("no binary path")
-			} else {
-				var b []byte
-				b, err = ReadImageFile(path, mime)
-				if err == nil {
-					encoded := base64.StdEncoding.EncodeToString(b)
-					data = "data:" + mime + ";base64," + encoded
-				}
-			}
-		}
 
 	case "SWAP":
 		err = s.db.SwapDisplayIndex(c.ID, c.ID2)

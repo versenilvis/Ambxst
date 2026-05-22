@@ -604,34 +604,6 @@ Item {
         }
     }
 
-    // Auto-decode thumbnails for visible images one by one to prevent thrashing
-    Timer {
-        id: thumbnailDecodeTimer
-        interval: 100
-        repeat: true
-        running: root.visible && root.allItems.length > 0 && !root.deleteMode && !root.aliasMode
-        onTriggered: {
-            // Wait for the current decoding process to finish
-            if (ClipboardService.loadImageProcess && ClipboardService.loadImageProcess.running) return;
-
-            // Find the first visible image that needs decoding
-            let contentY = Math.max(0, resultsList.contentY);
-            let startIndex = resultsList.indexAt(10, contentY + 10);
-            if (startIndex === -1) startIndex = 0;
-            
-            let endIndex = resultsList.indexAt(10, contentY + resultsList.height - 10);
-            if (endIndex === -1) endIndex = Math.min(startIndex + 15, root.allItems.length - 1);
-
-            for (let i = startIndex; i <= endIndex && i < root.allItems.length; i++) {
-                let item = root.allItems[i];
-                if (item && item.isImage && !ClipboardService.getImageData(item.id)) {
-                    ClipboardService.decodeToDataUrl(item.id, item.mime);
-                    return; // Process one at a time
-                }
-            }
-        }
-    }
-
     // Conexión para cargar imágenes cuando cambia la selección
     Connections {
         target: root
@@ -644,9 +616,7 @@ Item {
 
             if (root.selectedIndex >= 0 && root.selectedIndex < root.allItems.length) {
                 let item = root.allItems[root.selectedIndex];
-                if (item.isImage && !ClipboardService.getImageData(item.id)) {
-                    ClipboardService.decodeToDataUrl(item.id, item.mime);
-                } else if (!item.isImage) {
+                if (!item.isImage) {
                     // Obtener contenido completo para texto
                     ClipboardService.getFullContent(item.id);
                 }
@@ -1002,6 +972,12 @@ Item {
                     currentIndex: root.selectedIndex
 
                     property bool enableScrollAnimation: true
+
+                    onContentYChanged: {
+                        if (contentHeight > 0 && contentY + height >= contentHeight - 120) {
+                            ClipboardService.loadMore();
+                        }
+                    }
 
                     Behavior on contentY {
                         enabled: Config.animDuration > 0 && resultsList.enableScrollAnimation && !resultsList.moving
@@ -2172,10 +2148,8 @@ Item {
                                         asynchronous: true
                                         cache: true
                                         source: {
-                                            // Tie execution to revision to force refresh when decoded
-                                            var rev = ClipboardService.revision;
                                             if (iconBackground.iconType === "image" && modelData.id) {
-                                                return ClipboardService.getImageData(modelData.id) || "";
+                                                return ClipboardService.imageSource(modelData);
                                             }
                                             return "";
                                         }
@@ -2476,8 +2450,7 @@ Item {
                         source: {
                             if (previewPanel.currentItem) {
                                 if (previewPanel.currentItem.isImage && !isGifImage) {
-                                    ClipboardService.revision;
-                                    return ClipboardService.getImageData(previewPanel.currentItem.id);
+                                    return ClipboardService.imageSource(previewPanel.currentItem);
                                 } else if (isImageFile && !isGifImage) {
                                     var content = root.safeCurrentContent;
                                     var filePath = root.getFilePathFromUri(content);
@@ -2526,8 +2499,7 @@ Item {
                         source: {
                             if (previewPanel.currentItem && isGifImage) {
                                 if (previewPanel.currentItem.isImage) {
-                                    ClipboardService.revision;
-                                    return ClipboardService.getImageData(previewPanel.currentItem.id);
+                                    return ClipboardService.imageSource(previewPanel.currentItem);
                                 } else if (isImageFile) {
                                     var content = root.safeCurrentContent;
                                     var filePath = root.getFilePathFromUri(content);

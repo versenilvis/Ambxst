@@ -81,7 +81,7 @@ func checkAndInsert(ctx context.Context, db *DB, dataDir string) (bool, error) {
 	// 1. try file URI list
 	if content, err := wlPaste(ctx, "text/uri-list"); err == nil && content != "" {
 		content = strings.ReplaceAll(content, "\r", "")
-		return db.InsertText(content, "text/uri-list")
+		return db.InsertText(content, "text/uri-list", dataDir)
 	}
 
 	// 2. try image types
@@ -101,7 +101,7 @@ func checkAndInsert(ctx context.Context, db *DB, dataDir string) (bool, error) {
 	for _, mimeType := range []string{"text/plain;charset=utf-8", "text/plain"} {
 		if content, err := wlPaste(ctx, mimeType); err == nil && content != "" {
 			content = strings.ReplaceAll(content, "\r", "")
-			return db.InsertText(content, "text/plain")
+			return db.InsertText(content, "text/plain", dataDir)
 		}
 	}
 

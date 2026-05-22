@@ -8,10 +8,10 @@ QtObject {
 
     property bool active: true
     property var items: []
-    property var imageDataById: ({})
     property var linkPreviewCache: ({})
-    property int revision: 0
     property bool _operationInProgress: false
+    property int pageSize: 50
+    property bool hasMoreItems: false
 
     readonly property string dbPath: Quickshell.dataPath("clipboard.db")
     readonly property string binaryDataDir: Quickshell.dataPath("clipboard-data")
@@ -35,7 +35,7 @@ QtObject {
                 try {
                     var msg = JSON.parse(line);
                     if (msg.event === "DATA" && msg.items) {
-                        root._applyItems(msg.items);
+                        root._applyItems(msg.items, false);
                     }
                 } catch (e) {}
             }
@@ -92,26 +92,6 @@ QtObject {
         stderr: SplitParser { onRead: data => {} }
     }
 
-    property Process _getImageProcess: Process {
-        property string _itemId: ""
-        stdout: SplitParser {
-            onRead: data => {
-                var line = data.trim();
-                if (!line) return;
-                try {
-                    var msg = JSON.parse(line);
-                    if (msg.ok && msg.data) {
-                        root.imageDataById[_getImageProcess._itemId] = msg.data;
-                        root.revision++;
-                    }
-                } catch(e) {}
-            }
-        }
-        stderr: SplitParser { onRead: data => {} }
-    }
-
-    property Process loadImageProcess: _getImageProcess
-
     property Process linkPreviewProcess: Process {
         property string requestItemId: ""
         property string _out: ""
@@ -123,7 +103,6 @@ QtObject {
             if (exitCode === 0 && _out.trim().length > 0) {
                 var raw = _out.trim();
                 root.linkPreviewCache[requestItemId] = raw;
-                root.revision++;
                 try {
                     var meta = JSON.parse(raw);
                     root.linkPreviewFetched(meta.url || "", meta, requestItemId);
@@ -135,8 +114,8 @@ QtObject {
         }
     }
 
-    function _applyItems(jsonArray) {
-        if (jsonArray.length === root.items.length && jsonArray.length > 0) {
+    function _applyItems(jsonArray, append) {
+        if (!append && jsonArray.length === root.items.length && jsonArray.length > 0) {
             var first = jsonArray[0];
             var cur = root.items[0];
             if (cur && cur.hash === (first.content_hash || "") && cur.id === first.id.toString()) {
@@ -163,7 +142,6 @@ QtObject {
             clipboardItems.push({
                 id: item.id.toString(),
                 preview: preview,
-                fullContent: item.full_content || item.preview,
                 mime: item.mime_type,
                 isImage: item.is_image === 1,
                 isFile: isFile,
@@ -176,7 +154,8 @@ QtObject {
                 displayIndex: (item.display_index !== null && item.display_index !== undefined) ? item.display_index : -1
             });
         }
-        root.items = clipboardItems;
+        root.items = append ? root.items.concat(clipboardItems) : clipboardItems;
+        root.hasMoreItems = jsonArray.length >= root.pageSize;
         root.listCompleted();
         root._operationInProgress = false;
     }
@@ -188,6 +167,7 @@ QtObject {
 
     property Process _listProcess: Process {
         property string _out: ""
+        property bool _append: false
         stdout: SplitParser {
             onRead: data => {
                 var line = data.trim();
@@ -195,7 +175,7 @@ QtObject {
                 try {
                     var msg = JSON.parse(line);
                     if (msg.ok && msg.data) {
-                        root._applyItems(msg.data);
+                        root._applyItems(msg.data, _listProcess._append);
                     }
                 } catch(e) {}
             }
@@ -203,14 +183,21 @@ QtObject {
         stderr: SplitParser { onRead: data => {} }
     }
 
-    function _fetchListCmd() {
+    function _fetchListCmd(offset) {
         if (_listProcess.running) return;
-        _listProcess.command = [daemonPath, "-socket", socketPath, "-cmd", '{"cmd":"LIST"}'];
+        var listOffset = offset || 0;
+        _listProcess._append = listOffset > 0;
+        _listProcess.command = [daemonPath, "-socket", socketPath, "-cmd", '{"cmd":"LIST","limit":' + root.pageSize + ',"offset":' + listOffset + '}'];
         _listProcess.running = true;
     }
 
     function list() {
-        _fetchListCmd();
+        _fetchListCmd(0);
+    }
+
+    function loadMore() {
+        if (_listProcess.running || !root.hasMoreItems) return;
+        _fetchListCmd(root.items.length);
     }
 
     function remove(itemId) {
@@ -270,15 +257,9 @@ QtObject {
         _getContentProcess.running = true;
     }
 
-    function getImageData(itemId) {
-        return root.imageDataById[itemId] || null;
-    }
-
-    function decodeToDataUrl(itemId, mime) {
-        if (_getImageProcess.running) return;
-        _getImageProcess._itemId = itemId;
-        _getImageProcess.command = [daemonPath, "-socket", socketPath, "-cmd", '{"cmd":"GET_IMAGE","id":"' + itemId + '"}'];
-        _getImageProcess.running = true;
+    function imageSource(item) {
+        if (!item || !item.binaryPath) return "";
+        return "file://" + item.binaryPath;
     }
 
     function fetchLinkPreview(url, itemId) {
