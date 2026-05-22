@@ -288,7 +288,7 @@ brightness)
 				# Check if all values are 0 or very low (screen off state)
 				ALL_ZERO=true
 				while IFS=: read -r name bright; do
-					if [ -n "$bright" ] && [ "$bright" -gt 5 ]; then
+				if [ -n "$bright" ] && [ "$bright" -gt 15 ]; then
 						ALL_ZERO=false
 						break
 					fi
@@ -373,7 +373,7 @@ brightness)
 				# Check if all values are 0 or very low (screen off state)
 				ALL_ZERO=true
 				while IFS=: read -r name bright; do
-					if [ -n "$bright" ] && [ "$bright" -gt 5 ]; then
+					if [ -n "$bright" ] && [ "$bright" -gt 15 ]; then
 						ALL_ZERO=false
 						break
 					fi

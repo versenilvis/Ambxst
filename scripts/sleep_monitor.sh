@@ -35,7 +35,10 @@ while read -r line; do
         eval "$CMD" &
       fi
     elif echo "$arg_line" | grep -q "false"; then
-      # Waking up
+      # Waking up - restart wifi to force reconnect
+      (sleep 2 && nmcli radio wifi off && sleep 1 && nmcli radio wifi on) &
+      # Restore brightness after compositor stabilizes
+      (sleep 4 && ambxst brightness -r) &
       CMD=$(get_cmd "after")
       if [ ! -z "$CMD" ]; then
         eval "$CMD" &

@@ -129,8 +129,7 @@ Singleton {
             if (root.elapsedIdleTime >= tVal && !root.triggeredListeners.includes(i)) {
                 if (listener.onTimeout) {
                     console.log("Idle timer " + tVal + "s reached: " + listener.onTimeout);
-                    executionProc.command = ["sh", "-c", listener.onTimeout];
-                    executionProc.running = true;
+                    root.executeCommand(listener.onTimeout);
                     
                     // Activate cooldown to prevent immediate resume from listener-caused activity
                     root.resumeCooldown = true;
@@ -152,8 +151,7 @@ Singleton {
 
             if (listener && listener.onResume) {
                 console.log("Idle resuming (undoing " + (listener.timeout || 0) + "s): " + listener.onResume);
-                executionProc.command = ["sh", "-c", listener.onResume];
-                executionProc.running = true;
+                root.executeCommand(listener.onResume);
             }
         }
 
@@ -162,8 +160,12 @@ Singleton {
         root.triggeredListeners = [];
     }
 
-    // Shared process for command execution to avoid garbage collection issues
-    Process {
-        id: executionProc
+    function executeCommand(cmd) {
+        var proc = Qt.createQmlObject(
+            'import Quickshell.Io; Process { property string cmd; command: ["sh", "-c", cmd]; onExited: destroy() }',
+            root
+        );
+        proc.cmd = cmd;
+        proc.running = true;
     }
 }

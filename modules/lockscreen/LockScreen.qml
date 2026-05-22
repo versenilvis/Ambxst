@@ -26,15 +26,14 @@ WlSessionLockSurface {
     // Always transparent - blur background handles the visuals
     color: "transparent"
 
-    // Screen capture background (fondo absoluto con zoom sincronizado)
     ScreencopyView {
         id: screencopyBackground
         anchors.fill: parent
         captureSource: root.screen
         live: false
         paintCursor: false
-        visible: startAnim  // Visible solo cuando startAnim es true
-        z: 0  // Capa más baja - fondo absoluto
+        visible: startAnim
+        z: 0
 
         property real zoomScale: startAnim ? 1.25 : 1.0
 
@@ -54,14 +53,13 @@ WlSessionLockSurface {
         }
     }
 
-    // Wallpaper background (oculto - solo usado como source del MultiEffect)
     Image {
         id: wallpaperBackground
         anchors.fill: parent
         fillMode: Image.PreserveAspectCrop
         asynchronous: true
         smooth: true
-        visible: false  // Nunca visible directamente, solo a través del MultiEffect
+        visible: false
         z: 1
 
         property string lockscreenFramePath: {
@@ -81,7 +79,6 @@ WlSessionLockSurface {
         }
     }
 
-    // Blur effect
     MultiEffect {
         id: blurEffect
         anchors.fill: parent
@@ -721,21 +718,22 @@ WlSessionLockSurface {
         z: 100
     }
 
-    // Initialize when component is created (when lock becomes active)
     Component.onCompleted: {
-        // Start animations immediately
-        startAnim = true;
-        passwordInput.forceActiveFocus();
+        captureDelayTimer.start();
+    }
 
-        // Only capture screen if this lockscreen was just activated (within 1 second).
-        // This prevents ScreencopyView from crashing Hyprland/Quickshell when a monitor
-        // wakes from sleep while the system is already locked.
-        if (root.screen && (Date.now() - GlobalStates.lockscreenTimestamp < 1000)) {
+    Timer {
+        id: captureDelayTimer
+        interval: 200
+        repeat: false
+        onTriggered: {
             try {
                 screencopyBackground.captureFrame();
             } catch(e) {
                 console.warn("Failed to capture lockscreen frame:", e);
             }
+            startAnim = true;
+            passwordInput.forceActiveFocus();
         }
     }
 }
