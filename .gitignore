@@ -1,5 +1,4 @@
 .qmlls.ini
 .ruff_cache/
 scripts/__pycache__
-.agents
 checkerror.txt
