@@ -8,7 +8,25 @@ import qs.modules.globals
 QtObject {
     id: root
 
-    property Process hyprctlProcess: Process {}
+    property Process hyprctlProcess: Process {
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (text.trim() !== "") {
+                    console.log("hyprctl stdout: " + text.trim())
+                }
+            }
+        }
+        stderr: StdioCollector {
+            onStreamFinished: {
+                if (text.trim() !== "") {
+                    console.warn("hyprctl stderr: " + text.trim())
+                }
+            }
+        }
+        onExited: exitCode => {
+            console.log("hyprctl exited with code " + exitCode)
+        }
+    }
 
     property var previousAmbxstBinds: ({})
     property var previousCustomBinds: []
@@ -302,8 +320,8 @@ QtObject {
         // Combinar unbind y bind en un solo batch
         const fullBatchCommand = unbindCommands.join("; ") + "; " + batchCommands.join("; ");
 
-        console.log("HyprlandKeybinds: Ejecutando batch command");
-        hyprctlProcess.command = ["sh", "-c", `hyprctl --batch "${fullBatchCommand}"`];
+        console.log("applying keybinds directly via hyprctl")
+        hyprctlProcess.command = ["hyprctl", "--batch", fullBatchCommand];
         hyprctlProcess.running = true;
     }
 
@@ -320,6 +338,17 @@ QtObject {
         }
     }
 
+    // Re-apply keybindings after a delay to prevent startup overwrites
+    property Timer startupReapplyTimer: Timer {
+        id: startupReapplyTimer
+        interval: 2000
+        repeat: false
+        onTriggered: {
+            console.log("delayed re-applying keybindings after startup")
+            applyKeybinds();
+        }
+    }
+
     // Re-apply keybinds when layout changes
     property Connections globalStatesConnections: Connections {
         target: GlobalStates
@@ -330,6 +359,7 @@ QtObject {
         function onHyprlandLayoutReadyChanged() {
             if (GlobalStates.hyprlandLayoutReady) {
                 applyKeybinds();
+                startupReapplyTimer.start();
             }
         }
     }

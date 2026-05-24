@@ -731,10 +731,13 @@ WlSessionLockSurface {
         interval: 200
         repeat: false
         onTriggered: {
-            try {
-                screencopyBackground.captureFrame();
-            } catch(e) {
-                console.warn("Failed to capture lockscreen frame:", e);
+            // Only capture screen if this lockscreen was just activated
+            if (root.screen && GlobalStates.lockscreenTimestamp > 0 && (Date.now() - GlobalStates.lockscreenTimestamp < 2000)) {
+                try {
+                    screencopyBackground.captureFrame();
+                } catch(e) {
+                    console.warn("failed to capture lockscreen frame: " + e)
+                }
             }
             startAnim = true;
             passwordInput.forceActiveFocus();

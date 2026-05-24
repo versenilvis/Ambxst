@@ -6,6 +6,7 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
 import Quickshell.Hyprland
+import qs.modules.globals
 
 Singleton {
     id: root
@@ -13,6 +14,17 @@ Singleton {
     property var addresses: []
     property var windowByAddress: ({})
     property var monitors: []
+
+    // Update window list when Hyprland layout becomes ready
+    Connections {
+        target: GlobalStates
+
+        function onHyprlandLayoutReadyChanged() {
+            if (GlobalStates.hyprlandLayoutReady) {
+                root.updateWindowList()
+            }
+        }
+    }
 
     function updateWindowList() {
         getClients.running = true

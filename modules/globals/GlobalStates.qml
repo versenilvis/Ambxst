@@ -69,6 +69,24 @@ Singleton {
     }
 
     // Query current layout from Hyprland on startup
+    property int layoutQueryRetries: 0
+    readonly property int maxLayoutQueryRetries: 15
+
+    Timer {
+        id: layoutQueryRetryTimer
+        interval: 500
+        repeat: false
+        onTriggered: {
+            if (root.layoutQueryRetries < root.maxLayoutQueryRetries) {
+                root.layoutQueryRetries++;
+                layoutQueryProcess.running = true;
+            } else {
+                console.warn("max layout query retries reached, giving up")
+                root.hyprlandLayoutReady = true;
+            }
+        }
+    }
+
     Process {
         id: layoutQueryProcess
         command: ["hyprctl", "getoption", "general:layout", "-j"]
@@ -79,17 +97,30 @@ Singleton {
                     const parsed = JSON.parse(data);
                     if (parsed.str && root.availableLayouts.includes(parsed.str)) {
                         root.hyprlandLayout = parsed.str;
-                        console.log("GlobalStates: Layout inicial desde Hyprland: " + parsed.str);
+                        console.log("layout query succeeded: " + parsed.str)
+                        root.hyprlandLayoutReady = true;
                     }
                 } catch (e) {
-                    console.warn("GlobalStates: Error parsing layout from hyprctl: " + e);
+                    console.warn("error parsing layout from hyprctl: " + e)
                 }
-                root.hyprlandLayoutReady = true;
             }
         }
-        onExited: {
-            // Mark as ready even if parsing failed
-            root.hyprlandLayoutReady = true;
+        onExited: exitCode => {
+            if (root.hyprlandLayoutReady) {
+                return;
+            }
+            if (exitCode !== 0) {
+                console.warn("layoutQueryProcess failed with exitCode " + exitCode + ", retrying")
+                layoutQueryRetryTimer.restart();
+            } else {
+                // If it exited 0 but onRead didn't fire or parse correctly
+                Qt.callLater(() => {
+                    if (!root.hyprlandLayoutReady) {
+                        console.warn("layoutQueryProcess exited 0 but layout not ready, retrying")
+                        layoutQueryRetryTimer.restart();
+                    }
+                });
+            }
         }
     }
 
