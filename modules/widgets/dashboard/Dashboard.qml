@@ -306,13 +306,29 @@ NotchAnimationBehavior {
                 id: stack
                 anchors.fill: parent
 
-                // Components container for lazy loading
-                Component { id: widgetsTabComp; WidgetsTab { leftPanelWidth: root.leftPanelWidth } }
-                Component { id: wallpapersTabComp; WallpapersTab {} }
-                Component { id: metricsTabComp; MetricsTab {} }
-                Component { id: settingsTabComp; SettingsTab {} }
+                // Preload tab items to avoid instantiation lag on tab switch
+                WidgetsTab {
+                    id: widgetsTab
+                    leftPanelWidth: root.leftPanelWidth
+                    visible: false
+                }
 
-                readonly property var components: [widgetsTabComp, wallpapersTabComp, metricsTabComp, settingsTabComp]
+                WallpapersTab {
+                    id: wallpapersTab
+                    visible: false
+                }
+
+                MetricsTab {
+                    id: metricsTab
+                    visible: false
+                }
+
+                SettingsTab {
+                    id: settingsTab
+                    visible: false
+                }
+
+                readonly property var components: [widgetsTab, wallpapersTab, metricsTab, settingsTab]
                 initialItem: components[GlobalStates.dashboardCurrentTab]
 
                 // Handler for when the current item changes
