@@ -9,6 +9,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 QS_BIN="${AMBXST_QS:-qs}"
 NIXGL_BIN="${AMBXST_NIXGL:-}"
 
+export MALLOC_ARENA_MAX=2
+export QSG_RENDER_LOOP=basic
+
 if [ -z "${QML2_IMPORT_PATH:-}" ]; then
 	if command -v qs >/dev/null 2>&1; then
 		true
