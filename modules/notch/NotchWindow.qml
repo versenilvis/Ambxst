@@ -178,22 +178,26 @@ PanelWindow {
         DefaultView {}
     }
 
-    // Dashboard view component
-    Component {
-        id: dashboardViewComponent
-        DashboardView {}
+    // Lazy loaded views to save startup memory, cached on first use
+    Loader {
+        id: dashboardLoader
+        active: false
+        visible: false
+        sourceComponent: Component { DashboardView {} }
     }
 
-    // Power menu view component
-    Component {
-        id: powermenuViewComponent
-        PowerMenuView {}
+    Loader {
+        id: powermenuLoader
+        active: false
+        visible: false
+        sourceComponent: Component { PowerMenuView {} }
     }
 
-    // Tools menu view component
-    Component {
-        id: toolsMenuViewComponent
-        ToolsMenuView {}
+    Loader {
+        id: toolsMenuLoader
+        active: false
+        visible: false
+        sourceComponent: Component { ToolsMenuView {} }
     }
 
     // Notification view component
@@ -284,9 +288,6 @@ PanelWindow {
                 layer.effect: Shadow {}
 
                 defaultViewComponent: defaultViewComponent
-                dashboardViewComponent: dashboardViewComponent
-                powermenuViewComponent: powermenuViewComponent
-                toolsMenuViewComponent: toolsMenuViewComponent
                 notificationViewComponent: notificationViewComponent
                 visibilities: screenVisibilities
 
@@ -405,7 +406,10 @@ PanelWindow {
 
         function onDashboardChanged() {
             if (screenVisibilities.dashboard) {
-                notchContainer.stackView.push(dashboardViewComponent);
+                if (!dashboardLoader.active) {
+                    dashboardLoader.active = true;
+                }
+                notchContainer.stackView.push(dashboardLoader.item);
                 Qt.callLater(() => notchContainer.forceActiveFocus());
             } else {
                 if (notchContainer.stackView.depth > 1) {
@@ -418,7 +422,10 @@ PanelWindow {
 
         function onPowermenuChanged() {
             if (screenVisibilities.powermenu) {
-                notchContainer.stackView.push(powermenuViewComponent);
+                if (!powermenuLoader.active) {
+                    powermenuLoader.active = true;
+                }
+                notchContainer.stackView.push(powermenuLoader.item);
                 Qt.callLater(() => notchContainer.forceActiveFocus());
             } else {
                 if (notchContainer.stackView.depth > 1) {
@@ -431,7 +438,10 @@ PanelWindow {
 
         function onToolsChanged() {
             if (screenVisibilities.tools) {
-                notchContainer.stackView.push(toolsMenuViewComponent);
+                if (!toolsMenuLoader.active) {
+                    toolsMenuLoader.active = true;
+                }
+                notchContainer.stackView.push(toolsMenuLoader.item);
                 Qt.callLater(() => notchContainer.forceActiveFocus());
             } else {
                 if (notchContainer.stackView.depth > 1) {

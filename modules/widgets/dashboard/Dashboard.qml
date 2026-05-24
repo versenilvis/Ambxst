@@ -306,29 +306,39 @@ NotchAnimationBehavior {
                 id: stack
                 anchors.fill: parent
 
-                // Preload tab items to avoid instantiation lag on tab switch
-                WidgetsTab {
-                    id: widgetsTab
-                    leftPanelWidth: root.leftPanelWidth
+                // Lazy-load tab items on demand to optimize startup memory and cache for lifetime
+                Loader {
+                    id: widgetsTabLoader
+                    active: GlobalStates.dashboardCurrentTab === 0
                     visible: false
+                    sourceComponent: Component { WidgetsTab { leftPanelWidth: root.leftPanelWidth } }
+                    function focusSearchInput() { if (item) item.focusSearchInput(); }
                 }
 
-                WallpapersTab {
-                    id: wallpapersTab
+                Loader {
+                    id: wallpapersTabLoader
+                    active: GlobalStates.dashboardCurrentTab === 1
                     visible: false
+                    sourceComponent: Component { WallpapersTab {} }
+                    function focusSearchInput() { if (item) item.focusSearchInput(); }
                 }
 
-                MetricsTab {
-                    id: metricsTab
+                Loader {
+                    id: metricsTabLoader
+                    active: GlobalStates.dashboardCurrentTab === 2
                     visible: false
+                    sourceComponent: Component { MetricsTab {} }
                 }
 
-                SettingsTab {
-                    id: settingsTab
+                Loader {
+                    id: settingsTabLoader
+                    active: GlobalStates.dashboardCurrentTab === 3
                     visible: false
+                    sourceComponent: Component { SettingsTab {} }
+                    function focusSearchInput() { if (item) item.focusSearchInput(); }
                 }
 
-                readonly property var components: [widgetsTab, wallpapersTab, metricsTab, settingsTab]
+                readonly property var components: [widgetsTabLoader, wallpapersTabLoader, metricsTabLoader, settingsTabLoader]
                 initialItem: components[GlobalStates.dashboardCurrentTab]
 
                 // Handler for when the current item changes
@@ -343,9 +353,12 @@ NotchAnimationBehavior {
                 // Function to navigate to a specific tab
                 function navigateToTab(index) {
                     if (index >= 0 && index < components.length && index !== root.state.currentTab) {
-                        let targetItem = components[index];
+                        let targetLoader = components[index];
+                        if (!targetLoader.active) {
+                            targetLoader.active = true;
+                        }
                         let direction = index > root.state.currentTab ? StackView.PushTransition : StackView.PopTransition;
-                        stack.replace(targetItem, {}, direction);
+                        stack.replace(targetLoader, {}, direction);
 
                         if (root.state.currentTab === 0 && index !== 0) {
                             GlobalStates.clearLauncherState();
@@ -356,7 +369,7 @@ NotchAnimationBehavior {
 
                         if (index === 0) {
                             Notifications.hideAllPopups();
-                            if (typeof widgetsTab.focusSearchInput === "function")
+                            if (typeof widgetsTabLoader.focusSearchInput === "function")
                                 focusUnifiedLauncherTimer.restart();
                         }
                     }

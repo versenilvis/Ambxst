@@ -14,9 +14,6 @@ Item {
     z: 1000
 
     property Component defaultViewComponent
-    property Component dashboardViewComponent
-    property Component powermenuViewComponent
-    property Component toolsMenuViewComponent
     property Component notificationViewComponent
     property var stackView: stackViewInternal
     property bool isExpanded: stackViewInternal.depth > 1
