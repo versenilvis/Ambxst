@@ -23,6 +23,221 @@ Item {
     property var visibilities
     readonly property bool screenNotchOpen: visibilities ? (visibilities.dashboard || visibilities.powermenu || visibilities.tools) : false
     readonly property bool hasActiveNotifications: Notifications.popupList.length > 0
+    property bool notificationExpanded: false
+
+    onHasActiveNotificationsChanged: {
+        if (hasActiveNotifications) {
+            bounceAnimation.start()
+        } else {
+            triggerCollapseSpring()
+        }
+    }
+
+    SequentialAnimation {
+        id: bounceAnimation
+
+        ScriptAction {
+            script: {
+                // stop any active physics simulation
+                physicsTimer.stop()
+                notchRect.scaleX = 1.0
+                notchRect.scaleY = 1.0
+                notchRect.translateY = 0.0
+                notchRect.velScaleX = 0.0
+                notchRect.velScaleY = 0.0
+                notchRect.velTranslateY = 0.0
+            }
+        }
+
+        // squash down
+        ParallelAnimation {
+            NumberAnimation {
+                target: notchRect
+                property: "scaleX"
+                to: 1.22
+                duration: 150
+                easing.type: Easing.OutQuad
+            }
+            NumberAnimation {
+                target: notchRect
+                property: "scaleY"
+                to: 0.75
+                duration: 150
+                easing.type: Easing.OutQuad
+            }
+            NumberAnimation {
+                target: notchRect
+                property: "translateY"
+                to: 16
+                duration: 150
+                easing.type: Easing.OutQuad
+            }
+        }
+
+        // return to baseline and start expanding (balloon outwards)
+        ParallelAnimation {
+            NumberAnimation {
+                target: notchRect
+                property: "scaleX"
+                to: 1.08
+                duration: 220
+                easing.type: Easing.OutQuad
+            }
+            NumberAnimation {
+                target: notchRect
+                property: "scaleY"
+                to: 1.08
+                duration: 220
+                easing.type: Easing.OutQuad
+            }
+            NumberAnimation {
+                target: notchRect
+                property: "translateY"
+                to: 0
+                duration: 220
+                easing.type: Easing.OutQuad
+            }
+
+            ScriptAction {
+                script: {
+                    notchContainer.notificationExpanded = true
+                }
+            }
+        }
+
+        // shrink smaller than target size (jelly return phase 1)
+        ParallelAnimation {
+            NumberAnimation {
+                target: notchRect
+                property: "scaleX"
+                to: 0.97
+                duration: 180
+                easing.type: Easing.OutQuad
+            }
+            NumberAnimation {
+                target: notchRect
+                property: "scaleY"
+                to: 0.97
+                duration: 180
+                easing.type: Easing.OutQuad
+            }
+        }
+
+        // bounce back outwards (jelly return phase 2)
+        ParallelAnimation {
+            NumberAnimation {
+                target: notchRect
+                property: "scaleX"
+                to: 1.01
+                duration: 150
+                easing.type: Easing.OutQuad
+            }
+            NumberAnimation {
+                target: notchRect
+                property: "scaleY"
+                to: 1.01
+                duration: 150
+                easing.type: Easing.OutQuad
+            }
+        }
+
+        // settle to normal
+        ParallelAnimation {
+            NumberAnimation {
+                target: notchRect
+                property: "scaleX"
+                to: 1.0
+                duration: 150
+                easing.type: Easing.OutQuad
+            }
+            NumberAnimation {
+                target: notchRect
+                property: "scaleY"
+                to: 1.0
+                duration: 150
+                easing.type: Easing.OutQuad
+            }
+        }
+    }
+
+    function triggerCollapseSpring() {
+        // stop any active animations
+        bounceAnimation.stop()
+        physicsTimer.stop()
+
+        // trigger state collapse
+        notchContainer.notificationExpanded = false
+
+        // calculate width delta
+        let prevW = notchRect.width
+        let targetW = 180
+        let diffW = targetW - prevW
+
+        let intensity = 1.0
+
+        // apply spring velocity impulses
+        if (diffW < 0) {
+            notchRect.velScaleX = (diffW * 0.024) * intensity
+            notchRect.velScaleY = -(diffW * 0.016) * intensity
+            notchRect.velTranslateY = Math.abs(diffW) * 2.0 * intensity
+        }
+
+        physicsTimer.start()
+    }
+
+    Timer {
+        id: physicsTimer
+        interval: 16
+        repeat: true
+        running: false
+
+        onTriggered: {
+            let dt = 0.016
+            let tensionX = 60
+            let frictionX = 7
+            let tensionY = 60
+            let frictionY = 7
+            let tensionTransY = 190
+            let frictionTransY = 18
+
+            // scaleX spring solver
+            let dispX = notchRect.scaleX - 1.0
+            let forceX = -tensionX * dispX
+            let dampX = -frictionX * notchRect.velScaleX
+            let accelX = forceX + dampX
+            notchRect.velScaleX += accelX * dt
+            notchRect.scaleX += notchRect.velScaleX * dt
+
+            // scaleY spring solver
+            let dispY = notchRect.scaleY - 1.0
+            let forceY = -tensionY * dispY
+            let dampY = -frictionY * notchRect.velScaleY
+            let accelY = forceY + dampY
+            notchRect.velScaleY += accelY * dt
+            notchRect.scaleY += notchRect.velScaleY * dt
+
+            // translateY spring solver
+            let dispTransY = notchRect.translateY - 0.0
+            let forceTransY = -tensionTransY * dispTransY
+            let dampTransY = -frictionTransY * notchRect.velTranslateY
+            let accelTransY = forceTransY + dampTransY
+            notchRect.velTranslateY += accelTransY * dt
+            notchRect.translateY += notchRect.velTranslateY * dt
+
+            // check if settled
+            if (Math.abs(dispX) < 0.01 && Math.abs(notchRect.velScaleX) < 0.05 &&
+                Math.abs(dispY) < 0.01 && Math.abs(notchRect.velScaleY) < 0.05 &&
+                Math.abs(dispTransY) < 0.1 && Math.abs(notchRect.velTranslateY) < 0.2) {
+                notchRect.scaleX = 1.0
+                notchRect.scaleY = 1.0
+                notchRect.translateY = 0.0
+                notchRect.velScaleX = 0.0
+                notchRect.velScaleY = 0.0
+                notchRect.velTranslateY = 0.0
+                stop()
+            }
+        }
+    }
 
     property int defaultHeight: Config.showBackground ? (screenNotchOpen || hasActiveNotifications ? Math.max(stackContainer.height, 44) : 44) : (screenNotchOpen || hasActiveNotifications ? Math.max(stackContainer.height, 40) : 40)
     property int islandHeight: screenNotchOpen || hasActiveNotifications ? Math.max(stackContainer.height, 36) : 36
@@ -164,6 +379,25 @@ Item {
         anchors.centerIn: parent
         width: parent.implicitWidth - totalCornerWidth
         height: parent.implicitHeight
+
+        property real scaleX: 1.0
+        property real scaleY: 1.0
+        property real translateY: 0.0
+        property real velScaleX: 0.0
+        property real velScaleY: 0.0
+        property real velTranslateY: 0.0
+
+        transform: [
+            Scale {
+                origin.x: notchRect.width / 2
+                origin.y: notchRect.height / 2
+                xScale: notchRect.scaleX
+                yScale: notchRect.scaleY
+            },
+            Translate {
+                y: notchRect.translateY
+            }
+        ]
 
         property int defaultRadius: Config.roundness > 0 ? (screenNotchOpen || hasActiveNotifications ? Config.roundness + 20 : Config.roundness + 4) : 0
         property int islandRadius: Config.roundness > 0 ? (screenNotchOpen || hasActiveNotifications ? Config.roundness + 20 : Config.roundness + 4) : 0

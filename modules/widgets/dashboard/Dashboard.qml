@@ -306,42 +306,14 @@ NotchAnimationBehavior {
                 id: stack
                 anchors.fill: parent
 
-                // Lazy-load tab items on demand to optimize startup memory and cache for lifetime
-                Loader {
-                    id: widgetsTabLoader
-                    active: GlobalStates.dashboardCurrentTab === 0
-                    visible: false
-                    sourceComponent: Component { WidgetsTab { leftPanelWidth: root.leftPanelWidth } }
-                    function focusSearchInput() { if (item) item.focusSearchInput(); }
-                }
+                WidgetsTab { id: widgetsTabItem; leftPanelWidth: root.leftPanelWidth; visible: false }
+                WallpapersTab { id: wallpapersTabItem; visible: false }
+                MetricsTab { id: metricsTabItem; visible: false }
+                SettingsTab { id: settingsTabItem; visible: false }
 
-                Loader {
-                    id: wallpapersTabLoader
-                    active: GlobalStates.dashboardCurrentTab === 1
-                    visible: false
-                    sourceComponent: Component { WallpapersTab {} }
-                    function focusSearchInput() { if (item) item.focusSearchInput(); }
-                }
-
-                Loader {
-                    id: metricsTabLoader
-                    active: GlobalStates.dashboardCurrentTab === 2
-                    visible: false
-                    sourceComponent: Component { MetricsTab {} }
-                }
-
-                Loader {
-                    id: settingsTabLoader
-                    active: GlobalStates.dashboardCurrentTab === 3
-                    visible: false
-                    sourceComponent: Component { SettingsTab {} }
-                    function focusSearchInput() { if (item) item.focusSearchInput(); }
-                }
-
-                readonly property var components: [widgetsTabLoader, wallpapersTabLoader, metricsTabLoader, settingsTabLoader]
+                readonly property var components: [widgetsTabItem, wallpapersTabItem, metricsTabItem, settingsTabItem]
                 initialItem: components[GlobalStates.dashboardCurrentTab]
 
-                // Handler for when the current item changes
                 onCurrentItemChanged: {
                     if (currentItem) {
                         if (typeof currentItem.focusSearchInput === "function") {
@@ -350,15 +322,11 @@ NotchAnimationBehavior {
                     }
                 }
 
-                // Function to navigate to a specific tab
                 function navigateToTab(index) {
                     if (index >= 0 && index < components.length && index !== root.state.currentTab) {
-                        let targetLoader = components[index];
-                        if (!targetLoader.active) {
-                            targetLoader.active = true;
-                        }
+                        let targetItem = components[index];
                         let direction = index > root.state.currentTab ? StackView.PushTransition : StackView.PopTransition;
-                        stack.replace(targetLoader, {}, direction);
+                        stack.replace(targetItem, {}, direction);
 
                         if (root.state.currentTab === 0 && index !== 0) {
                             GlobalStates.clearLauncherState();
@@ -369,12 +337,11 @@ NotchAnimationBehavior {
 
                         if (index === 0) {
                             Notifications.hideAllPopups();
-                            if (typeof widgetsTabLoader.focusSearchInput === "function")
+                            if (typeof currentItem.focusSearchInput === "function")
                                 focusUnifiedLauncherTimer.restart();
                         }
                     }
                 }
-
 
                 pushEnter: Transition {
                     PropertyAnimation {
@@ -444,9 +411,10 @@ NotchAnimationBehavior {
                     }
                 }
 
-                // Gesture handling para swipe vertical
+                // gesture handling for vertical swipe (disabled to prevent blocking child inputs)
                 MouseArea {
                     anchors.fill: parent
+                    enabled: false
                     property real startY: 0
                     property real startX: 0
                     property bool swiping: false

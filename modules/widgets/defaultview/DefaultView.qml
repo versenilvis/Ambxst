@@ -13,8 +13,8 @@ Item {
 
     // Layout constants
     readonly property int notificationPadding: 16
-    readonly property int notificationPaddingBottom: Config.notchTheme === "island" ? 20 : 16
-    readonly property int notificationPaddingTop: 8
+    readonly property int notificationPaddingBottom: 12
+    readonly property int notificationPaddingTop: 12
 
     // State
     readonly property bool hasActiveNotifications: Notifications.popupList.length > 0
@@ -40,21 +40,31 @@ Item {
     }
 
     // Computed dimensions
-    readonly property real mainRowContentWidth: 200 + userInfo.width + separator1.width + separator2.width + notifIndicator.width + (mainRow.spacing * 4) + mainRowMargin
+    //     readonly property real mainRowContentWidth: 200 + userInfo.width + separator1.width + separator2.width + notifIndicator.width + (mainRow.spacing * 4) + mainRowMargin
+    readonly property real mainRowContentWidth: 180
     readonly property real mainRowHeight: Config.showBackground ? (Config.notchTheme === "island" ? 36 : 44) : (Config.notchTheme === "island" ? 36 : 40)
     readonly property real notificationMinWidth: expandedState ? 420 : 320
     readonly property real notificationContainerHeight: notificationView.implicitHeight + notificationPaddingTop + notificationPaddingBottom
 
-    implicitWidth: Math.round(hasActiveNotifications ? Math.max(notificationMinWidth + (notificationPadding * 2), mainRowContentWidth) : mainRowContentWidth)
+    implicitWidth: Math.round(notchContainer.notificationExpanded
+        ? Math.max(notificationMinWidth + (notificationPadding * 2), mainRowContentWidth)
+        : mainRowContentWidth)
 
-    implicitHeight: hasActiveNotifications ? mainRowHeight + notificationContainerHeight : mainRowHeight
+    implicitHeight: notchContainer.notificationExpanded ? notificationContainerHeight : mainRowHeight
 
     Behavior on implicitWidth {
         enabled: Config.animDuration > 0
         NumberAnimation {
-            duration: Config.animDuration
-            easing.type: Easing.OutBack
-            easing.overshoot: 1.2
+            duration: notchContainer.notificationExpanded ? Config.animDuration * 2.0 : Config.animDuration * 1.3
+            easing.type: Easing.OutQuart
+        }
+    }
+
+    Behavior on implicitHeight {
+        enabled: Config.animDuration > 0
+        NumberAnimation {
+            duration: notchContainer.notificationExpanded ? Config.animDuration * 2.0 : Config.animDuration * 1.3
+            easing.type: Easing.OutQuart
         }
     }
 
@@ -79,55 +89,61 @@ Item {
         }
     }
 
-    Column {
+    Item {
         anchors.fill: parent
-        spacing: 0
 
-        // mainRow container
+        // mainRow - ẩn khi có notification
         Row {
             id: mainRow
             anchors.horizontalCenter: parent.horizontalCenter
+            anchors.verticalCenter: parent.verticalCenter
             width: parent.width - mainRowMargin
             height: mainRowHeight
             spacing: 4
 
-            UserInfo {
-                id: userInfo
-                anchors.verticalCenter: parent.verticalCenter
+            opacity: hasActiveNotifications ? 0 : 1
+            visible: opacity > 0
+
+            Behavior on opacity {
+                enabled: Config.animDuration > 0
+                NumberAnimation {
+                    duration: hasActiveNotifications ? Config.animDuration * 0.2 : Config.animDuration
+                    easing.type: Easing.OutQuart
+                }
             }
 
-            Separator {
-                id: separator1
-                vert: true
-                anchors.verticalCenter: parent.verticalCenter
-            }
 
-            CompactPlayer {
-                anchors.verticalCenter: parent.verticalCenter
-                width: parent.width - userInfo.width - separator1.width - separator2.width - notifIndicator.width - (parent.spacing * 4)
-                height: 32
-                player: activePlayer
-                notchHovered: expandedState
-            }
-
-            Separator {
-                id: separator2
-                vert: true
-                anchors.verticalCenter: parent.verticalCenter
-            }
-
-            NotificationIndicator {
-                id: notifIndicator
-                anchors.verticalCenter: parent.verticalCenter
-            }
         }
 
-        // Notification container with its own padding
+        // notification container - drop xuống từ trên
         Item {
             id: notificationContainer
             width: parent.width
-            height: hasActiveNotifications ? notificationContainerHeight : 0
-            visible: hasActiveNotifications
+            height: notificationContainerHeight
+            anchors.verticalCenter: parent.verticalCenter
+
+            // drop từ trên xuống - sync với bung ra của notchRect
+            anchors.verticalCenterOffset: notchContainer.notificationExpanded ? 0 : -12
+
+            Behavior on anchors.verticalCenterOffset {
+                enabled: Config.animDuration > 0
+                NumberAnimation {
+                    duration: Config.animDuration
+                    easing.type: Easing.Bezier
+                    easing.bezierCurve: [0.175, 0.885, 0.32, 1.4, 1.0, 1.0]
+                }
+            }
+
+            opacity: notchContainer.notificationExpanded ? 1 : 0
+            visible: opacity > 0
+
+            Behavior on opacity {
+                enabled: Config.animDuration > 0
+                NumberAnimation {
+                    duration: notchContainer.notificationExpanded ? Config.animDuration * 0.35 : Config.animDuration * 0.5
+                    easing.type: Easing.OutQuart
+                }
+            }
 
             NotchNotificationView {
                 id: notificationView
@@ -136,18 +152,8 @@ Item {
                 anchors.leftMargin: notificationPadding
                 anchors.rightMargin: notificationPadding
                 anchors.bottomMargin: notificationPaddingBottom
-                visible: hasActiveNotifications
-                opacity: visible ? 1 : 0
                 notchHovered: expandedState
                 onIsNavigatingChanged: root.isNavigating = isNavigating
-
-                Behavior on opacity {
-                    enabled: Config.animDuration > 0
-                    NumberAnimation {
-                        duration: Config.animDuration
-                        easing.type: Easing.OutQuart
-                    }
-                }
             }
         }
     }

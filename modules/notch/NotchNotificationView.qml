@@ -368,6 +368,7 @@ Item {
                     Item {
                         width: notificationStack.width
                         implicitHeight: notificationContent.implicitHeight
+                        height: implicitHeight
 
                         property var notification
 
@@ -390,6 +391,7 @@ Item {
                                 width: parent.width
                                 property int criticalMargins: hovered && notification && notification.urgency == NotificationUrgency.Critical ? 16 : 0
                                 implicitHeight: mainContentRow.implicitHeight + (criticalMargins * 2)
+                                height: implicitHeight
 
                                 Behavior on criticalMargins {
                                     enabled: Config.animDuration > 0
@@ -420,6 +422,7 @@ Item {
                                     // Contenido principal
                                     RowLayout {
                                         Layout.fillWidth: true
+                                        Layout.alignment: Qt.AlignVCenter
                                         spacing: 8
 
                                         // App icon
@@ -428,7 +431,7 @@ Item {
                                             property int iconSize: hovered ? 48 : 32
                                             Layout.preferredWidth: iconSize
                                             Layout.preferredHeight: iconSize
-                                            Layout.alignment: Qt.AlignTop
+                                            Layout.alignment: hovered ? Qt.AlignTop : Qt.AlignVCenter
                                             size: iconSize
                                             radius: Styling.radius(4)
                                             appIcon: notification ? notification.appIcon : ""
@@ -450,6 +453,7 @@ Item {
                                             id: textContainer
                                             Layout.fillWidth: true
                                             implicitHeight: hovered ? textColumnExpanded.implicitHeight : textRowCollapsed.implicitHeight
+                                            height: implicitHeight
 
                                             Column {
                                                 id: textColumnExpanded
@@ -543,6 +547,7 @@ Item {
                                             Row {
                                                 id: textRowCollapsed
                                                 width: parent.width
+                                                height: parent.height
                                                 spacing: 4
                                                 visible: !hovered
 
@@ -564,6 +569,7 @@ Item {
                                                     maximumLineCount: 1
                                                     wrapMode: Text.NoWrap
                                                     verticalAlignment: Text.AlignVCenter
+                                                    anchors.verticalCenter: parent.verticalCenter
                                                 }
 
                                                 Text {
@@ -574,6 +580,7 @@ Item {
                                                     font.weight: Font.Bold
                                                     color: notification && notification.urgency == NotificationUrgency.Critical ? Colors.criticalText : Colors.outline
                                                     verticalAlignment: Text.AlignVCenter
+                                                    anchors.verticalCenter: parent.verticalCenter
                                                     visible: notification && notification.body && notification.body.length > 0
                                                 }
 
@@ -595,6 +602,7 @@ Item {
                                                     elide: Text.ElideRight
                                                     maximumLineCount: 1
                                                     verticalAlignment: Text.AlignVCenter
+                                                    anchors.verticalCenter: parent.verticalCenter
                                                     visible: text.length > 0
                                                 }
                                             }

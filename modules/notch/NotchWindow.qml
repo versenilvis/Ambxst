@@ -178,26 +178,20 @@ PanelWindow {
         DefaultView {}
     }
 
-    // Lazy loaded views to save startup memory, cached on first use
-    Loader {
-        id: dashboardLoader
-        active: false
+    // preloaded views to avoid frame drops and lag on first open
+    DashboardView {
+        id: dashboardView
         visible: false
-        sourceComponent: Component { DashboardView {} }
     }
 
-    Loader {
-        id: powermenuLoader
-        active: false
+    PowerMenuView {
+        id: powermenuView
         visible: false
-        sourceComponent: Component { PowerMenuView {} }
     }
 
-    Loader {
-        id: toolsMenuLoader
-        active: false
+    ToolsMenuView {
+        id: toolsMenuView
         visible: false
-        sourceComponent: Component { ToolsMenuView {} }
     }
 
     // Notification view component
@@ -406,10 +400,7 @@ PanelWindow {
 
         function onDashboardChanged() {
             if (screenVisibilities.dashboard) {
-                if (!dashboardLoader.active) {
-                    dashboardLoader.active = true;
-                }
-                notchContainer.stackView.push(dashboardLoader.item);
+                notchContainer.stackView.push(dashboardView);
                 Qt.callLater(() => notchContainer.forceActiveFocus());
             } else {
                 if (notchContainer.stackView.depth > 1) {
@@ -422,10 +413,7 @@ PanelWindow {
 
         function onPowermenuChanged() {
             if (screenVisibilities.powermenu) {
-                if (!powermenuLoader.active) {
-                    powermenuLoader.active = true;
-                }
-                notchContainer.stackView.push(powermenuLoader.item);
+                notchContainer.stackView.push(powermenuView);
                 Qt.callLater(() => notchContainer.forceActiveFocus());
             } else {
                 if (notchContainer.stackView.depth > 1) {
@@ -438,10 +426,7 @@ PanelWindow {
 
         function onToolsChanged() {
             if (screenVisibilities.tools) {
-                if (!toolsMenuLoader.active) {
-                    toolsMenuLoader.active = true;
-                }
-                notchContainer.stackView.push(toolsMenuLoader.item);
+                notchContainer.stackView.push(toolsMenuView);
                 Qt.callLater(() => notchContainer.forceActiveFocus());
             } else {
                 if (notchContainer.stackView.depth > 1) {
