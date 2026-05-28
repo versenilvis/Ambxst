@@ -12,7 +12,6 @@ import qs.modules.services
 import qs.config
 import "../clipboard"
 import "../emoji"
-import "../tmux"
 import "../notes"
 import "calendar"
 
@@ -23,7 +22,7 @@ Rectangle {
 
     property int leftPanelWidth: 0
 
-    property int currentTab: GlobalStates.widgetsTabCurrentIndex  // 0=launcher, 1=clip, 2=emoji, 3=tmux, 4=notes
+    property int currentTab: GlobalStates.widgetsTabCurrentIndex  // 0=launcher, 1=clip, 2=emoji, 3=notes
     property bool prefixDisabled: false  // Flag to prevent re-activation after backspace
 
     // Sync with GlobalStates
@@ -56,16 +55,15 @@ Rectangle {
     function detectPrefix(text) {
         let clipPrefix = Config.prefix.clipboard + " ";
         let emojiPrefix = Config.prefix.emoji + " ";
-        let tmuxPrefix = Config.prefix.tmux + " ";
         let notesPrefix = Config.prefix.notes + " ";
 
         // If prefix was manually disabled, don't re-enable until conditions are met
         if (prefixDisabled) {
             // Only re-enable prefix if user deletes the prefix text or adds valid content
-            if (text === clipPrefix || text === emojiPrefix || text === tmuxPrefix || text === notesPrefix) {
+            if (text === clipPrefix || text === emojiPrefix || text === notesPrefix) {
                 // Still at exact prefix - keep disabled
                 return 0;
-            } else if (!text.startsWith(clipPrefix) && !text.startsWith(emojiPrefix) && !text.startsWith(tmuxPrefix) && !text.startsWith(notesPrefix)) {
+            } else if (!text.startsWith(clipPrefix) && !text.startsWith(emojiPrefix) && !text.startsWith(notesPrefix)) {
                 // User deleted the prefix - re-enable detection
                 prefixDisabled = false;
                 return 0;
@@ -80,10 +78,8 @@ Rectangle {
             return 1;
         } else if (text === emojiPrefix) {
             return 2;
-        } else if (text === tmuxPrefix) {
-            return 3;
         } else if (text === notesPrefix) {
-            return 4;
+            return 3;
         }
         return 0;
     }
@@ -248,8 +244,6 @@ Rectangle {
                             prefixLength = Config.prefix.clipboard.length + 1;
                         else if (searchText.startsWith(Config.prefix.emoji + " "))
                             prefixLength = Config.prefix.emoji.length + 1;
-                        else if (searchText.startsWith(Config.prefix.tmux + " "))
-                            prefixLength = Config.prefix.tmux.length + 1;
                         else if (searchText.startsWith(Config.prefix.notes + " "))
                             prefixLength = Config.prefix.notes.length + 1;
 
@@ -265,8 +259,6 @@ Rectangle {
                             } else if (detectedTab === 2) {
                                 targetLoader = emojiLoader;
                             } else if (detectedTab === 3) {
-                                targetLoader = tmuxLoader;
-                            } else if (detectedTab === 4) {
                                 targetLoader = notesLoader;
                             }
 
@@ -1117,35 +1109,12 @@ Rectangle {
                 }
             }
 
-            // Tab 3: Tmux (with prefix from config)
-            Loader {
-                id: tmuxLoader
-                active: currentTab === 3
-                sourceComponent: Component {
-                    TmuxTab {
-                        leftPanelWidth: root.leftPanelWidth
-                        prefixIcon: Icons.terminal
-                        onBackspaceOnEmpty: {
-                            prefixDisabled = true;
-                            currentTab = 0;
-                            GlobalStates.launcherSearchText = Config.prefix.tmux + " ";
-                            appLauncher.focusSearchInput();
-                        }
-                    }
-                }
-                onLoaded: {
-                    if (currentTab === 3 && item && item.focusSearchInput) {
-                        Qt.callLater(() => item.focusSearchInput());
-                    }
-                }
-            }
-
-            // Tab 4: Notes (with prefix from config)
+            // Tab 3: Notes (with prefix from config)
             Loader {
                 id: notesLoader
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                active: currentTab === 4
+                active: currentTab === 3
                 sourceComponent: Component {
                     NotesTab {
                         anchors.fill: parent
@@ -1160,7 +1129,7 @@ Rectangle {
                     }
                 }
                 onLoaded: {
-                    if (currentTab === 4 && item && item.focusSearchInput) {
+                    if (currentTab === 3 && item && item.focusSearchInput) {
                         Qt.callLater(() => item.focusSearchInput());
                     }
                 }

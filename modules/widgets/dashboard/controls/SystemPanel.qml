@@ -189,15 +189,6 @@ Item {
                             }
                         }
 
-                        // Tmux prefix
-                        PrefixRow {
-                            Layout.fillWidth: true
-                            label: "Tmux"
-                            prefixValue: Config.prefix.tmux
-                            onPrefixEdited: newValue => {
-                                Config.prefix.tmux = newValue;
-                            }
-                        }
 
                         // Wallpapers prefix
                         PrefixRow {

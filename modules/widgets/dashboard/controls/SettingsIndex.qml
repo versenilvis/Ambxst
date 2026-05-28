@@ -63,7 +63,6 @@ QtObject {
         { label: "Widgets Keybind", keywords: "dashboard shortcut super", section: 5, subSection: "", subLabel: "Binds > Ambxst", icon: Icons.keyboard, isIcon: true },
         { label: "Clipboard Keybind", keywords: "copy paste shortcut super v", section: 5, subSection: "", subLabel: "Binds > Ambxst", icon: Icons.keyboard, isIcon: true },
         { label: "Emoji Keybind", keywords: "picker shortcut super period", section: 5, subSection: "", subLabel: "Binds > Ambxst", icon: Icons.keyboard, isIcon: true },
-        { label: "Tmux Keybind", keywords: "terminal shortcut", section: 5, subSection: "", subLabel: "Binds > Ambxst", icon: Icons.keyboard, isIcon: true },
         { label: "Wallpapers Keybind", keywords: "background shortcut super comma", section: 5, subSection: "", subLabel: "Binds > Ambxst", icon: Icons.keyboard, isIcon: true },
         { label: "Notes Keybind", keywords: "note shortcut super n", section: 5, subSection: "", subLabel: "Binds > Ambxst", icon: Icons.keyboard, isIcon: true },
         { label: "Overview Keybind", keywords: "workspace shortcut super tab", section: 5, subSection: "", subLabel: "Binds > Ambxst", icon: Icons.keyboard, isIcon: true },
@@ -81,7 +80,6 @@ QtObject {
         { label: "Prefixes", keywords: "shortcuts launcher quick actions", section: 6, subSection: "prefixes", subLabel: "System > Prefixes", icon: Icons.keyboard, isIcon: true },
         { label: "Clipboard Prefix", keywords: "cc copy paste launcher", section: 6, subSection: "prefixes", subLabel: "System > Prefixes", icon: Icons.keyboard, isIcon: true },
         { label: "Emoji Prefix", keywords: "ee picker launcher", section: 6, subSection: "prefixes", subLabel: "System > Prefixes", icon: Icons.keyboard, isIcon: true },
-        { label: "Tmux Prefix", keywords: "tt terminal launcher", section: 6, subSection: "prefixes", subLabel: "System > Prefixes", icon: Icons.keyboard, isIcon: true },
         { label: "Wallpapers Prefix", keywords: "ww background launcher", section: 6, subSection: "prefixes", subLabel: "System > Prefixes", icon: Icons.keyboard, isIcon: true },
         { label: "Notes Prefix", keywords: "nn note launcher", section: 6, subSection: "prefixes", subLabel: "System > Prefixes", icon: Icons.keyboard, isIcon: true },
         

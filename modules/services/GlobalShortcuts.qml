@@ -39,7 +39,6 @@ Item {
             case "dashboard-controls": toggleDashboardTab(3); break;
             case "dashboard-clipboard": toggleDashboardWithPrefix(Config.prefix.clipboard + " "); break;
             case "dashboard-emoji": toggleDashboardWithPrefix(Config.prefix.emoji + " "); break;
-            case "dashboard-tmux": toggleDashboardWithPrefix(Config.prefix.tmux + " "); break;
             case "dashboard-notes": toggleDashboardWithPrefix(Config.prefix.notes + " "); break;
             
             // System
@@ -246,13 +245,6 @@ Item {
         onPressed: toggleDashboardWithPrefix(Config.prefix.emoji + " ")
     }
 
-    GlobalShortcut {
-        appid: root.appId
-        name: "dashboard-tmux"
-        description: "Open dashboard tmux sessions (via prefix)"
-
-        onPressed: toggleDashboardWithPrefix(Config.prefix.tmux + " ")
-    }
 
     GlobalShortcut {
         appid: root.appId
