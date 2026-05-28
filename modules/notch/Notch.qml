@@ -165,21 +165,21 @@ Item {
         bounceAnimation.stop()
         physicsTimer.stop()
 
-        // trigger state collapse
-        notchContainer.notificationExpanded = false
-
-        // calculate width delta
+        // calculate width delta before state change to ensure we get the expanded size
         let prevW = notchRect.width
         let targetW = 180
         let diffW = targetW - prevW
+
+        // trigger state collapse
+        notchContainer.notificationExpanded = false
 
         let intensity = 1.0
 
         // apply spring velocity impulses
         if (diffW < 0) {
-            notchRect.velScaleX = (diffW * 0.024) * intensity
-            notchRect.velScaleY = -(diffW * 0.016) * intensity
-            notchRect.velTranslateY = Math.abs(diffW) * 2.0 * intensity
+            notchRect.velScaleX = (diffW * 0.035) * intensity
+            notchRect.velScaleY = -(diffW * 0.022) * intensity
+            notchRect.velTranslateY = Math.abs(diffW) * 2.8 * intensity
         }
 
         physicsTimer.start()
