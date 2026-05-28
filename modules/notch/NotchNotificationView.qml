@@ -544,65 +544,37 @@ Item {
                                                 }
                                             }
 
-                                            Row {
+                                            ColumnLayout {
                                                 id: textRowCollapsed
                                                 width: parent.width
-                                                height: parent.height
-                                                spacing: 4
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                spacing: 1
                                                 visible: !hovered
 
                                                 Text {
                                                     id: summaryCollapsed
-                                                    property real combinedImplicitWidth: implicitWidth + (bodyCollapsed.visible ? bodyCollapsed.implicitWidth + bulletCollapsed.implicitWidth + parent.spacing * 2 : 0)
-                                                    width: {
-                                                        if (combinedImplicitWidth <= parent.width) {
-                                                            return implicitWidth;
-                                                        }
-                                                        return parent.width - (bodyCollapsed.visible ? bodyCollapsed.width + bulletCollapsed.width + parent.spacing * 2 : 0);
-                                                    }
                                                     text: notification ? notification.summary : ""
                                                     font.family: Config.theme.font
-                                                    font.pixelSize: Config.theme.fontSize
+                                                    font.pixelSize: Config.theme.fontSize + 1
                                                     font.weight: Font.Bold
                                                     color: notification && notification.urgency == NotificationUrgency.Critical ? Colors.criticalText : Styling.srItem("overprimary")
                                                     elide: Text.ElideRight
                                                     maximumLineCount: 1
-                                                    wrapMode: Text.NoWrap
+                                                    Layout.fillWidth: true
                                                     verticalAlignment: Text.AlignVCenter
-                                                    anchors.verticalCenter: parent.verticalCenter
-                                                }
-
-                                                Text {
-                                                    id: bulletCollapsed
-                                                    text: "•"
-                                                    font.family: Config.theme.font
-                                                    font.pixelSize: Config.theme.fontSize
-                                                    font.weight: Font.Bold
-                                                    color: notification && notification.urgency == NotificationUrgency.Critical ? Colors.criticalText : Colors.outline
-                                                    verticalAlignment: Text.AlignVCenter
-                                                    anchors.verticalCenter: parent.verticalCenter
-                                                    visible: notification && notification.body && notification.body.length > 0
                                                 }
 
                                                 Text {
                                                     id: bodyCollapsed
-                                                    property real availableWidth: parent.width - summaryCollapsed.implicitWidth - (visible ? bulletCollapsed.implicitWidth + parent.spacing * 2 : 0)
-                                                    width: {
-                                                        if (summaryCollapsed.combinedImplicitWidth <= parent.width) {
-                                                            return implicitWidth;
-                                                        }
-                                                        return Math.min(implicitWidth, Math.max(60, availableWidth, parent.width * 0.3));
-                                                    }
-                                                    text: notification ? processNotificationBody(notification.body || "").replace(/\n/g, ' ') : ""
+                                                    text: notification ? processNotificationBody(notification.body || "", notification.appName).replace(/\n/g, ' ') : ""
                                                     font.family: Config.theme.font
                                                     font.pixelSize: Config.theme.fontSize
                                                     font.weight: notification && notification.urgency == NotificationUrgency.Critical ? Font.Bold : Font.Normal
-                                                    color: notification && notification.urgency == NotificationUrgency.Critical ? Colors.criticalText : Colors.overBackground
-                                                    wrapMode: Text.NoWrap
+                                                    color: notification && notification.urgency == NotificationUrgency.Critical ? Colors.criticalText : Colors.outline
                                                     elide: Text.ElideRight
                                                     maximumLineCount: 1
+                                                    Layout.fillWidth: true
                                                     verticalAlignment: Text.AlignVCenter
-                                                    anchors.verticalCenter: parent.verticalCenter
                                                     visible: text.length > 0
                                                 }
                                             }
@@ -847,28 +819,27 @@ Item {
         }
     }
 
-    // Función auxiliar para procesar el cuerpo de la notificación
     function processNotificationBody(body, appName) {
         if (!body)
             return "";
 
         let processedBody = body;
 
-        // Limpiar notificaciones de navegadores basados en Chromium
-        if (appName) {
+        // clean up leading html links and domains
+        const lines = body.split(/\n+/);
+        if (lines.length > 1 && (lines[0].trim().startsWith('<a') || lines[0].trim().startsWith('http://') || lines[0].trim().startsWith('https://'))) {
+            processedBody = lines.slice(1).join('\n');
+        } else if (appName) {
             const lowerApp = appName.toLowerCase();
-            const chromiumBrowsers = ["brave", "chrome", "chromium", "vivaldi", "opera", "microsoft edge"];
+            const browsers = ["brave", "chrome", "chromium", "vivaldi", "opera", "edge", "helium", "zen", "firefox"];
 
-            if (chromiumBrowsers.some(name => lowerApp.includes(name))) {
-                const lines = body.split('\n\n');
-
-                if (lines.length > 1 && lines[0].startsWith('<a')) {
-                    processedBody = lines.slice(1).join('\n\n');
+            if (browsers.some(name => lowerApp.includes(name))) {
+                if (lines.length > 1 && lines[0].trim().startsWith('<a')) {
+                    processedBody = lines.slice(1).join('\n');
                 }
             }
         }
 
-        // No reemplazar saltos de línea con espacios
         return processedBody;
     }
 }
