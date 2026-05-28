@@ -270,6 +270,7 @@ Singleton {
                     "id": newNotifObject.id,
                     "interval": notification.expireTimeout <= 0 ? 5000 : notification.expireTimeout // use default timeout if app sends 0 or less
                 });
+
             }
 
             root.notify(newNotifObject);

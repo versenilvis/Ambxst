@@ -6,6 +6,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Wayland
+import Quickshell.Io
 import qs.modules.bar
 import qs.modules.bar.workspaces
 import qs.modules.notifications
@@ -299,6 +300,19 @@ ShellRoot {
             _ = IdleService.lockCmd // Force init
             _ = WeatherService.dataAvailable
             _ = SystemResources.cpuUsage
+        }
+    }
+
+    Connections {
+        target: Notifications
+        function onNotify(notification) {
+            if (!Notifications.popupInhibited) {
+                // play sound for incoming notifications
+                var p = Qt.createQmlObject('import Quickshell.Io; Process {}', Qt.application)
+                p.command = ["mpv", "--no-video", "--volume=40", Quickshell.env("HOME") + "/Ambxst/assets/notification/ringtone.mp3"]
+                p.onExited.connect(function() { p.destroy() })
+                p.running = true           
+            }
         }
     }
 }
