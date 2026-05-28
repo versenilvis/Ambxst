@@ -1525,7 +1525,6 @@ Item {
                                 Layout.preferredHeight: 44
                                 variant: dispatcherInput.activeFocus ? "focus" : "common"
                                 radius: Styling.radius(-2)
-                                opacity: root.isEditingAmbxst ? 0.6 : 1.0
 
                                 TextInput {
                                     id: dispatcherInput
@@ -1537,7 +1536,6 @@ Item {
                                     color: Colors.overBackground
                                     verticalAlignment: Text.AlignVCenter
                                     selectByMouse: true
-                                    readOnly: root.isEditingAmbxst
                                     onTextChanged: {
                                         if (root.editActions.length > root.currentActionPage) {
                                             const currentAction = root.editActions[root.currentActionPage];
@@ -1575,7 +1573,6 @@ Item {
                                 Layout.preferredHeight: 44
                                 variant: argumentInput.activeFocus ? "focus" : "common"
                                 radius: Styling.radius(-2)
-                                opacity: root.isEditingAmbxst ? 0.6 : 1.0
 
                                 TextInput {
                                     id: argumentInput
@@ -1587,7 +1584,6 @@ Item {
                                     color: Colors.overBackground
                                     verticalAlignment: Text.AlignVCenter
                                     selectByMouse: true
-                                    readOnly: root.isEditingAmbxst
                                     onTextChanged: {
                                         if (root.editActions.length > root.currentActionPage) {
                                             const currentAction = root.editActions[root.currentActionPage];
