@@ -1381,7 +1381,7 @@ Singleton {
                         property list<string> modifiers: ["SUPER"]
                         property string key: "T"
                         property string dispatcher: "exec"
-                        property string argument: "ambxst run dashboard-tmux"
+                        property string argument: "ghostty"
                     }
                     property JsonObject wallpapers: JsonObject {
                         property list<string> modifiers: ["SUPER"]
@@ -1483,7 +1483,7 @@ Singleton {
                     "clipboard": { "modifiers": ["SUPER"], "key": "V", "dispatcher": "exec", "argument": "ambxst run dashboard-clipboard", "flags": "" },
                     "emoji": { "modifiers": ["SUPER"], "key": "PERIOD", "dispatcher": "exec", "argument": "ambxst run dashboard-emoji", "flags": "" },
                     "notes": { "modifiers": ["SUPER"], "key": "N", "dispatcher": "exec", "argument": "ambxst run dashboard-notes", "flags": "" },
-                    "tmux": { "modifiers": ["SUPER"], "key": "T", "dispatcher": "exec", "argument": "ambxst run dashboard-tmux", "flags": "" },
+                    "tmux": { "modifiers": ["SUPER"], "key": "T", "dispatcher": "exec", "argument": "ghostty", "flags": "" },
                     "wallpapers": { "modifiers": ["SUPER"], "key": "COMMA", "dispatcher": "exec", "argument": "ambxst run dashboard-wallpapers", "flags": "" },
                     "widgets": { "modifiers": ["SUPER"], "key": "Super_L", "dispatcher": "exec", "argument": "ambxst run dashboard-widgets", "flags": "r" }
                 },
