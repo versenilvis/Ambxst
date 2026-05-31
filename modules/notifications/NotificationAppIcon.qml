@@ -90,13 +90,13 @@ ClippingRectangle {
                 Image {
                     id: notifImage
                     anchors.fill: parent
-                    source: status === Image.Error && root.appIcon ? "image://icon/" + root.appIcon : root.image
+                    source: root.image
                     fillMode: Image.PreserveAspectCrop
                     smooth: true
                     onStatusChanged: {
-                        if (status === Image.Error && root.appIcon) {
-                            source = "image://icon/" + root.appIcon;
+                        if (status === Image.Error && root.appIcon && !usingAppIconFallback) {
                             usingAppIconFallback = true;
+                            source = "image://icon/" + root.appIcon;
                         }
                     }
                 }

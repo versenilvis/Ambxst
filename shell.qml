@@ -261,16 +261,7 @@ ShellRoot {
                 }
             }
         }
-        
-        Connections {
-            target: screenRecordLoader.item
-            ignoreUnknownSignals: true
-            function onVisibleChanged() {
-                if (!screenRecordLoader.item.visible && GlobalStates.screenRecordToolVisible) {
-                    GlobalStates.screenRecordToolVisible = false;
-                }
-            }
-        }
+
     }
 
     // Mirror Tool

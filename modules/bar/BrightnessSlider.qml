@@ -154,13 +154,10 @@ Item {
             onIconClicked: {}
 
             Connections {
-                target: currentMonitor
+                target: Brightness
                 ignoreUnknownSignals: true
                 function onBrightnessChanged() {
                     root.updateSliderFromMonitor(true);
-                }
-                function onReadyChanged() {
-                    root.updateSliderFromMonitor(false);
                 }
             }
 

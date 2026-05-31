@@ -69,20 +69,12 @@ Singleton {
         }
     }
 
-    // Also update on config changes
-    Connections {
-        target: Config.pinnedApps ?? null
-        function onAppsChanged() {
-            updateTimer.restart();
-        }
-    }
+    // update on config changes
+    property var configPinnedApps: Config.pinnedApps?.apps ?? []
+    property var configIgnoredAppRegexes: Config.dock?.ignoredAppRegexes ?? []
 
-    Connections {
-        target: Config.dock ?? null
-        function onIgnoredAppRegexesChanged() {
-            updateTimer.restart();
-        }
-    }
+    onConfigPinnedAppsChanged: updateTimer.restart()
+    onConfigIgnoredAppRegexesChanged: updateTimer.restart()
 
     // Initial update
     Component.onCompleted: {

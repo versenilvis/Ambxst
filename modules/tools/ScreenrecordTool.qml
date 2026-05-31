@@ -7,6 +7,7 @@ import Quickshell.Hyprland
 import qs.modules.theme
 import qs.modules.components
 import qs.modules.services
+import qs.modules.globals
 import qs.config
 
 PanelWindow {
@@ -99,6 +100,13 @@ PanelWindow {
 
     function close() {
         screenrecordPopup.state = "idle";
+        GlobalStates.screenRecordToolVisible = false;
+    }
+
+    onVisibleChanged: {
+        if (!visible && GlobalStates.screenRecordToolVisible) {
+            GlobalStates.screenRecordToolVisible = false;
+        }
     }
 
     function executeCapture() {

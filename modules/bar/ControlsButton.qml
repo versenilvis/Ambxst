@@ -185,16 +185,17 @@ Item {
 
                 onIconClicked: {}
 
+                onCurrentMonitorChanged: {
+                    if (currentMonitor) {
+                        sliderValue = currentMonitor.brightness;
+                    }
+                }
+
                 Connections {
-                    target: brightnessRow.currentMonitor ?? null
+                    target: Brightness
                     ignoreUnknownSignals: true
                     function onBrightnessChanged() {
                         if (brightnessRow.currentMonitor) {
-                            brightnessRow.sliderValue = brightnessRow.currentMonitor.brightness;
-                        }
-                    }
-                    function onReadyChanged() {
-                        if (brightnessRow.currentMonitor?.ready) {
                             brightnessRow.sliderValue = brightnessRow.currentMonitor.brightness;
                         }
                     }

@@ -23,14 +23,6 @@ Singleton {
     }
     property MprisPlayer activePlayer: trackedPlayer ?? filteredPlayers[0] ?? null
 
-    property int metadataRevision: 0
-    Connections {
-        target: root.activePlayer
-        ignoreUnknownSignals: true
-        function onMetadataChanged() {
-            root.metadataRevision++;
-        }
-    }
     property string cacheFilePath: Quickshell.dataPath("lastPlayer.json")
     property bool isInitializing: true
     property string cachedDbusName: ""
@@ -110,14 +102,6 @@ Singleton {
         delegate: QtObject {
             required property MprisPlayer modelData
 
-            property Connections playerConnections: Connections {
-                target: modelData
-
-                function onPlaybackStateChanged() {
-                    // commented to avoid automatic player change
-                    // if (root.trackedPlayer !== modelData) root.trackedPlayer = modelData
-                }
-            }
 
             Component.onCompleted: {
                 const dbusName = (modelData.dbusName || "").toLowerCase();

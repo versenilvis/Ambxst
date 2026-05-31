@@ -224,10 +224,11 @@ Item {
                         }
                     }
 
-                    // Actualizar cuando cambie la lista de notificaciones
-                    // Solo activo cuando el componente es visible para evitar trabajo duplicado
+                    // update when notifications list changes
+                    // only active when component is visible to avoid duplicate work
                     Connections {
-                        target: root.visible ? Notifications : null
+                        target: Notifications
+                        enabled: root.visible
                         function onPopupListChanged() {
                             if (Notifications.popupList.length === 0) {
                                 notificationStack.clear();

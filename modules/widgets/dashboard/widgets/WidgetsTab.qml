@@ -1341,8 +1341,8 @@ Rectangle {
                             scale: iconContainer.showingSyncFeedback ? 1 : brightnessIconScale
                             opacity: iconOpacity
 
-                            property real brightnessIconRotation: 0
-                            property real brightnessIconScale: 1
+                            property real brightnessIconRotation: (brightnessSlider.brightnessValue / 1.0) * 180
+                            property real brightnessIconScale: 0.8 + (brightnessSlider.brightnessValue / 1.0) * 0.2
                             property real iconOpacity: 1
                             property real syncIconRotation: 0
 
@@ -1476,18 +1476,20 @@ Rectangle {
                         Component.onCompleted: {
                             if (currentMonitor && currentMonitor.ready) {
                                 brightnessValue = currentMonitor.brightness;
-                                brightnessIcon.brightnessIconRotation = (brightnessValue / 1.0) * 180;
-                                brightnessIcon.brightnessIconScale = 0.8 + (brightnessValue / 1.0) * 0.2;
+                            }
+                        }
+
+                        onCurrentMonitorChanged: {
+                            if (currentMonitor && currentMonitor.ready) {
+                                brightnessValue = currentMonitor.brightness;
                             }
                         }
 
                         onValueChanged: {
                             brightnessValue = value;
-                            brightnessIcon.brightnessIconRotation = (value / 1.0) * 180;
-                            brightnessIcon.brightnessIconScale = 0.8 + (value / 1.0) * 0.2;
 
                             if (Brightness.syncBrightness) {
-                                // Sync all monitors
+                                // sync all monitors
                                 for (let i = 0; i < Brightness.monitors.length; i++) {
                                     let mon = Brightness.monitors[i];
                                     if (mon && mon.ready) {
@@ -1495,7 +1497,7 @@ Rectangle {
                                     }
                                 }
                             } else {
-                                // Only current monitor
+                                // only current monitor
                                 if (currentMonitor && currentMonitor.ready) {
                                     currentMonitor.setBrightness(value);
                                 }
@@ -1507,20 +1509,11 @@ Rectangle {
                         }
 
                         Connections {
-                            target: brightnessSlider.currentMonitor
+                            target: Brightness
                             ignoreUnknownSignals: true
                             function onBrightnessChanged() {
                                 if (brightnessSlider.currentMonitor && brightnessSlider.currentMonitor.ready && !brightnessSlider.isDragging) {
                                     brightnessSlider.brightnessValue = brightnessSlider.currentMonitor.brightness;
-                                    brightnessIcon.brightnessIconRotation = (brightnessSlider.brightnessValue / 1.0) * 180;
-                                    brightnessIcon.brightnessIconScale = 0.8 + (brightnessSlider.brightnessValue / 1.0) * 0.2;
-                                }
-                            }
-                            function onReadyChanged() {
-                                if (brightnessSlider.currentMonitor && brightnessSlider.currentMonitor.ready) {
-                                    brightnessSlider.brightnessValue = brightnessSlider.currentMonitor.brightness;
-                                    brightnessIcon.brightnessIconRotation = (brightnessSlider.brightnessValue / 1.0) * 180;
-                                    brightnessIcon.brightnessIconScale = 0.8 + (brightnessSlider.brightnessValue / 1.0) * 0.2;
                                 }
                             }
                         }
