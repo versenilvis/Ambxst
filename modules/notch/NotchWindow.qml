@@ -38,14 +38,14 @@ PanelWindow {
     }
 
     // Get this screen's visibility state
-    readonly property var screenVisibilities: Visibilities.getForScreen(screen.name)
-    readonly property bool isScreenFocused: Hyprland.focusedMonitor && Hyprland.focusedMonitor.name === screen.name
+    readonly property var screenVisibilities: screen ? Visibilities.getForScreen(screen.name) : null
+    readonly property bool isScreenFocused: (screen && Hyprland.focusedMonitor) ? Hyprland.focusedMonitor.name === screen.name : false
 
     // Get the bar position for this screen
     readonly property string barPosition: Config.bar?.position ?? "top"
 
     // Get the bar panel for this screen to check its state
-    readonly property var barPanelRef: Visibilities.barPanels[screen.name]
+    readonly property var barPanelRef: screen ? Visibilities.barPanels[screen.name] : null
 
     // Check if bar is pinned (use bar state directly)
     readonly property bool barPinned: {
@@ -162,14 +162,21 @@ PanelWindow {
         item: notchPanel.reveal ? notchRegionContainer : notchHoverRegion
     }
 
+    property string screenName: ""
+
     Component.onCompleted: {
-        Visibilities.registerNotchPanel(screen.name, notchPanel);
-        Visibilities.registerNotch(screen.name, notchContainer);
+        if (screen && screen.name) {
+            screenName = screen.name;
+            Visibilities.registerNotchPanel(screenName, notchPanel);
+            Visibilities.registerNotch(screenName, notchContainer);
+        }
     }
 
     Component.onDestruction: {
-        Visibilities.unregisterNotchPanel(screen.name);
-        Visibilities.unregisterNotch(screen.name);
+        if (screenName !== "") {
+            Visibilities.unregisterNotchPanel(screenName);
+            Visibilities.unregisterNotch(screenName);
+        }
     }
 
     // Default view component - user@host text

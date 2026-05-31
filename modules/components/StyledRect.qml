@@ -21,6 +21,8 @@ ClippingRectangle {
     property bool animateRadius: true
     property real backgroundOpacity: -1  // -1 means use config value
 
+    onGradientStopsChanged: linearGradientCanvas.requestPaint()
+
     readonly property var variantConfig: Styling.getStyledRectConfig(variant) || {}
 
     readonly property var gradientStops: variantConfig.gradient
@@ -87,11 +89,8 @@ ClippingRectangle {
         }
         
         Connections {
-            target: root
-            function onGradientStopsChanged() { linearGradientCanvas.requestPaint(); }
-        }
-        Connections {
             target: Colors
+            ignoreUnknownSignals: true
             function onLoaded() { linearGradientCanvas.requestPaint(); }
         }
         Component.onCompleted: requestPaint()

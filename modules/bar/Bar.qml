@@ -50,7 +50,7 @@ PanelWindow {
     readonly property bool isMouseOverBar: barMouseArea.containsMouse
 
     // Check if notch is open (dashboard, powermenu, etc.) - bar should show when notch is expanded
-    readonly property var screenVisibilities: Visibilities.getForScreen(screen.name)
+    readonly property var screenVisibilities: screen ? Visibilities.getForScreen(screen.name) : null
     readonly property bool notchOpen: screenVisibilities ? (screenVisibilities.dashboard || screenVisibilities.powermenu || screenVisibilities.tools) : false
 
     // Reveal logic: bar only shows when pinned and not in fullscreen
@@ -127,14 +127,21 @@ PanelWindow {
         item: barMouseArea
     }
 
+    property string screenName: ""
+
     Component.onCompleted: {
-        Visibilities.registerBar(screen.name, bar);
-        Visibilities.registerBarPanel(screen.name, panel);
+        if (screen && screen.name) {
+            screenName = screen.name;
+            Visibilities.registerBar(screenName, bar);
+            Visibilities.registerBarPanel(screenName, panel);
+        }
     }
 
     Component.onDestruction: {
-        Visibilities.unregisterBar(screen.name);
-        Visibilities.unregisterBarPanel(screen.name);
+        if (screenName !== "") {
+            Visibilities.unregisterBar(screenName);
+            Visibilities.unregisterBarPanel(screenName);
+        }
     }
 
     // MouseArea for hover detection - contains bar content (like Dock)
@@ -353,7 +360,7 @@ PanelWindow {
                 spacing: 4
 
                 // Obtener referencia al notch de esta pantalla
-                readonly property var notchContainer: Visibilities.getNotchForScreen(panel.screen.name)
+                readonly property var notchContainer: panel.screen ? Visibilities.getNotchForScreen(panel.screen.name) : null
 
                 LauncherButton {
                     id: launcherButton

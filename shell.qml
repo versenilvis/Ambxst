@@ -30,7 +30,7 @@ ShellRoot {
 
     ContextMenu {
         id: contextMenu
-        screen: Quickshell.screens[0]
+        screen: Quickshell.screens.length > 0 ? Quickshell.screens[0] : null
         Component.onCompleted: Visibilities.setContextMenu(contextMenu)
     }
 
@@ -303,15 +303,17 @@ ShellRoot {
         }
     }
 
+    Process {
+        id: notificationSoundProc
+    }
+
     Connections {
         target: Notifications
         function onNotify(notification) {
             if (!Notifications.popupInhibited) {
                 // play sound for incoming notifications
-                var p = Qt.createQmlObject('import Quickshell.Io; Process {}', Qt.application)
-                p.command = ["mpv", "--no-video", "--volume=40", Quickshell.env("HOME") + "/Ambxst/assets/notification/ringtone.mp3"]
-                p.onExited.connect(function() { p.destroy() })
-                p.running = true           
+                notificationSoundProc.command = ["mpv", "--no-video", "--volume=15", Quickshell.env("HOME") + "/Ambxst/assets/notification/ringtone.mp3"]
+                notificationSoundProc.startDetached()
             }
         }
     }

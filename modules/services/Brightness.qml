@@ -8,6 +8,8 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Hyprland
 import QtQuick
+import QtQml
+import QtQml.Models
 
 /**
  * For managing brightness of monitors. Supports both brightnessctl and ddcutil.
@@ -18,9 +20,30 @@ Singleton {
     signal brightnessChanged
 
     property var ddcMonitors: []
-    readonly property list<BrightnessMonitor> monitors: Quickshell.screens.map(screen => monitorComp.createObject(root, {
-            screen
-        }))
+    property var monitors: []
+
+    Instantiator {
+        id: monitorsInstantiator
+        model: Quickshell.screens
+        delegate: BrightnessMonitor {
+            required property ShellScreen modelData
+            screen: modelData
+        }
+
+        onObjectAdded: (index, object) => { updateMonitorsList(); }
+        onObjectRemoved: (index, object) => { updateMonitorsList(); }
+
+        function updateMonitorsList() {
+            let list = [];
+            for (let i = 0; i < count; i++) {
+                let obj = objectAt(i);
+                if (obj) {
+                    list.push(obj);
+                }
+            }
+            root.monitors = list;
+        }
+    }
 
     property bool syncBrightness: StateService.get("syncBrightness", false)
 
@@ -49,15 +72,19 @@ Singleton {
     }
 
     function increaseBrightness(): void {
+        if (!Hyprland.focusedMonitor)
+            return;
         const focusedName = Hyprland.focusedMonitor.name;
-        const monitor = monitors.find(m => focusedName === m.screen.name);
+        const monitor = monitors.find(m => m.screen && focusedName === m.screen.name);
         if (monitor)
             monitor.setBrightness(monitor.brightness + 0.05);
     }
 
     function decreaseBrightness(): void {
+        if (!Hyprland.focusedMonitor)
+            return;
         const focusedName = Hyprland.focusedMonitor.name;
-        const monitor = monitors.find(m => focusedName === m.screen.name);
+        const monitor = monitors.find(m => m.screen && focusedName === m.screen.name);
         if (monitor)
             monitor.setBrightness(monitor.brightness - 0.05);
     }
@@ -224,21 +251,17 @@ Singleton {
         }
     }
 
-    Component {
-        id: monitorComp
-
-        BrightnessMonitor {}
-    }
+    // monitorComp removed, using Instantiator instead
 
     IpcHandler {
         target: "brightness"
 
         function increment() {
-            onPressed: root.increaseBrightness();
+            root.increaseBrightness();
         }
 
         function decrement() {
-            onPressed: root.decreaseBrightness();
+            root.decreaseBrightness();
         }
 
         function set(value: real, monitorName: string) {
@@ -251,8 +274,8 @@ Singleton {
                     }
                 }
             } else {
-                // Set specific monitor
-                const monitor = root.monitors.find(m => m.screen.name === monitorName);
+                // set specific monitor
+                const monitor = root.monitors.find(m => m.screen && m.screen.name === monitorName);
                 if (monitor && monitor.ready) {
                     monitor.setBrightness(value);
                 } else {
@@ -271,8 +294,8 @@ Singleton {
                     }
                 }
             } else {
-                // Adjust specific monitor
-                const monitor = root.monitors.find(m => m.screen.name === monitorName);
+                // adjust specific monitor
+                const monitor = root.monitors.find(m => m.screen && m.screen.name === monitorName);
                 if (monitor && monitor.ready) {
                     monitor.setBrightness(monitor.brightness + delta);
                 } else {

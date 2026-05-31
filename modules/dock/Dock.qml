@@ -86,7 +86,7 @@ Scope {
             screen: modelData
 
             // Reference to the bar panel on this screen to check its state
-            readonly property var barPanelRef: Visibilities.barPanels[screen.name]
+            readonly property var barPanelRef: screen ? Visibilities.barPanels[screen.name] : null
             // Only allow exclusive zone if the bar is also pinned (to prevent pushing the bar when it's floating)
             readonly property bool barPinned: {
                 if (barPanelRef && typeof barPanelRef.pinned !== 'undefined') {

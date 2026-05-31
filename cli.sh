@@ -5,6 +5,20 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# auto-detect and fix stale or missing hyprland instance signature
+detected_signature=""
+hypr_dir="/run/user/$(id -u)/hypr"
+if [ -d "$hypr_dir" ]; then
+	latest_socket=$(find "$hypr_dir" -name ".socket.sock" -type s -printf "%T@ %p\n" 2>/dev/null | sort -n | tail -1 | cut -d' ' -f2-)
+	if [ -n "$latest_socket" ]; then
+		detected_signature=$(basename "$(dirname "$latest_socket")")
+	fi
+fi
+
+if [ -n "$detected_signature" ]; then
+	export HYPRLAND_INSTANCE_SIGNATURE="$detected_signature"
+fi
+
 # Use environment variables if set by flake, otherwise fall back to PATH
 QS_BIN="${AMBXST_QS:-qs}"
 NIXGL_BIN="${AMBXST_NIXGL:-}"
@@ -190,7 +204,8 @@ brightness)
 		exit 1
 	fi
 
-	BRIGHTNESS_SAVE_FILE="/tmp/ambxst_brightness_saved.txt"
+	BRIGHTNESS_SAVE_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/Ambxst/brightness_saved.txt"
+	mkdir -p "$(dirname "$BRIGHTNESS_SAVE_FILE")"
 
 	# Parse arguments
 	ARG2="${2:-}"
@@ -441,6 +456,9 @@ help | --help | -h)
 "")
 	# Run daemon priority script (backgrounded to not block startup)
 	bash "${SCRIPT_DIR}/scripts/daemon_priority.sh" &
+
+	# restore brightness on startup if a saved file exists
+	(sleep 3 && "$0" brightness -r) &
 
 	# Set QS_ICON_THEME environment variable
 	if command -v gsettings >/dev/null 2>&1; then

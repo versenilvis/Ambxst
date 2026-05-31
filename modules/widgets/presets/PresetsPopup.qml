@@ -28,7 +28,7 @@ PanelWindow {
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
 
     // Get this screen's visibility state
-    readonly property var screenVisibilities: Visibilities.getForScreen(screen.name)
+    readonly property var screenVisibilities: screen ? Visibilities.getForScreen(screen.name) : null
     readonly property bool presetsOpen: screenVisibilities ? screenVisibilities.presets : false
 
     visible: presetsOpen

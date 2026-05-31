@@ -3318,9 +3318,6 @@ Singleton {
     // Pinned apps configuration (stored in dataPath)
     property QtObject pinnedApps: pinnedAppsLoader.adapter
 
-    // AI configuration
-    property QtObject ai: aiLoader.adapter
-
     // Save functions for modules
     function saveBar() {
         barLoader.writeAdapter();
@@ -3361,10 +3358,6 @@ Singleton {
     function savePinnedApps() {
         pinnedAppsLoader.writeAdapter();
     }
-    function saveAi() {
-        aiLoader.writeAdapter();
-    }
-
     // Helper functions for color handling (HEX or named colors)
     function isHexColor(colorValue) {
         if (!colorValue || typeof colorValue !== 'string')
