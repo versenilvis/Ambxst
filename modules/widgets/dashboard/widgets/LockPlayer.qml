@@ -33,12 +33,9 @@ StyledRect {
         }
     }
 
-    Connections {
-        target: MprisController.activePlayer
-        function onPositionChanged() {
-            if (!positionSlider.isDragging && MprisController.activePlayer) {
-                positionSlider.value = lockPlayer.length > 0 ? Math.min(1.0, lockPlayer.position / lockPlayer.length) : 0;
-            }
+    onPositionChanged: {
+        if (!positionSlider.isDragging) {
+            positionSlider.value = lockPlayer.length > 0 ? Math.min(1.0, lockPlayer.position / lockPlayer.length) : 0;
         }
     }
 

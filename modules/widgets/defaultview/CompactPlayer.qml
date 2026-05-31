@@ -48,12 +48,9 @@ Item {
         }
     }
 
-    Connections {
-        target: compactPlayer.player
-        function onPositionChanged() {
-            if (!positionSlider.isDragging && compactPlayer.player) {
-                positionSlider.value = compactPlayer.length > 0 ? Math.min(1.0, compactPlayer.position / compactPlayer.length) : 0;
-            }
+    onPositionChanged: {
+        if (!positionSlider.isDragging) {
+            positionSlider.value = compactPlayer.length > 0 ? Math.min(1.0, compactPlayer.position / compactPlayer.length) : 0;
         }
     }
 
