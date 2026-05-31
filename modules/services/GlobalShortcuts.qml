@@ -16,7 +16,7 @@ Item {
     // Creates a named pipe and listens for commands continuously
     Process {
         id: pipeListener
-        command: ["bash", "-c", "rm -f " + root.ipcPipe + "; mkfifo " + root.ipcPipe + "; tail -f " + root.ipcPipe]
+        command: ["bash", Qt.resolvedUrl("../../scripts/ipc_listener.sh").toString().replace("file://", "")]
         running: true
         
         stdout: SplitParser {

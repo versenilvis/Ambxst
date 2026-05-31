@@ -394,6 +394,12 @@ PanelWindow {
         });
     }
 
+    Component.onDestruction: {
+        if (GlobalStates.wallpaperManager === wallpaper) {
+            GlobalStates.wallpaperManager = null;
+        }
+    }
+
     FileView {
         id: wallpaperConfig
         path: Quickshell.dataPath("wallpapers.json")

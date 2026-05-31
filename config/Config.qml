@@ -2452,7 +2452,7 @@ Singleton {
                     "actions": [
                         {
                             "dispatcher": "exec",
-                            "argument": "hyprctl dispatch dpms off",
+                            "argument": "ambxst screen off",
                             "flags": "l",
                             "compositor": {
                                 "type": "hyprland",
@@ -2473,7 +2473,7 @@ Singleton {
                     "actions": [
                         {
                             "dispatcher": "exec",
-                            "argument": "hyprctl dispatch dpms on",
+                            "argument": "ambxst screen on",
                             "flags": "l",
                             "compositor": {
                                 "type": "hyprland",

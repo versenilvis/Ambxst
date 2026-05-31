@@ -107,9 +107,17 @@ Singleton {
     Instantiator {
         model: Mpris.players
 
-        Connections {
+        delegate: QtObject {
             required property MprisPlayer modelData
-            target: modelData
+
+            property Connections playerConnections: Connections {
+                target: modelData
+
+                function onPlaybackStateChanged() {
+                    // commented to avoid automatic player change
+                    // if (root.trackedPlayer !== modelData) root.trackedPlayer = modelData
+                }
+            }
 
             Component.onCompleted: {
                 const dbusName = (modelData.dbusName || "").toLowerCase();
@@ -129,18 +137,14 @@ Singleton {
                         }
                     }
 
-                    if (trackedPlayer == null && root.filteredPlayers.length != 0) {
-                        trackedPlayer = root.filteredPlayers[0];
+                    if (root.trackedPlayer == null && root.filteredPlayers.length != 0) {
+                        root.trackedPlayer = root.filteredPlayers[0];
                     }
                 }
             }
-
-            function onPlaybackStateChanged() {
-            // Comentado para evitar cambio automático de player
-            // if (root.trackedPlayer !== modelData) root.trackedPlayer = modelData
-            }
         }
     }
+
 
     property bool isPlaying: this.activePlayer && this.activePlayer.isPlaying
     property bool canTogglePlaying: this.activePlayer?.canTogglePlaying ?? false

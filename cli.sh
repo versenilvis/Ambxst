@@ -97,6 +97,26 @@ find_ambxst_pid() {
 	echo "$pid"
 }
 
+dispatch_dpms() {
+	local state="$1"
+	local lock_file="${XDG_RUNTIME_DIR:-/tmp}/ambxst-dpms.lock"
+	local stamp_file="${XDG_RUNTIME_DIR:-/tmp}/ambxst-dpms-${state}.stamp"
+	local now last
+
+	now=$(date +%s)
+	mkdir -p "$(dirname "$lock_file")"
+
+	(
+		flock 9
+		last=$(cat "$stamp_file" 2>/dev/null || echo 0)
+		if [ $((now - last)) -lt 2 ]; then
+			exit 0
+		fi
+		printf '%s\n' "$now" >"$stamp_file"
+		hyprctl dispatch dpms "$state"
+	) 9>"$lock_file"
+}
+
 case "${1:-}" in
 update)
 	echo "Updating Ambxst..."
@@ -172,13 +192,13 @@ screen)
 	SUB="${2:-}"
 	if [ "$SUB" = "off" ]; then
 		if command -v hyprctl &>/dev/null; then
-			hyprctl dispatch dpms off
+			dispatch_dpms off
 		else
 			notify-send "Screen Off" "Not supported on this compositor yet"
 		fi
 	elif [ "$SUB" = "on" ]; then
 		if command -v hyprctl &>/dev/null; then
-			hyprctl dispatch dpms on
+			dispatch_dpms on
 		else
 			notify-send "Screen On" "Not supported on this compositor yet"
 		fi

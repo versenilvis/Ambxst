@@ -150,14 +150,23 @@ Singleton {
             let listener = listeners[idx];
 
             if (listener && listener.onResume) {
-                console.log("Idle resuming (undoing " + (listener.timeout || 0) + "s): " + listener.onResume);
-                root.executeCommand(listener.onResume);
+                if (root.isDpmsOnCommand(listener.onResume)) {
+                    console.log("Idle resume skipped duplicate DPMS on command");
+                } else {
+                    console.log("Idle resuming (undoing " + (listener.timeout || 0) + "s): " + listener.onResume);
+                    root.executeCommand(listener.onResume);
+                }
             }
         }
 
         // Reset counters
         root.elapsedIdleTime = 0;
         root.triggeredListeners = [];
+    }
+
+    function isDpmsOnCommand(cmd) {
+        const value = (cmd || "").trim();
+        return value === "ambxst screen on" || value === "hyprctl dispatch dpms on";
     }
 
     function executeCommand(cmd) {

@@ -185,7 +185,7 @@ Singleton {
     Process {
         id: subscriber
         running: true
-        command: ["nmcli", "monitor"]
+        command: ["bash", Qt.resolvedUrl("../../scripts/nmcli_monitor.sh").toString().replace("file://", "")]
         stdout: SplitParser {
             onRead: root.update()
         }

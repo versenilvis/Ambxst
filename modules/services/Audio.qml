@@ -182,8 +182,6 @@ Singleton {
 
     Connections {
         target: sink?.audio ?? null
-        property bool lastReady: false
-        property real lastVolume: 0
         function onVolumeChanged() {
             if (sink.ready && (isNaN(sink.audio.volume) || sink.audio.volume === undefined || sink.audio.volume === null)) {
                 sink.audio.volume = 0;
