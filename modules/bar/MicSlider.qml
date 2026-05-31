@@ -56,7 +56,7 @@ Item {
     Layout.fillWidth: root.vertical
     Layout.fillHeight: !root.vertical
 
-    Component.onCompleted: micSlider.value = Audio.source?.audio?.volume ?? 0
+    Component.onCompleted: micSlider.value = Audio.micVolume
 
     StyledRect {
         variant: "bg"
@@ -109,33 +109,26 @@ Item {
             scroll: root.isExpanded
             iconClickable: root.isExpanded
             sliderVisible: root.isExpanded || micSlider.isDragging || root.externalVolumeChange
-            wavyAmplitude: (root.isExpanded || micSlider.isDragging || root.externalVolumeChange) ? (Audio.source?.audio?.muted ? 0.5 : 1.5 * value) : 0
-            wavyFrequency: (root.isExpanded || micSlider.isDragging || root.externalVolumeChange) ? (Audio.source?.audio?.muted ? 1.0 : 8.0 * value) : 0
+            wavyAmplitude: (root.isExpanded || micSlider.isDragging || root.externalVolumeChange) ? (Audio.micMuted ? 0.5 : 1.5 * value) : 0
+            wavyFrequency: (root.isExpanded || micSlider.isDragging || root.externalVolumeChange) ? (Audio.micMuted ? 1.0 : 8.0 * value) : 0
             iconPos: root.vertical ? "end" : "start"
-            icon: Audio.source?.audio?.muted ? Icons.micSlash : Icons.mic
-            progressColor: Audio.source?.audio?.muted ? Colors.outline : Styling.srItem("overprimary")
+            icon: Audio.micMuted ? Icons.micSlash : Icons.mic
+            progressColor: Audio.micMuted ? Colors.outline : Styling.srItem("overprimary")
 
             onValueChanged: {
-                if (Audio.source?.audio) {
-                    Audio.source.audio.volume = value;
-                }
+                Audio.setMicVolume(value);
             }
 
             onIconClicked: {
-                if (Audio.source?.audio) {
-                    Audio.source.audio.muted = !Audio.source.audio.muted;
-                }
+                Audio.toggleMicMute();
             }
 
             Connections {
-                target: Audio.source?.audio ?? null
-                ignoreUnknownSignals: true
-                function onVolumeChanged() {
-                    if (Audio.source?.audio) {
-                        micSlider.value = Audio.source.audio.volume;
-                        root.externalVolumeChange = true;
-                        externalChangeTimer.restart();
-                    }
+                target: Audio
+                function onMicVolumeChanged() {
+                    micSlider.value = Audio.micVolume;
+                    root.externalVolumeChange = true;
+                    externalChangeTimer.restart();
                 }
             }
 

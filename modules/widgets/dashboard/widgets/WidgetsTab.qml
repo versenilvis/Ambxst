@@ -1534,9 +1534,9 @@ Rectangle {
                 Layout.preferredWidth: 48
                 Layout.preferredHeight: 48
                 icon: {
-                    if (Audio.sink?.audio?.muted)
+                    if (Audio.muted)
                         return Icons.speakerSlash;
-                    const vol = Audio.sink?.audio?.volume ?? 0;
+                    const vol = Audio.volume;
                     if (vol < 0.01)
                         return Icons.speakerX;
                     if (vol < 0.19)
@@ -1545,15 +1545,13 @@ Rectangle {
                         return Icons.speakerLow;
                     return Icons.speakerHigh;
                 }
-                value: Audio.sink?.audio?.volume ?? 0
-                accentColor: Audio.sink?.audio?.muted ? Colors.outline : Styling.srItem("overprimary")
+                value: Audio.volume
+                accentColor: Audio.muted ? Colors.outline : Styling.srItem("overprimary")
                 isToggleable: true
-                isToggled: !(Audio.sink?.audio?.muted ?? false)
+                isToggled: !Audio.muted
 
                 onControlValueChanged: newValue => {
-                    if (Audio.sink?.audio) {
-                        Audio.sink.audio.volume = newValue;
-                    }
+                    Audio.setVolume(newValue);
                 }
 
                 onDraggingChanged: isDragging => {
@@ -1561,9 +1559,7 @@ Rectangle {
                 }
 
                 onToggled: {
-                    if (Audio.sink?.audio) {
-                        Audio.sink.audio.muted = !Audio.sink.audio.muted;
-                    }
+                    Audio.toggleMute();
                 }
             }
 
@@ -1572,16 +1568,14 @@ Rectangle {
                 Layout.alignment: Qt.AlignHCenter
                 Layout.preferredWidth: 48
                 Layout.preferredHeight: 48
-                icon: Audio.source?.audio?.muted ? Icons.micSlash : Icons.mic
-                value: Audio.source?.audio?.volume ?? 0
-                accentColor: Audio.source?.audio?.muted ? Colors.outline : Styling.srItem("overprimary")
+                icon: Audio.micMuted ? Icons.micSlash : Icons.mic
+                value: Audio.micVolume
+                accentColor: Audio.micMuted ? Colors.outline : Styling.srItem("overprimary")
                 isToggleable: true
-                isToggled: !(Audio.source?.audio?.muted ?? false)
+                isToggled: !Audio.micMuted
 
                 onControlValueChanged: newValue => {
-                    if (Audio.source?.audio) {
-                        Audio.source.audio.volume = newValue;
-                    }
+                    Audio.setMicVolume(newValue);
                 }
 
                 onDraggingChanged: isDragging => {
@@ -1589,9 +1583,7 @@ Rectangle {
                 }
 
                 onToggled: {
-                    if (Audio.source?.audio) {
-                        Audio.source.audio.muted = !Audio.source.audio.muted;
-                    }
+                    Audio.toggleMicMute();
                 }
             }
         }

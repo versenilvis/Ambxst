@@ -847,9 +847,10 @@ FocusScope {
                 if (!parent.sourceFile)
                     return "";
 
-                // Usar thumbnail si está disponible, fallback a original
-                var thumbnailPath = GlobalStates.wallpaperManager.getThumbnailPath(parent.sourceFile);
+                // usar thumbnail si está disponible, fallback a original
+                var thumbnailPath = GlobalStates.wallpaperManager ? GlobalStates.wallpaperManager.getThumbnailPath(parent.sourceFile) : "";
                 return thumbnailPath ? "file://" + thumbnailPath : "file://" + parent.sourceFile;
+
             }
             fillMode: Image.PreserveAspectCrop
             asynchronous: true

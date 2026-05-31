@@ -19,6 +19,10 @@ Singleton {
     property PwNode source: Pipewire.defaultAudioSource
     readonly property real hardMaxValue: 2.00
     property real value: sink?.audio?.volume ?? 0
+    property real volume: sink?.audio?.volume ?? 0
+    property bool muted: sink?.audio?.muted ?? false
+    property real micVolume: source?.audio?.volume ?? 0
+    property bool micMuted: source?.audio?.muted ?? false
 
     // Volume protection settings (persisted via StateService)
     property bool protectionEnabled: true
@@ -180,10 +184,9 @@ Singleton {
         return Icons.speakerHigh;
     }
 
-    Connections {
-        target: sink?.audio ?? null
-        function onVolumeChanged() {
-            if (sink.ready && (isNaN(sink.audio.volume) || sink.audio.volume === undefined || sink.audio.volume === null)) {
+    onVolumeChanged: {
+        if (sink && sink.ready && sink.audio) {
+            if (isNaN(sink.audio.volume) || sink.audio.volume === undefined || sink.audio.volume === null) {
                 sink.audio.volume = 0;
             }
         }

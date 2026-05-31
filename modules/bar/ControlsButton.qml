@@ -89,9 +89,9 @@ Item {
                 Layout.rightMargin: 8
 
                 icon: {
-                    if (Audio.sink?.audio?.muted)
+                    if (Audio.muted)
                         return Icons.speakerSlash;
-                    const vol = Audio.sink?.audio?.volume ?? 0;
+                    const vol = Audio.volume;
                     if (vol < 0.01)
                         return Icons.speakerX;
                     if (vol < 0.19)
@@ -100,31 +100,24 @@ Item {
                         return Icons.speakerLow;
                     return Icons.speakerHigh;
                 }
-                sliderValue: Audio.sink?.audio?.volume ?? 0
-                progressColor: Audio.sink?.audio?.muted ? Colors.outline : Styling.srItem("overprimary")
+                sliderValue: Audio.volume
+                progressColor: Audio.muted ? Colors.outline : Styling.srItem("overprimary")
                 wavy: true
-                wavyAmplitude: Audio.sink?.audio?.muted ? 0.5 : 1.5 * sliderValue
-                wavyFrequency: Audio.sink?.audio?.muted ? 1.0 : 8.0 * sliderValue
+                wavyAmplitude: Audio.muted ? 0.5 : 1.5 * sliderValue
+                wavyFrequency: Audio.muted ? 1.0 : 8.0 * sliderValue
 
                 onValueChanged: newValue => {
-                    if (Audio.sink?.audio) {
-                        Audio.sink.audio.volume = newValue;
-                    }
+                    Audio.setVolume(newValue);
                 }
 
                 onIconClicked: {
-                    if (Audio.sink?.audio) {
-                        Audio.sink.audio.muted = !Audio.sink.audio.muted;
-                    }
+                    Audio.toggleMute();
                 }
 
                 Connections {
-                    target: Audio.sink?.audio ?? null
-                    ignoreUnknownSignals: true
+                    target: Audio
                     function onVolumeChanged() {
-                        if (Audio.sink?.audio) {
-                            volumeRow.sliderValue = Audio.sink.audio.volume;
-                        }
+                        volumeRow.sliderValue = Audio.volume;
                     }
                 }
             }
@@ -136,32 +129,25 @@ Item {
                 Layout.preferredHeight: 36
                 Layout.rightMargin: 8
 
-                icon: Audio.source?.audio?.muted ? Icons.micSlash : Icons.mic
-                sliderValue: Audio.source?.audio?.volume ?? 0
-                progressColor: Audio.source?.audio?.muted ? Colors.outline : Styling.srItem("overprimary")
+                icon: Audio.micMuted ? Icons.micSlash : Icons.mic
+                sliderValue: Audio.micVolume
+                progressColor: Audio.micMuted ? Colors.outline : Styling.srItem("overprimary")
                 wavy: true
-                wavyAmplitude: Audio.source?.audio?.muted ? 0.5 : 1.5 * sliderValue
-                wavyFrequency: Audio.source?.audio?.muted ? 1.0 : 8.0 * sliderValue
+                wavyAmplitude: Audio.micMuted ? 0.5 : 1.5 * sliderValue
+                wavyFrequency: Audio.micMuted ? 1.0 : 8.0 * sliderValue
 
                 onValueChanged: newValue => {
-                    if (Audio.source?.audio) {
-                        Audio.source.audio.volume = newValue;
-                    }
+                    Audio.setMicVolume(newValue);
                 }
 
                 onIconClicked: {
-                    if (Audio.source?.audio) {
-                        Audio.source.audio.muted = !Audio.source.audio.muted;
-                    }
+                    Audio.toggleMicMute();
                 }
 
                 Connections {
-                    target: Audio.source?.audio ?? null
-                    ignoreUnknownSignals: true
-                    function onVolumeChanged() {
-                        if (Audio.source?.audio) {
-                            micRow.sliderValue = Audio.source.audio.volume;
-                        }
+                    target: Audio
+                    function onMicVolumeChanged() {
+                        micRow.sliderValue = Audio.micVolume;
                     }
                 }
             }
@@ -219,10 +205,8 @@ Item {
 
     Component.onCompleted: {
         // Initialize values
-        if (Audio.sink?.audio)
-            volumeRow.sliderValue = Audio.sink.audio.volume;
-        if (Audio.source?.audio)
-            micRow.sliderValue = Audio.source.audio.volume;
+        volumeRow.sliderValue = Audio.volume;
+        micRow.sliderValue = Audio.micVolume;
         if (brightnessRow.currentMonitor?.ready)
             brightnessRow.sliderValue = brightnessRow.currentMonitor.brightness;
     }

@@ -58,7 +58,7 @@ Item {
     Layout.fillWidth: root.vertical
     Layout.fillHeight: !root.vertical
 
-    Component.onCompleted: volumeSlider.value = Audio.sink?.audio?.volume ?? 0
+    Component.onCompleted: volumeSlider.value = Audio.volume
 
     StyledRect {
         variant: "bg"
@@ -111,13 +111,13 @@ Item {
             scroll: root.isExpanded
             iconClickable: root.isExpanded
             sliderVisible: root.isExpanded || volumeSlider.isDragging || root.externalVolumeChange
-            wavyAmplitude: (root.isExpanded || volumeSlider.isDragging || root.externalVolumeChange) ? (Audio.sink?.audio?.muted ? 0.5 : 1.5 * value) : 0
-            wavyFrequency: (root.isExpanded || volumeSlider.isDragging || root.externalVolumeChange) ? (Audio.sink?.audio?.muted ? 1.0 : 8.0 * value) : 0
+            wavyAmplitude: (root.isExpanded || volumeSlider.isDragging || root.externalVolumeChange) ? (Audio.muted ? 0.5 : 1.5 * value) : 0
+            wavyFrequency: (root.isExpanded || volumeSlider.isDragging || root.externalVolumeChange) ? (Audio.muted ? 1.0 : 8.0 * value) : 0
             iconPos: root.vertical ? "end" : "start"
             icon: {
-                if (Audio.sink?.audio?.muted)
+                if (Audio.muted)
                     return Icons.speakerSlash;
-                const vol = Audio.sink?.audio?.volume ?? 0;
+                const vol = Audio.volume;
                 if (vol < 0.01)
                     return Icons.speakerX;
                 if (vol < 0.19)
@@ -126,29 +126,22 @@ Item {
                     return Icons.speakerLow;
                 return Icons.speakerHigh;
             }
-            progressColor: Audio.sink?.audio?.muted ? Colors.outline : Styling.srItem("overprimary")
+            progressColor: Audio.muted ? Colors.outline : Styling.srItem("overprimary")
 
             onValueChanged: {
-                if (Audio.sink?.audio) {
-                    Audio.sink.audio.volume = value;
-                }
+                Audio.setVolume(value);
             }
 
             onIconClicked: {
-                if (Audio.sink?.audio) {
-                    Audio.sink.audio.muted = !Audio.sink.audio.muted;
-                }
+                Audio.toggleMute();
             }
 
             Connections {
-                target: Audio.sink?.audio ?? null
-                ignoreUnknownSignals: true
+                target: Audio
                 function onVolumeChanged() {
-                    if (Audio.sink?.audio) {
-                        volumeSlider.value = Audio.sink.audio.volume;
-                        root.externalVolumeChange = true;
-                        externalChangeTimer.restart();
-                    }
+                    volumeSlider.value = Audio.volume;
+                    root.externalVolumeChange = true;
+                    externalChangeTimer.restart();
                 }
             }
 
