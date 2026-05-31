@@ -16,6 +16,19 @@ FocusScope {
     // Asegurar que activeFilters siempre sea un array válido
     readonly property var safeFilters: activeFilters || []
 
+    readonly property var subfolderFilters: GlobalStates.wallpaperManager ? GlobalStates.wallpaperManager.subfolderFilters : []
+    readonly property string wallpaperDir: GlobalStates.wallpaperManager ? GlobalStates.wallpaperManager.wallpaperDir : ""
+
+    onSubfolderFiltersChanged: updateFiltersTimer.restart()
+    onWallpaperDirChanged: updateFiltersTimer.restart()
+
+    Timer {
+        id: updateFiltersTimer
+        interval: 10
+        repeat: false
+        onTriggered: flickable.updateFilters()
+    }
+
     // Señales
     signal filterToggled(string filterType)
     signal escapePressedOnFilters
@@ -194,24 +207,8 @@ FocusScope {
             console.log("Filter model now has", filterModel.count, "items");
         }
 
-        // Actualizar filtros cuando cambien las subcarpetas
-        Connections {
-            target: GlobalStates.wallpaperManager
-            function onSubfolderFiltersChanged() {
-                flickable.updateFilters();
-            }
-        }
-
         Component.onCompleted: {
-            flickable.updateFilters();
-        }
-
-        // Actualizar filtros cuando cambie el directorio de wallpapers
-        Connections {
-            target: GlobalStates.wallpaperManager
-            function onWallpaperDirChanged() {
-                flickable.updateFilters();
-            }
+            updateFiltersTimer.restart();
         }
 
         Row {

@@ -177,7 +177,7 @@ reload)
 	fi
 	echo "Starting Ambxst..."
 	# Relaunch the script in background
-	nohup "$0" >/dev/null 2>&1 &
+	nohup "${SCRIPT_DIR}/cli.sh" >/tmp/ambxst_reload_start.log 2>&1 &
 	;;
 quit)
 	PID=$(find_ambxst_pid)

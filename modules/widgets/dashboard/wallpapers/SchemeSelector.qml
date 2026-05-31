@@ -14,6 +14,19 @@ Item {
     property var presets: GlobalStates.wallpaperManager ? GlobalStates.wallpaperManager.colorPresets : []
     onPresetsChanged: console.log("SchemeSelector received presets:", presets)
 
+    readonly property string activeColorPreset: GlobalStates.wallpaperManager ? GlobalStates.wallpaperManager.activeColorPreset : ""
+    readonly property string currentMatugenScheme: GlobalStates.wallpaperManager ? GlobalStates.wallpaperManager.currentMatugenScheme : ""
+
+    onActiveColorPresetChanged: updateIndexTimer.restart()
+    onCurrentMatugenSchemeChanged: updateIndexTimer.restart()
+
+    Timer {
+        id: updateIndexTimer
+        interval: 10
+        repeat: false
+        onTriggered: updateSelectedIndex()
+    }
+
     property var combinedModel: {
         var currentPresets = presets; // Explicit dependency
         var list = [];
@@ -73,15 +86,7 @@ Item {
         schemeSelectorClosed();
     }
 
-    Connections {
-        target: GlobalStates.wallpaperManager
-        function onCurrentMatugenSchemeChanged() {
-            updateSelectedIndex();
-        }
-        function onActiveColorPresetChanged() {
-            updateSelectedIndex();
-        }
-    }
+
 
     function updateSelectedIndex() {
         if (!GlobalStates.wallpaperManager)
@@ -113,7 +118,7 @@ Item {
     }
 
     Component.onCompleted: {
-        updateSelectedIndex();
+        updateIndexTimer.restart();
     }
 
     function getSchemeDisplayName(scheme) {

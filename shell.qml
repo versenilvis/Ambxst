@@ -312,7 +312,7 @@ ShellRoot {
         function onNotify(notification) {
             if (!Notifications.popupInhibited) {
                 // play sound for incoming notifications
-                notificationSoundProc.command = ["mpv", "--no-video", "--volume=15", Quickshell.env("HOME") + "/Ambxst/assets/notification/ringtone.mp3"]
+                notificationSoundProc.command = ["mpv", "--no-video", "--volume=35", Quickshell.env("HOME") + "/Ambxst/assets/notification/ringtone.mp3"]
                 notificationSoundProc.startDetached()
             }
         }

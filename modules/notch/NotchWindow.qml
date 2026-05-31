@@ -41,6 +41,49 @@ PanelWindow {
     readonly property var screenVisibilities: screen ? Visibilities.getForScreen(screen.name) : null
     readonly property bool isScreenFocused: (screen && Hyprland.focusedMonitor) ? Hyprland.focusedMonitor.name === screen.name : false
 
+    readonly property bool isDashboardOpen: screenVisibilities ? screenVisibilities.dashboard : false
+    readonly property bool isPowermenuOpen: screenVisibilities ? screenVisibilities.powermenu : false
+    readonly property bool isToolsOpen: screenVisibilities ? screenVisibilities.tools : false
+
+    onIsDashboardOpenChanged: {
+        if (isDashboardOpen) {
+            notchContainer.stackView.push(dashboardView);
+            Qt.callLater(() => notchContainer.forceActiveFocus());
+        } else {
+            if (notchContainer.stackView.depth > 1) {
+                notchContainer.stackView.pop();
+                notchContainer.isShowingDefault = true;
+                notchContainer.isShowingNotifications = false;
+            }
+        }
+    }
+
+    onIsPowermenuOpenChanged: {
+        if (isPowermenuOpen) {
+            notchContainer.stackView.push(powermenuView);
+            Qt.callLater(() => notchContainer.forceActiveFocus());
+        } else {
+            if (notchContainer.stackView.depth > 1) {
+                notchContainer.stackView.pop();
+                notchContainer.isShowingDefault = true;
+                notchContainer.isShowingNotifications = false;
+            }
+        }
+    }
+
+    onIsToolsOpenChanged: {
+        if (isToolsOpen) {
+            notchContainer.stackView.push(toolsMenuView);
+            Qt.callLater(() => notchContainer.forceActiveFocus());
+        } else {
+            if (notchContainer.stackView.depth > 1) {
+                notchContainer.stackView.pop();
+                notchContainer.isShowingDefault = true;
+                notchContainer.isShowingNotifications = false;
+            }
+        }
+    }
+
     // Get the bar position for this screen
     readonly property string barPosition: Config.bar?.position ?? "top"
 
@@ -401,47 +444,5 @@ PanelWindow {
         }
     }
 
-    // Listen for dashboard and powermenu state changes
-    Connections {
-        target: screenVisibilities
 
-        function onDashboardChanged() {
-            if (screenVisibilities.dashboard) {
-                notchContainer.stackView.push(dashboardView);
-                Qt.callLater(() => notchContainer.forceActiveFocus());
-            } else {
-                if (notchContainer.stackView.depth > 1) {
-                    notchContainer.stackView.pop();
-                    notchContainer.isShowingDefault = true;
-                    notchContainer.isShowingNotifications = false;
-                }
-            }
-        }
-
-        function onPowermenuChanged() {
-            if (screenVisibilities.powermenu) {
-                notchContainer.stackView.push(powermenuView);
-                Qt.callLater(() => notchContainer.forceActiveFocus());
-            } else {
-                if (notchContainer.stackView.depth > 1) {
-                    notchContainer.stackView.pop();
-                    notchContainer.isShowingDefault = true;
-                    notchContainer.isShowingNotifications = false;
-                }
-            }
-        }
-
-        function onToolsChanged() {
-            if (screenVisibilities.tools) {
-                notchContainer.stackView.push(toolsMenuView);
-                Qt.callLater(() => notchContainer.forceActiveFocus());
-            } else {
-                if (notchContainer.stackView.depth > 1) {
-                    notchContainer.stackView.pop();
-                    notchContainer.isShowingDefault = true;
-                    notchContainer.isShowingNotifications = false;
-                }
-            }
-        }
-    }
 }
