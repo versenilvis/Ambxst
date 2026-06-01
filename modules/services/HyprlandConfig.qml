@@ -247,23 +247,22 @@ QtObject {
         }
     }
 
-    property Connections barConnections: Connections {
-        target: Config.bar
-        function onPositionChanged() {
+    property string configBarPosition: Config.bar?.position ?? "top"
+    property var configThemeSrBgOpacity: Config.theme?.srBg?.opacity ?? null
+    property var configThemeSrBarBgOpacity: Config.theme?.srBarBg?.opacity ?? null
+
+    onConfigBarPositionChanged: {
+        if (Config.initialLoadComplete && Config.bar) {
             applyHyprlandConfig();
         }
     }
-
-    property Connections srBgConnections: Connections {
-        target: Config.theme.srBg
-        function onOpacityChanged() {
+    onConfigThemeSrBgOpacityChanged: {
+        if (Config.initialLoadComplete && Config.theme) {
             applyHyprlandConfig();
         }
     }
-
-    property Connections srBarBgConnections: Connections {
-        target: Config.theme.srBarBg
-        function onOpacityChanged() {
+    onConfigThemeSrBarBgOpacityChanged: {
+        if (Config.initialLoadComplete && Config.theme) {
             applyHyprlandConfig();
         }
     }

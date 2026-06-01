@@ -334,12 +334,15 @@ StyledRect {
         onTriggered: updateDay()
     }
 
-    Connections {
-        target: Config.weather
-        function onLocationChanged() {
+    property string configWeatherLocation: Config.weather?.location ?? ""
+    property string configWeatherUnit: Config.weather?.unit ?? "C"
+    onConfigWeatherLocationChanged: {
+        if (Config.initialLoadComplete && Config.weather) {
             updateWeather();
         }
-        function onUnitChanged() {
+    }
+    onConfigWeatherUnitChanged: {
+        if (Config.initialLoadComplete && Config.weather) {
             updateWeather();
         }
     }

@@ -119,10 +119,10 @@ Singleton {
         validateDisks();
     }
 
-    // Watch for config changes and revalidate disks
-    Connections {
-        target: Config.system
-        function onDisksChanged() {
+    // watch for config changes and revalidate disks
+    property var configSystemDisks: Config.system?.disks ?? null
+    onConfigSystemDisksChanged: {
+        if (Config.initialLoadComplete && Config.system) {
             root.validateDisks();
         }
     }

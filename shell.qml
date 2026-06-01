@@ -72,13 +72,13 @@ ShellRoot {
         Loader {
             id: barLoader
             
-            // Force reload when position changes to prevent artifacts
+            // force reload when position changes to prevent artifacts
             property bool _active: true
             active: _active
 
-            Connections {
-                target: Config.bar
-                function onPositionChanged() {
+            property string configBarPosition: Config.bar?.position ?? "top"
+            onConfigBarPositionChanged: {
+                if (Config.initialLoadComplete && Config.bar) {
                     barLoader._active = false;
                     barReloadTimer.restart();
                 }

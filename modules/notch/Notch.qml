@@ -711,9 +711,9 @@ Item {
                 outlineCanvas.requestPaint();
             }
         }
-        Connections {
-            target: Config.theme.srBg
-            function onBorderChanged() {
+        property var configThemeSrBgBorder: Config.theme?.srBg?.border ?? null
+        onConfigThemeSrBgBorderChanged: {
+            if (Config.initialLoadComplete && Config.theme) {
                 outlineCanvas.requestPaint();
             }
         }

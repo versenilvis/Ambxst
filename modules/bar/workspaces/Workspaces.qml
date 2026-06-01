@@ -126,16 +126,16 @@ Item {
         }
     }
 
-    Connections {
-        target: monitor
-        function onActiveWorkspaceChanged() {
+    property var monitorActiveWorkspace: monitor?.activeWorkspace ?? null
+    onMonitorActiveWorkspaceChanged: {
+        if (monitor) {
             updateTimer.restart();
         }
     }
 
-    Connections {
-        target: activeWindow
-        function onActivatedChanged() {
+    readonly property bool activeWindowActivated: activeWindow?.activated ?? false
+    onActiveWindowActivatedChanged: {
+        if (activeWindow) {
             updateTimer.restart();
         }
     }

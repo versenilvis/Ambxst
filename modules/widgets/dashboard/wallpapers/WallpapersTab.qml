@@ -287,8 +287,8 @@ FocusScope {
                             Layout.preferredWidth: 40
                             Layout.preferredHeight: 40
 
-                            property bool checked: Config.theme.oledMode
-                            property bool enabled: !Config.theme.lightMode
+                            property bool checked: Config.theme?.oledMode ?? false
+                            property bool enabled: !(Config.theme?.lightMode ?? false)
 
                             onActiveFocusChanged: {
                                 if (!activeFocus) {
@@ -317,13 +317,7 @@ FocusScope {
                                 }
                             }
 
-                            // Update checked state when config changes
-                            Connections {
-                                target: Config.theme
-                                function onOledModeChanged() {
-                                    oledCheckbox.checked = Config.theme.oledMode;
-                                }
-                            }
+
 
                             Item {
                                 anchors.fill: parent
