@@ -92,8 +92,17 @@ Singleton {
     reloadableId: "brightness"
 
     onMonitorsChanged: {
-        ddcMonitors = [];
-        ddcProc.running = true;
+        ddcDetectTimer.restart()
+    }
+
+    Timer {
+        id: ddcDetectTimer
+        interval: 1500
+        repeat: false
+        onTriggered: {
+            root.ddcMonitors = [];
+            ddcProc.running = true;
+        }
     }
 
     Process {

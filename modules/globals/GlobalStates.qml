@@ -12,6 +12,21 @@ Singleton {
 
     property var wallpaperManager: null
     property string avatarCacheBuster: ""
+    property string currentUsername: "user"
+
+    Process {
+        id: queryUserProc
+        command: ["whoami"]
+        running: true
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const name = text.trim();
+                if (name) {
+                    root.currentUsername = name;
+                }
+            }
+        }
+    }
 
     function pickUserAvatar() {
         filePickerProcess.running = true;

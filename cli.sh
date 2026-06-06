@@ -191,13 +191,17 @@ quit)
 screen)
 	SUB="${2:-}"
 	if [ "$SUB" = "off" ]; then
-		if command -v hyprctl &>/dev/null; then
+		if command -v wlopm &>/dev/null; then
+			wlopm --off '*'
+		elif command -v hyprctl &>/dev/null; then
 			dispatch_dpms off
 		else
 			notify-send "Screen Off" "Not supported on this compositor yet"
 		fi
 	elif [ "$SUB" = "on" ]; then
-		if command -v hyprctl &>/dev/null; then
+		if command -v wlopm &>/dev/null; then
+			wlopm --on '*'
+		elif command -v hyprctl &>/dev/null; then
 			dispatch_dpms on
 		else
 			notify-send "Screen On" "Not supported on this compositor yet"

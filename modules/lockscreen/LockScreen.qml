@@ -479,7 +479,7 @@ WlSessionLockSurface {
                             id: passwordInput
                             Layout.fillWidth: true
                             Layout.alignment: Qt.AlignVCenter
-                            placeholderText: usernameCollector.text.trim()
+                            placeholderText: GlobalStates.currentUsername
                             placeholderTextColor: Qt.rgba(passwordFieldBg.item.r, passwordFieldBg.item.g, passwordFieldBg.item.b, 0.5)
                             font.family: Config.theme.font
                             font.pixelSize: Styling.fontSize(0)
@@ -577,29 +577,6 @@ WlSessionLockSurface {
         }
     }
 
-    // Processes for user info
-    Process {
-        id: usernameProc
-        command: ["whoami"]
-        running: true
-
-        stdout: StdioCollector {
-            id: usernameCollector
-            waitForEnd: true
-        }
-    }
-
-    Process {
-        id: hostnameProc
-        command: ["hostname"]
-        running: true
-
-        stdout: StdioCollector {
-            id: hostnameCollector
-            waitForEnd: true
-        }
-    }
-
     // Holder temporal para la contraseña durante autenticación
     QtObject {
         id: authPasswordHolder
@@ -609,7 +586,7 @@ WlSessionLockSurface {
     // Proceso para verificar tiempo de faillock
     Process {
         id: failLockCheck
-        command: ["bash", "-c", `faillock --user '${usernameCollector.text.trim()}' 2>/dev/null | grep -oP 'left \\K[0-9]+' | head -1`]
+        command: ["bash", "-c", `faillock --user '${GlobalStates.currentUsername}' 2>/dev/null | grep -oP 'left \\K[0-9]+' | head -1`]
         running: false
 
         stdout: StdioCollector {
