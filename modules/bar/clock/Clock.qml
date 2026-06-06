@@ -170,8 +170,8 @@ Item {
         contentHeight: popupColumn.height
 
         onIsOpenChanged: {
-            if (isOpen && !WeatherService.dataAvailable) {
-                WeatherService.updateWeather();
+            if (isOpen) {
+                WeatherService.activate();
             }
         }
 
