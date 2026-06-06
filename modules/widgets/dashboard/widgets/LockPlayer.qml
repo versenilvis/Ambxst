@@ -108,7 +108,7 @@ StyledRect {
                 MultiEffect {
                     anchors.fill: parent
                     source: albumArt
-                    blurEnabled: true
+                    blurEnabled: Config.enableBlur
                     blurMax: 32
                     blur: playPauseHover.hovered ? 0.75 : 0
 

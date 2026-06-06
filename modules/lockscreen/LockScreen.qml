@@ -87,7 +87,7 @@ WlSessionLockSurface {
         anchors.fill: parent
         source: wallpaperBackground
         autoPaddingEnabled: false
-        blurEnabled: true
+        blurEnabled: Config.enableBlur
         blur: startAnim ? 1 : 0
         blurMax: 64
         visible: true

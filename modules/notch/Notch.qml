@@ -489,7 +489,7 @@ Item {
             // Aplicar MultiEffect con blur animable
             layer.enabled: transitionBlur > 0.0
             layer.effect: MultiEffect {
-                blurEnabled: Config.performance.blurTransition
+                blurEnabled: Config.performance.blurTransition && Config.enableBlur
                 blurMax: 64
                 blur: Math.min(Math.max(stackContainer.transitionBlur, 0.0), 1.0)
             }

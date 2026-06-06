@@ -103,7 +103,7 @@ Item {
             MultiEffect {
                 anchors.fill: backgroundArt
                 source: backgroundArt
-                blurEnabled: true
+                blurEnabled: Config.enableBlur
                 blurMax: 32
                 blur: 0.75
                 autoPaddingEnabled: false

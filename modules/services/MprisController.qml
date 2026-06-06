@@ -12,6 +12,7 @@ Singleton {
     id: root
     property MprisPlayer trackedPlayer: null
     property var filteredPlayers: {
+        if (!Config.enableMpris) return [];
         const filtered = Mpris.players.values.filter(player => {
             const dbusName = (player.dbusName || "").toLowerCase();
             if (!Config.bar.enableFirefoxPlayer && dbusName.includes("firefox")) {
@@ -30,7 +31,7 @@ Singleton {
 
     Process {
         id: ensureCacheFile
-        running: true
+        running: Config.enableMpris
         command: ["bash", "-c", "mkdir -p \"$(dirname '" + root.cacheFilePath + "')\" && if [ ! -f '" + root.cacheFilePath + "' ]; then echo '{}' > '" + root.cacheFilePath + "'; fi"]
         onExited: {
             root.cacheFileReady = true
@@ -40,7 +41,7 @@ Singleton {
 
     FileView {
         id: cacheFile
-        path: root.cacheFileReady ? root.cacheFilePath : ""
+        path: (Config.enableMpris && root.cacheFileReady) ? root.cacheFilePath : ""
         onLoaded: root.loadLastPlayer()
     }
 
@@ -57,7 +58,9 @@ Singleton {
     }
 
     Component.onCompleted: {
-        cacheFile.reload();
+        if (Config.enableMpris) {
+            cacheFile.reload();
+        }
     }
 
     function loadLastPlayer() {
@@ -97,6 +100,7 @@ Singleton {
     }
 
     Instantiator {
+        active: Config.enableMpris
         model: Mpris.players
 
         delegate: QtObject {
