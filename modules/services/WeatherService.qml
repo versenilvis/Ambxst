@@ -7,8 +7,6 @@ import qs.config
 QtObject {
     id: root
 
-    property bool active: false
-
     // Current weather data
     property string weatherSymbol: ""
     property real currentTemp: 0
@@ -457,7 +455,7 @@ QtObject {
 
     property Timer refreshTimer: Timer {
         interval: 600000  // 10 minutes
-        running: root.active
+        running: true
         repeat: true
         onTriggered: root.updateWeather()
     }
@@ -465,20 +463,9 @@ QtObject {
     property Timer sunPositionTimer: Timer {
         id: sunPositionTimer
         interval: 60000
-        running: root.active
+        running: true
         repeat: true
         onTriggered: root.calculateSunPosition()
-    }
-
-    property Timer deactivateTimer: Timer {
-        id: deactivateTimer
-        interval: 60000  // 1 minute
-        running: false
-        repeat: false
-        onTriggered: {
-            root.active = false;
-            root.dataAvailable = false;
-        }
     }
 
     // Watch for config changes
@@ -498,17 +485,7 @@ QtObject {
         updateWeather();
     }
 
-    function activate() {
-        root.active = true;
-        updateWeather();
-        deactivateTimer.restart();
-    }
-
     function updateWeather() {
-        if (!active) {
-            return;
-        }
-
         // Cancel existing process if running
         if (weatherProcess.running) {
             root.wasCancelled = true;
@@ -537,5 +514,6 @@ QtObject {
         var now = new Date();
         currentHour = now.getHours() + now.getMinutes() / 60;
         _initialized = true;
+        updateWeather();
     }
 }
