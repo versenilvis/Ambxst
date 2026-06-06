@@ -22,6 +22,7 @@ WlSessionLockSurface {
     property bool authenticating: false
     property string errorMessage: ""
     property int failLockSecondsLeft: 0
+    property string currentUsername: "user"
 
     // Always transparent - blur background handles the visuals
     color: "transparent"
@@ -479,7 +480,7 @@ WlSessionLockSurface {
                             id: passwordInput
                             Layout.fillWidth: true
                             Layout.alignment: Qt.AlignVCenter
-                            placeholderText: GlobalStates.currentUsername
+                            placeholderText: root.currentUsername
                             placeholderTextColor: Qt.rgba(passwordFieldBg.item.r, passwordFieldBg.item.g, passwordFieldBg.item.b, 0.5)
                             font.family: Config.theme.font
                             font.pixelSize: Styling.fontSize(0)
@@ -586,7 +587,7 @@ WlSessionLockSurface {
     // Proceso para verificar tiempo de faillock
     Process {
         id: failLockCheck
-        command: ["bash", "-c", `faillock --user '${GlobalStates.currentUsername}' 2>/dev/null | grep -oP 'left \\K[0-9]+' | head -1`]
+        command: ["bash", "-c", `faillock --user '${root.currentUsername}' 2>/dev/null | grep -oP 'left \\K[0-9]+' | head -1`]
         running: false
 
         stdout: StdioCollector {
@@ -700,6 +701,7 @@ WlSessionLockSurface {
     }
 
     Component.onCompleted: {
+        root.currentUsername = Quickshell.env("USER") || Quickshell.env("LOGNAME") || "user"
         captureDelayTimer.start();
     }
 
