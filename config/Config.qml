@@ -826,6 +826,7 @@ Singleton {
             property bool blurTransition: true
             property bool windowPreview: true
             property bool wavyLine: true
+            property bool presets: false
         }
     }
 
@@ -3296,6 +3297,7 @@ Singleton {
     // Performance configuration
     property QtObject performance: performanceLoader.adapter
     property bool blurTransition: performance.blurTransition
+    property bool enablePresets: performance.presets
 
     // Weather configuration
     property QtObject weather: weatherLoader.adapter

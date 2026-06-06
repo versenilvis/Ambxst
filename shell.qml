@@ -159,7 +159,7 @@ ShellRoot {
 
         Loader {
             id: presetsLoader
-            active: true
+            active: Config.enablePresets
             required property ShellScreen modelData
             sourceComponent: PresetsPopup {
                 screen: presetsLoader.modelData

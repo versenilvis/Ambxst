@@ -485,8 +485,10 @@ PanelWindow {
                     visible: !(panel.orientation === "horizontal" && integratedDockEnabled)
                 }
 
-                PresetsButton {
-                    id: presetsButton
+                Loader {
+                    active: Config.enablePresets
+                    visible: active
+                    sourceComponent: PresetsButton {}
                 }
 
                 ToolsButton {
@@ -543,8 +545,10 @@ PanelWindow {
                     id: toolsButtonVert
                 }
 
-                PresetsButton {
-                    id: presetsButtonVert
+                Loader {
+                    active: Config.enablePresets
+                    visible: active
+                    sourceComponent: PresetsButton {}
                 }
 
                 // Center Group Container
