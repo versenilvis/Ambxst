@@ -827,10 +827,6 @@ Singleton {
             property bool windowPreview: true
             property bool wavyLine: true
             property bool presets: false
-            property bool mpris: false
-            property bool videoWallpaper: false
-            property bool usageTracker: false
-            property bool blur: false
         }
     }
 
@@ -3302,10 +3298,6 @@ Singleton {
     property QtObject performance: performanceLoader.adapter
     property bool blurTransition: performance.blurTransition
     property bool enablePresets: performance.presets
-    property bool enableMpris: performance.mpris
-    property bool enableVideoWallpaper: performance.videoWallpaper
-    property bool enableUsageTracker: performance.usageTracker
-    property bool enableBlur: performance.blur
 
     // Weather configuration
     property QtObject weather: weatherLoader.adapter

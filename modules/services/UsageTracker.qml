@@ -2,7 +2,6 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
-import qs.config
 
 Singleton {
     id: root
@@ -25,7 +24,7 @@ Singleton {
     // Ensure the file exists
     Process {
         id: ensureUsageFile
-        running: Config.enableUsageTracker
+        running: true
         command: ["bash", "-c", "mkdir -p \"$(dirname '" + root.usageFilePath + "')\" && if [ ! -f '" + root.usageFilePath + "' ]; then echo '{}' > '" + root.usageFilePath + "'; fi"]
         onExited: {
             root.fileReady = true;
@@ -35,14 +34,12 @@ Singleton {
 
     FileView {
         id: usageFile
-        path: (Config.enableUsageTracker && root.fileReady) ? root.usageFilePath : ""
+        path: root.fileReady ? root.usageFilePath : ""
         onLoaded: root.loadUsageData()
     }
 
     Component.onCompleted: {
-        if (Config.enableUsageTracker) {
-            usageFile.reload();
-        }
+        usageFile.reload();
     }
 
     // Load usage data from file
@@ -82,9 +79,6 @@ Singleton {
 
     // Record that an app was used
     function recordUsage(appId) {
-        if (!Config.enableUsageTracker) {
-            return;
-        }
         if (!appId) {
             console.warn("UsageTracker: recordUsage called with empty appId");
             return;

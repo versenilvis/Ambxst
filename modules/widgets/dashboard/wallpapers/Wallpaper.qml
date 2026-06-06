@@ -972,7 +972,7 @@ PanelWindow {
                 var fileType = getFileType(parent.source);
                 if (fileType === 'image') {
                     return staticImageComponent;
-                } else if (Config.enableVideoWallpaper && (fileType === 'gif' || fileType === 'video')) {
+                } else if (fileType === 'gif' || fileType === 'video') {
                     return mpvpaperComponent;
                 }
                 return staticImageComponent; // fallback
