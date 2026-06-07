@@ -12,84 +12,34 @@ QtObject {
     property bool _operationInProgress: false
     property int pageSize: 50
     property bool hasMoreItems: false
+    property bool _isAppending: false
 
     readonly property string dbPath: Quickshell.dataPath("clipboard.db")
     readonly property string binaryDataDir: Quickshell.dataPath("clipboard-data")
-    readonly property string globalLogPath: Quickshell.dataPath("ambxst.log")
-    readonly property string daemonPath: Qt.resolvedUrl("../../daemon/clipboard/ambxst-clipboard").toString().replace("file://", "")
     readonly property string linkPreviewScriptPath: Qt.resolvedUrl("../../scripts/link_preview.py").toString().replace("file://", "")
-    readonly property string socketPath: "/tmp/ambxst-clipboard.sock"
 
     property bool _initialized: false
     signal listCompleted()
     signal fullContentRetrieved(string itemId, string content)
     signal linkPreviewFetched(string url, var metadata, string requestItemId)
 
-    property Process clipboardDaemon: Process {
-        running: root._initialized
-        command: [daemonPath, "-db", dbPath, "-data", binaryDataDir, "-log", globalLogPath]
-        stdout: SplitParser {
-            onRead: data => {
-                var line = data.trim();
-                if (!line) return;
-                try {
-                    var msg = JSON.parse(line);
-                    if (msg.event === "DATA" && msg.items) {
-                        root._applyItems(msg.items, false);
-                    }
-                } catch (e) {}
+    property Connections daemonConnections: Connections {
+        target: DaemonClient
+        
+        function onDaemonConnectedChanged() {
+            if (DaemonClient.daemonConnected && root._initialized) {
+                root.initializeClipboardBackend();
             }
         }
-        stderr: SplitParser { onRead: data => {} }
-        onRunningChanged: {
-            if (running) {
-                root._fetchListCmd();
-                initialListTimer.start();
-            } else if (root._initialized) {
-                restartTimer.start();
-            }
-        }
-    }
 
-    property Timer restartTimer: Timer {
-        interval: 2000
-        repeat: false
-        onTriggered: {
-            clipboardDaemon.running = false;
-            clipboardDaemon.running = true;
+        function onClipboardReceived(itemsList) {
+            root._applyItems(itemsList, root._isAppending);
+            root._isAppending = false;
         }
-    }
 
-    property Timer initialListTimer: Timer {
-        interval: 500
-        repeat: false
-        onTriggered: root._fetchListCmd()
-    }
-
-    property Process _cmdProcess: Process {
-        property string _pendingCmd: ""
-        onRunningChanged: {
-            if (!running && _pendingCmd !== "") {
-                _pendingCmd = "";
-            }
+        function onClipboardContentReceived(itemId, content) {
+            root.fullContentRetrieved(itemId, content);
         }
-    }
-
-    property Process _getContentProcess: Process {
-        property string _itemId: ""
-        stdout: SplitParser {
-            onRead: data => {
-                var line = data.trim();
-                if (!line) return;
-                try {
-                    var msg = JSON.parse(line);
-                    if (msg.ok && msg.data !== undefined) {
-                        root.fullContentRetrieved(_getContentProcess._itemId, msg.data);
-                    }
-                } catch(e) {}
-            }
-        }
-        stderr: SplitParser { onRead: data => {} }
     }
 
     property Process linkPreviewProcess: Process {
@@ -160,48 +110,38 @@ QtObject {
         root._operationInProgress = false;
     }
 
-    function _runDaemonCmd(jsonStr) {
-        _cmdProcess.command = [daemonPath, "-socket", socketPath, "-cmd", jsonStr];
-        _cmdProcess.running = true;
-    }
-
-    property Process _listProcess: Process {
-        property string _out: ""
-        property bool _append: false
-        stdout: SplitParser {
-            onRead: data => {
-                var line = data.trim();
-                if (!line) return;
-                try {
-                    var msg = JSON.parse(line);
-                    if (msg.ok && msg.data) {
-                        root._applyItems(msg.data, _listProcess._append);
-                    }
-                } catch(e) {}
-            }
-        }
-        stderr: SplitParser { onRead: data => {} }
-    }
-
-    function _fetchListCmd(offset) {
-        if (_listProcess.running) return;
-        var listOffset = offset || 0;
-        _listProcess._append = listOffset > 0;
-        _listProcess.command = [daemonPath, "-socket", socketPath, "-cmd", '{"cmd":"LIST","limit":' + root.pageSize + ',"offset":' + listOffset + '}'];
-        _listProcess.running = true;
+    function initializeClipboardBackend() {
+        DaemonClient.sendCommand({
+            type: "init_clipboard",
+            db_path: root.dbPath,
+            data_dir: root.binaryDataDir
+        });
     }
 
     function list() {
-        _fetchListCmd(0);
+        root._isAppending = false;
+        DaemonClient.sendCommand({
+            type: "list_clipboard",
+            limit: root.pageSize,
+            offset: 0
+        });
     }
 
     function loadMore() {
-        if (_listProcess.running || !root.hasMoreItems) return;
-        _fetchListCmd(root.items.length);
+        if (!root.hasMoreItems) return;
+        root._isAppending = true;
+        DaemonClient.sendCommand({
+            type: "list_clipboard",
+            limit: root.pageSize,
+            offset: root.items.length
+        });
     }
 
     function remove(itemId) {
-        _runDaemonCmd('{"cmd":"DELETE","id":"' + itemId + '"}');
+        DaemonClient.sendCommand({
+            type: "delete_clipboard",
+            id: parseInt(itemId)
+        });
     }
 
     function deleteItem(itemId) {
@@ -209,11 +149,16 @@ QtObject {
     }
 
     function clear() {
-        _runDaemonCmd('{"cmd":"CLEAR"}');
+        DaemonClient.sendCommand({
+            type: "clear_clipboard"
+        });
     }
 
     function togglePin(itemId) {
-        _runDaemonCmd('{"cmd":"TOGGLE_PIN","id":"' + itemId + '"}');
+        DaemonClient.sendCommand({
+            type: "toggle_pin_clipboard",
+            id: parseInt(itemId)
+        });
     }
 
     function togglePinned(itemId) {
@@ -221,16 +166,26 @@ QtObject {
     }
 
     function setAlias(itemId, alias) {
-        var escaped = alias.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-        _runDaemonCmd('{"cmd":"SET_ALIAS","id":"' + itemId + '","alias":"' + escaped + '"}');
+        DaemonClient.sendCommand({
+            type: "set_alias_clipboard",
+            id: parseInt(itemId),
+            alias: alias
+        });
     }
 
     function copyToClipboard(itemId) {
-        _runDaemonCmd('{"cmd":"COPY_TO_CLIPBOARD","id":"' + itemId + '"}');
+        DaemonClient.sendCommand({
+            type: "copy_to_clipboard",
+            id: parseInt(itemId)
+        });
     }
 
     function swapItems(id1, id2) {
-        _runDaemonCmd('{"cmd":"SWAP","id":"' + id1 + '","id2":"' + id2 + '"}');
+        DaemonClient.sendCommand({
+            type: "swap_clipboard",
+            id1: parseInt(id1),
+            id2: parseInt(id2)
+        });
     }
 
     function moveItemUp(itemId) {
@@ -252,9 +207,10 @@ QtObject {
     }
 
     function getFullContent(itemId) {
-        _getContentProcess._itemId = itemId;
-        _getContentProcess.command = [daemonPath, "-socket", socketPath, "-cmd", '{"cmd":"GET_CONTENT","id":"' + itemId + '"}'];
-        _getContentProcess.running = true;
+        DaemonClient.sendCommand({
+            type: "get_content_clipboard",
+            id: parseInt(itemId)
+        });
     }
 
     function imageSource(item) {
@@ -278,5 +234,8 @@ QtObject {
 
     Component.onCompleted: {
         root._initialized = true;
+        if (DaemonClient.daemonConnected) {
+            root.initializeClipboardBackend();
+        }
     }
 }
