@@ -160,8 +160,10 @@ Singleton {
     }
 
     Component.onCompleted: {
-        loadPositions();
-        scanDesktop();
+        Qt.callLater(() => {
+            loadPositions();
+            scanDesktop();
+        });
     }
 
     Process {

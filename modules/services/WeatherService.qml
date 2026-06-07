@@ -3,6 +3,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs.config
+import qs.modules.globals
 
 QtObject {
     id: root
@@ -422,7 +423,7 @@ QtObject {
     property Timer sunPositionTimer: Timer {
         id: sunPositionTimer
         interval: 60000
-        running: true
+        running: GlobalStates.dashboardOpen || GlobalStates.launcherOpen || GlobalStates.overviewOpen
         repeat: true
         onTriggered: root.calculateSunPosition()
     }
@@ -436,12 +437,12 @@ QtObject {
     onConfigLocationChanged: {
         if (!_initialized) return;
         console.log("WeatherService: Location changed to '" + configLocation + "'");
-        updateWeather();
+        Qt.callLater(() => { updateWeather(); });
     }
     onConfigUnitChanged: {
         if (!_initialized) return;
         console.log("WeatherService: Unit changed to '" + configUnit + "'");
-        updateWeather();
+        Qt.callLater(() => { updateWeather(); });
     }
 
     function updateWeather() {
@@ -468,6 +469,6 @@ QtObject {
         var now = new Date();
         currentHour = now.getHours() + now.getMinutes() / 60;
         _initialized = true;
-        updateWeather();
+        Qt.callLater(() => { updateWeather(); });
     }
 }

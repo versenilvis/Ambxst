@@ -92,10 +92,12 @@ Singleton {
     }
 
     Component.onCompleted: {
-        detectGPU();
-        cpuModelReader.running = true;
-        
-        validateDisks();
+        Qt.callLater(() => {
+            detectGPU();
+            cpuModelReader.running = true;
+            
+            validateDisks();
+        });
     }
 
     // watch for config changes and revalidate disks

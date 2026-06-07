@@ -290,8 +290,6 @@ ShellRoot {
             _ = GameModeService.toggled
             _ = CaffeineService.inhibit
             _ = IdleService.lockCmd // Force init
-            _ = WeatherService.dataAvailable
-            _ = SystemResources.cpuUsage
         }
     }
 
