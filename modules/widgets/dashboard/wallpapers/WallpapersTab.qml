@@ -532,10 +532,8 @@ FocusScope {
                 // Deshabilitar highlight durante scroll para evitar glitches
                 highlightFollowsCurrentItem: !isScrolling
 
-                // Optimizaciones de rendimiento
-                cacheBuffer: cellHeight * 2
-                displayMarginBeginning: cellHeight
-                displayMarginEnd: cellHeight
+                // chỉ giữ delegate đang hiển thị, không preload để tiết kiệm RAM
+                cacheBuffer: 0
                 reuseItems: true
 
                 // Configuración de scroll optimizada

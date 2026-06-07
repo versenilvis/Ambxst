@@ -168,13 +168,15 @@ Item {
                 fillMode: Image.PreserveAspectCrop
                 asynchronous: true
                 smooth: true
+                // giải phóng texture khi overview đóng
+                cache: false
 
                 property string lockscreenFramePath: {
                     if (!GlobalStates.wallpaperManager)
                         return "";
                     return GlobalStates.wallpaperManager.getLockscreenFramePath(GlobalStates.wallpaperManager.currentWallpaper);
                 }
-                source: lockscreenFramePath ? "file://" + lockscreenFramePath : ""
+                source: GlobalStates.overviewOpen && lockscreenFramePath ? "file://" + lockscreenFramePath : ""
 
                 layer.enabled: true
                 layer.effect: MultiEffect {

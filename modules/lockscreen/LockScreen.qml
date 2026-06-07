@@ -63,6 +63,8 @@ WlSessionLockSurface {
         asynchronous: true
         smooth: true
         visible: false
+        // không giữ ảnh trong cache khi không lock
+        cache: false
         z: 1
 
         property string lockscreenFramePath: {
@@ -71,6 +73,7 @@ WlSessionLockSurface {
             return GlobalStates.wallpaperManager.getLockscreenFramePath(GlobalStates.wallpaperManager.currentWallpaper);
         }
 
+        // chỉ load khi đang hiện lock screen
         source: lockscreenFramePath ? "file://" + lockscreenFramePath : ""
 
         onStatusChanged: {

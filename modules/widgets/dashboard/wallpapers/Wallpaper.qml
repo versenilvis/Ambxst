@@ -992,6 +992,8 @@ PanelWindow {
                 fillMode: Image.PreserveAspectCrop
                 asynchronous: true
                 smooth: true
+                // không cache để Qt giải phóng ảnh cũ ngay khi chuyển wallpaper
+                cache: false
             }
         }
 
