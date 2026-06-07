@@ -23,6 +23,7 @@ Singleton {
     property var triggeredListeners: [] // Keeps track of indices that have fired
     property bool resumeCooldown: false // Prevent immediate resume after listener triggers
     property bool pendingReset: false // Track if reset was requested during cooldown
+    property bool ignoreNextResume: false
 
     // Master Monitor: Detects "absence of activity" almost immediately
     IdleMonitor {
@@ -35,8 +36,10 @@ Singleton {
                 idleTimer.start();
             } else {
                 idleTimer.stop();
-                // If in cooldown, defer the reset
-                if (root.resumeCooldown) {
+                if (root.ignoreNextResume) {
+                    root.ignoreNextResume = false;
+                    console.log("IdleMonitor: Ignored fake resume event from screen off");
+                } else if (root.resumeCooldown) {
                     root.pendingReset = true;
                 } else {
                     root.resetIdleState();
@@ -91,8 +94,8 @@ Singleton {
                     console.log("Idle timer " + tVal + "s reached: " + listener.onTimeout);
                     root.executeCommand(listener.onTimeout);
                     
-                    // Activate cooldown to prevent immediate resume from listener-caused activity
                     root.resumeCooldown = true;
+                    root.ignoreNextResume = root.isScreenOffCommand(listener.onTimeout);
                     cooldownTimer.restart();
                 }
                 root.triggeredListeners.push(i);
@@ -127,6 +130,14 @@ Singleton {
     function isDpmsOnCommand(cmd) {
         const value = (cmd || "").trim();
         return value === "ambxst screen on" || value === "hyprctl dispatch dpms on";
+    }
+
+    function isScreenOffCommand(cmd) {
+        const value = (cmd || "").trim();
+        return value === "ambxst screen off" 
+            || value === "hyprctl dispatch dpms off"
+            || value.includes("wlopm --off")
+            || value.includes("dpms off");
     }
 
     function executeCommand(cmd) {
