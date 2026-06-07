@@ -26,6 +26,13 @@ ClippingRectangle {
     radius: Styling.radius(-8)
     color: "transparent"
 
+    function getIconSource(iconName) {
+        if (!iconName) return "";
+        if (iconName.startsWith("file://")) return iconName;
+        if (iconName.startsWith("/")) return "file://" + iconName;
+        return "image://icon/" + iconName;
+    }
+
     Rectangle {
         anchors.fill: parent
         color: root.urgency == NotificationUrgency.Critical ? Colors.shadow : Colors.surfaceBright
@@ -67,7 +74,7 @@ ClippingRectangle {
         sourceComponent: Image {
             id: appIconImage
             anchors.fill: parent
-            source: root.appIcon ? "image://icon/" + root.appIcon : ""
+            source: root.getIconSource(root.appIcon)
             fillMode: Image.PreserveAspectCrop
             smooth: true
         }
@@ -96,7 +103,7 @@ ClippingRectangle {
                     onStatusChanged: {
                         if (status === Image.Error && root.appIcon && !usingAppIconFallback) {
                             usingAppIconFallback = true;
-                            source = "image://icon/" + root.appIcon;
+                            source = root.getIconSource(root.appIcon);
                         }
                     }
                 }
@@ -114,7 +121,7 @@ ClippingRectangle {
                     radius: root.radius * root.smallAppIconScale
                     Image {
                         anchors.fill: parent
-                        source: root.appIcon ? "image://icon/" + root.appIcon : ""
+                        source: root.getIconSource(root.appIcon)
                         fillMode: Image.PreserveAspectCrop
                         smooth: true
                     }
