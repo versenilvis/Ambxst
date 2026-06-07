@@ -64,49 +64,30 @@ Singleton {
     property int totalDataPoints: 0
 
     // Unified System Monitor Process
-    property Process monitorProcess: Process {
-        id: monitorProcess
-        running: false
-        // Arguments will be updated when validDisks changes
-        command: ["python3", Quickshell.shellDir + "/scripts/system_monitor.py"]
-        
-        stdout: SplitParser {
-            onRead: data => {
-                try {
-                    const stats = JSON.parse(data);
-                    
-                    // Update CPU
-                    root.cpuUsage = stats.cpu.usage;
-                    root.cpuTemp = stats.cpu.temp;
-                    
-                    // Update RAM
-                    root.ramUsage = stats.ram.usage;
-                    root.ramTotal = stats.ram.total;
-                    root.ramUsed = stats.ram.used;
-                    root.ramAvailable = stats.ram.available;
-                    
-                    // Update Disk
-                    root.diskUsage = stats.disk.usage;
-                    
-                    // Update GPU
-                    root.gpuDetected = stats.gpu.detected;
-                    if (stats.gpu.detected) {
-                        // Ensure arrays are initialized if count changes (unlikely but safe)
-                        if (root.gpuCount !== stats.gpu.count) {
-                            root.gpuCount = stats.gpu.count;
-                            root.gpuVendors = Array(stats.gpu.count).fill(stats.gpu.vendor);
-                        }
-                        root.gpuUsages = stats.gpu.usages;
-                        root.gpuTemps = stats.gpu.temps;
-                    }
-                    
-                    // Update History
-                    root.updateHistory();
-                    
-                } catch (e) {
-                    console.warn("SystemResources: Failed to parse monitor data: " + e);
+    Connections {
+        target: DaemonClient
+        function onSystemResourcesReceived(stats) {
+            root.cpuUsage = stats.cpu.usage;
+            root.cpuTemp = stats.cpu.temp;
+            
+            root.ramUsage = stats.ram.usage;
+            root.ramTotal = stats.ram.total;
+            root.ramUsed = stats.ram.used;
+            root.ramAvailable = stats.ram.available;
+            
+            root.diskUsage = stats.disk;
+            
+            root.gpuDetected = stats.gpu.detected;
+            if (stats.gpu.detected) {
+                if (root.gpuCount !== stats.gpu.count) {
+                    root.gpuCount = stats.gpu.count;
+                    root.gpuVendors = Array(stats.gpu.count).fill(stats.gpu.vendor);
                 }
+                root.gpuUsages = stats.gpu.usages;
+                root.gpuTemps = stats.gpu.temps;
             }
+            
+            root.updateHistory();
         }
     }
 
@@ -114,8 +95,6 @@ Singleton {
         detectGPU();
         cpuModelReader.running = true;
         
-        // Validate disks immediately - if Config is ready, this will populate validDisks
-        // and trigger onValidDisksChanged which starts the monitor
         validateDisks();
     }
 
@@ -141,19 +120,6 @@ Singleton {
         if (validDisks.length > 0) {
             diskTypeDetector.running = true;
         }
-
-        // Restart monitor process with new args
-        if (monitorProcess.running) {
-            monitorProcess.running = false;
-        }
-        
-        let cmd = ["python3", Quickshell.shellDir + "/scripts/system_monitor.py"];
-        for (let i = 0; i < validDisks.length; i++) {
-            cmd.push(validDisks[i]);
-        }
-        
-        monitorProcess.command = cmd;
-        monitorProcess.running = true;
     }
 
     // Detect GPU vendor and availability

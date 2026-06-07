@@ -16,47 +16,7 @@ Singleton {
     property string beforeSleepCmd: Config.system.idle.general.before_sleep_cmd ?? "loginctl lock-session"
     property string afterSleepCmd: Config.system.idle.general.after_sleep_cmd ?? "ambxst screen on"
 
-    // Login Lock Daemon
-    // Helper script that listens to Lock signal and executes lockCmd from config
-    Process {
-        id: loginLockProc
-        running: true
-        command: ["bash", Qt.resolvedUrl("../../scripts/loginlock.sh").toString().replace("file://", "")]
-        onExited: exitCode => {
-            if (exitCode !== 0) {
-                console.warn("loginlock.sh exited with code " + exitCode + ". Restarting...");
-                loginLockRestartTimer.start();
-            }
-        }
-    }
 
-    Timer {
-        id: loginLockRestartTimer
-        interval: 1000
-        repeat: false
-        onTriggered: loginLockProc.running = true
-    }
-
-    // Sleep Monitor Daemon
-    // Helper script that listens to PrepareForSleep signal and executes sleep commands from config
-    Process {
-        id: sleepMonitorProc
-        running: true
-        command: ["bash", Qt.resolvedUrl("../../scripts/sleep_monitor.sh").toString().replace("file://", "")]
-        onExited: exitCode => {
-            if (exitCode !== 0) {
-                console.warn("sleep_monitor.sh exited with code " + exitCode + ". Restarting...");
-                sleepMonitorRestartTimer.start();
-            }
-        }
-    }
-
-    Timer {
-        id: sleepMonitorRestartTimer
-        interval: 1000
-        repeat: false
-        onTriggered: sleepMonitorProc.running = true
-    }
 
     // Master Idle Logic
     property int elapsedIdleTime: 0

@@ -285,7 +285,8 @@ ShellRoot {
         
         Component.onCompleted: {
             // Reference the services to force their creation
-            let _ = NightLightService.active
+            let _ = DaemonClient.daemonConnected
+            _ = NightLightService.active
             _ = GameModeService.toggled
             _ = CaffeineService.inhibit
             _ = IdleService.lockCmd // Force init
