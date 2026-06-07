@@ -51,12 +51,14 @@ Singleton {
     // Cooldown timer - prevents resume for a short period after listener triggers
     Timer {
         id: cooldownTimer
-        interval: 1500 // 1.5 seconds - enough for lockscreen to fully load
+        interval: 2500 // 2.5 seconds to safely cover fake resume and its 1s idle reset
         repeat: false
         onTriggered: {
             root.resumeCooldown = false;
-            // Execute pending reset if activity happened during cooldown and user is still active
-            if (root.pendingReset && !masterMonitor.isIdle) {
+            root.ignoreNextResume = false; // Clear flag in case fake resume never arrived
+            
+            // If the user is active at the end of the cooldown, it means real activity
+            if (!masterMonitor.isIdle) {
                 root.pendingReset = false;
                 root.resetIdleState();
             }
@@ -147,5 +149,13 @@ Singleton {
         );
         proc.cmd = cmd;
         proc.running = true;
+    }
+
+    Component.onCompleted: {
+        // Kill competing idle daemon (hypridle) to prevent conflicts with Ambxst's IdleService
+        var proc = Qt.createQmlObject(
+            'import Quickshell.Io; Process { command: ["pkill", "-x", "hypridle"]; running: true; onExited: destroy() }',
+            root
+        );
     }
 }
