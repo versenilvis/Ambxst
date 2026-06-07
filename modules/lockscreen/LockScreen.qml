@@ -23,33 +23,39 @@ WlSessionLockSurface {
     property string errorMessage: ""
     property int failLockSecondsLeft: 0
     property string currentUsername: "user"
+    property bool enableScreencopy: false
 
     // Always transparent - blur background handles the visuals
     color: "transparent"
 
-    ScreencopyView {
-        id: screencopyBackground
+    Loader {
+        id: screencopyLoader
         anchors.fill: parent
-        captureSource: root.screen
-        live: false
-        paintCursor: false
-        visible: startAnim
-        z: 0
+        active: enableScreencopy
+        sourceComponent: Component {
+            ScreencopyView {
+                captureSource: root.screen
+                live: false
+                paintCursor: false
+                visible: startAnim
+                z: 0
 
-        property real zoomScale: startAnim ? 1.25 : 1.0
+                property real zoomScale: startAnim ? 1.25 : 1.0
 
-        transform: Scale {
-            origin.x: screencopyBackground.width / 2
-            origin.y: screencopyBackground.height / 2
-            xScale: screencopyBackground.zoomScale
-            yScale: screencopyBackground.zoomScale
-        }
+                transform: Scale {
+                    origin.x: width / 2
+                    origin.y: height / 2
+                    xScale: zoomScale
+                    yScale: zoomScale
+                }
 
-        Behavior on zoomScale {
-            enabled: Config.animDuration > 0
-            NumberAnimation {
-                duration: Config.animDuration * 2
-                easing.type: Easing.OutExpo
+                Behavior on zoomScale {
+                    enabled: Config.animDuration > 0
+                    NumberAnimation {
+                        duration: Config.animDuration * 2
+                        easing.type: Easing.OutExpo
+                    }
+                }
             }
         }
     }
@@ -713,16 +719,30 @@ WlSessionLockSurface {
         interval: 200
         repeat: false
         onTriggered: {
-            // Only capture screen if this lockscreen was just activated
             if (root.screen && GlobalStates.lockscreenTimestamp > 0 && (Date.now() - GlobalStates.lockscreenTimestamp < 2000)) {
-                try {
-                    screencopyBackground.captureFrame();
-                } catch(e) {
-                    console.warn("failed to capture lockscreen frame: " + e)
-                }
+                enableScreencopy = true;
+                Qt.callLater(() => {
+                    if (screencopyLoader.item) {
+                        try {
+                            screencopyLoader.item.captureFrame();
+                        } catch(e) {
+                            console.warn("failed to capture lockscreen frame: " + e)
+                        }
+                    }
+                    screencopyUnloadTimer.start();
+                });
             }
             startAnim = true;
             passwordInput.forceActiveFocus();
+        }
+    }
+
+    Timer {
+        id: screencopyUnloadTimer
+        interval: 2000
+        repeat: false
+        onTriggered: {
+            enableScreencopy = false;
         }
     }
 }
