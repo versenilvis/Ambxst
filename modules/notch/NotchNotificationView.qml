@@ -533,7 +533,7 @@ Item {
 
                                                 Text {
                                                     width: parent.width
-                                                    text: notification ? processNotificationBody(notification.body, notification.appName) : ""
+                                                    text: notification ? NotificationUtils.processNotificationBody(notification.body, notification.appName) : ""
                                                     font.family: Config.theme.font
                                                     font.pixelSize: Config.theme.fontSize
                                                     font.weight: notification && notification.urgency == NotificationUrgency.Critical ? Font.Bold : Font.Normal
@@ -567,7 +567,7 @@ Item {
 
                                                 Text {
                                                     id: bodyCollapsed
-                                                    text: notification ? processNotificationBody(notification.body || "", notification.appName).replace(/\n/g, ' ') : ""
+                                                    text: notification ? NotificationUtils.processNotificationBody(notification.body || "", notification.appName).replace(/\n/g, ' ') : ""
                                                     font.family: Config.theme.font
                                                     font.pixelSize: Config.theme.fontSize
                                                     font.weight: notification && notification.urgency == NotificationUrgency.Critical ? Font.Bold : Font.Normal
