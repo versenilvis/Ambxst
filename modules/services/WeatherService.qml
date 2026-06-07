@@ -34,9 +34,6 @@ QtObject {
     property real debugHour: 12.0  // 0-24 hour format (e.g., 14.5 = 2:30 PM)
     property int debugWeatherCode: 0
 
-    // Script path
-    readonly property string scriptPath: Quickshell.shellDir + "/scripts/weather.sh"
-
     // Parse "HH:MM" to hours as decimal (e.g., "14:30" -> 14.5)
     function parseTime(timeStr) {
         if (!timeStr)
@@ -345,111 +342,73 @@ QtObject {
         onTriggered: root.updateWeather()
     }
 
-    property Process weatherProcess: Process {
-        running: false
-        command: []
-
-        stdout: StdioCollector {
-            waitForEnd: true
-            onStreamFinished: {
-                // Skip processing if we cancelled this request
-                if (root.wasCancelled) {
-                    return;
-                }
-
-                var raw = text.trim();
-                if (raw.length > 0) {
-                    try {
-                        var data = JSON.parse(raw);
-
-                        // Check for error from script
-                        if (data.error) {
-                            console.warn("WeatherService:", data.error);
-                            root.dataAvailable = false;
-                            root.handleError();
-                            return;
-                        }
-
-                        if (data.current_weather && data.daily) {
-                            var weather = data.current_weather;
-                            var daily = data.daily;
-
-                            root.weatherCode = parseInt(weather.weathercode);
-                            root.currentTemp = convertTemp(parseFloat(weather.temperature));
-                            root.windSpeed = parseFloat(weather.windspeed);
-
-                            if (daily.temperature_2m_max && daily.temperature_2m_max.length > 0) {
-                                root.maxTemp = convertTemp(parseFloat(daily.temperature_2m_max[0]));
-                            }
-                            if (daily.temperature_2m_min && daily.temperature_2m_min.length > 0) {
-                                root.minTemp = convertTemp(parseFloat(daily.temperature_2m_min[0]));
-                            }
-
-                            if (daily.sunrise && daily.sunrise.length > 0) {
-                                root.sunrise = daily.sunrise[0].split("T")[1];
-                            }
-                            if (daily.sunset && daily.sunset.length > 0) {
-                                root.sunset = daily.sunset[0].split("T")[1];
-                            }
-
-                            // Parse 7-day forecast
-                            var forecastData = [];
-                            var dayCount = Math.min(7, daily.time ? daily.time.length : 0);
-                            for (var i = 0; i < dayCount; i++) {
-                                // Parse date string manually to avoid timezone issues with UTC midnight
-                                // Format is "YYYY-MM-DD"
-                                var dateParts = daily.time[i].split("-");
-                                var year = parseInt(dateParts[0]);
-                                var month = parseInt(dateParts[1]) - 1; // Months are 0-indexed
-                                var day = parseInt(dateParts[2]);
-                                
-                                var dayDate = new Date(year, month, day);
-                                var rawDayName = i === 0 ? "Today" : dayDate.toLocaleDateString(Qt.locale(), "ddd");
-                                var dayName = rawDayName.charAt(0).toUpperCase() + rawDayName.slice(1);
-                                forecastData.push({
-                                    date: daily.time[i],
-                                    dayName: dayName,
-                                    weatherCode: daily.weathercode ? daily.weathercode[i] : 0,
-                                    emoji: getWeatherCodeEmoji(daily.weathercode ? daily.weathercode[i] : 0),
-                                    maxTemp: convertTemp(daily.temperature_2m_max ? daily.temperature_2m_max[i] : 0),
-                                    minTemp: convertTemp(daily.temperature_2m_min ? daily.temperature_2m_min[i] : 0)
-                                });
-                            }
-                            root.forecast = forecastData;
-
-                            root.weatherSymbol = getWeatherCodeEmoji(root.weatherCode);
-                            root.weatherDescription = getWeatherDescription(root.weatherCode);
-                            root.calculateSunPosition();
-                            root.dataAvailable = true;
-                            root.isLoading = false;
-                            root.hasFailed = false;
-                            root.retryCount = 0;
-                        } else {
-                            console.warn("WeatherService: Invalid response structure");
-                            root.dataAvailable = false;
-                            root.handleError();
-                        }
-                    } catch (e) {
-                        console.warn("WeatherService: JSON parse error:", e);
-                        root.dataAvailable = false;
-                        root.handleError();
-                    }
-                } else {
-                    console.warn("WeatherService: Empty response");
-                    root.handleError();
-                }
+    property Connections daemonConnections: Connections {
+        target: DaemonClient
+        function onWeatherReceived(data) {
+            if (data.error) {
+                console.warn("WeatherService:", data.error);
+                root.dataAvailable = false;
+                root.handleError();
+                return;
             }
-        }
 
-        onExited: function (code) {
-            // Code 15 = SIGTERM, means we cancelled the process intentionally
-            if (code !== 0 && code !== 15) {
-                console.warn("WeatherService: Script exited with code", code);
+            if (data.current_weather && data.daily) {
+                var weather = data.current_weather;
+                var daily = data.daily;
+
+                root.weatherCode = parseInt(weather.weathercode);
+                root.currentTemp = convertTemp(parseFloat(weather.temperature));
+                root.windSpeed = parseFloat(weather.windspeed);
+
+                if (daily.temperature_2m_max && daily.temperature_2m_max.length > 0) {
+                    root.maxTemp = convertTemp(parseFloat(daily.temperature_2m_max[0]));
+                }
+                if (daily.temperature_2m_min && daily.temperature_2m_min.length > 0) {
+                    root.minTemp = convertTemp(parseFloat(daily.temperature_2m_min[0]));
+                }
+
+                if (daily.sunrise && daily.sunrise.length > 0) {
+                    root.sunrise = daily.sunrise[0].split("T")[1];
+                }
+                if (daily.sunset && daily.sunset.length > 0) {
+                    root.sunset = daily.sunset[0].split("T")[1];
+                }
+
+                // parse 7-day forecast
+                var forecastData = [];
+                var dayCount = Math.min(7, daily.time ? daily.time.length : 0);
+                for (var i = 0; i < dayCount; i++) {
+                    var dateParts = daily.time[i].split("-");
+                    var year = parseInt(dateParts[0]);
+                    var month = parseInt(dateParts[1]) - 1;
+                    var day = parseInt(dateParts[2]);
+                    
+                    var dayDate = new Date(year, month, day);
+                    var rawDayName = i === 0 ? "Today" : dayDate.toLocaleDateString(Qt.locale(), "ddd");
+                    var dayName = rawDayName.charAt(0).toUpperCase() + rawDayName.slice(1);
+                    forecastData.push({
+                        date: daily.time[i],
+                        dayName: dayName,
+                        weatherCode: daily.weathercode ? daily.weathercode[i] : 0,
+                        emoji: getWeatherCodeEmoji(daily.weathercode ? daily.weathercode[i] : 0),
+                        maxTemp: convertTemp(daily.temperature_2m_max ? daily.temperature_2m_max[i] : 0),
+                        minTemp: convertTemp(daily.temperature_2m_min ? daily.temperature_2m_min[i] : 0)
+                    });
+                }
+                root.forecast = forecastData;
+
+                root.weatherSymbol = getWeatherCodeEmoji(root.weatherCode);
+                root.weatherDescription = getWeatherDescription(root.weatherCode);
+                root.calculateSunPosition();
+                root.dataAvailable = true;
+                root.isLoading = false;
+                root.hasFailed = false;
+                root.retryCount = 0;
+            } else {
+                console.warn("WeatherService: Invalid response structure");
                 root.dataAvailable = false;
                 root.handleError();
             }
-            // Reset cancelled flag after process fully exits
-            root.wasCancelled = false;
         }
     }
 
@@ -486,13 +445,6 @@ QtObject {
     }
 
     function updateWeather() {
-        // Cancel existing process if running
-        if (weatherProcess.running) {
-            root.wasCancelled = true;
-            weatherProcess.running = false;
-        }
-
-        // Safety check for config
         if (!Config.weather) {
             console.warn("WeatherService: Config.weather is null");
             return;
@@ -504,10 +456,12 @@ QtObject {
         var locationStr = Config.weather.location || "";
         var location = locationStr.trim();
         
-        console.log("WeatherService: Fetching weather for '" + location + "'");
+        console.log("WeatherService: Requesting weather update for '" + location + "'");
         
-        weatherProcess.command = [scriptPath, location];
-        weatherProcess.running = true;
+        DaemonClient.sendCommand({
+            type: "update_weather",
+            location: location
+        });
     }
 
     Component.onCompleted: {
