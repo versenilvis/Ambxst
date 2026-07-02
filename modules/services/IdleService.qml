@@ -152,10 +152,6 @@ Singleton {
     }
 
     Component.onCompleted: {
-        // Kill competing idle daemon (hypridle) to prevent conflicts with Ambxst's IdleService
-        var proc = Qt.createQmlObject(
-            'import Quickshell.Io; Process { command: ["pkill", "-x", "hypridle"]; running: true; onExited: destroy() }',
-            root
-        );
+        // do not kill hypridle as it is needed to handle system sleep inhibitor locks
     }
 }

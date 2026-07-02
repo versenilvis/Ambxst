@@ -8,6 +8,8 @@ import qs.modules.globals
 QtObject {
     id: root
 
+    property real lastApplyTime: 0.0
+
     property Process hyprctlProcess: Process {
         stdout: StdioCollector {
             onStreamFinished: {
@@ -321,6 +323,7 @@ QtObject {
         const fullBatchCommand = unbindCommands.join("; ") + "; " + batchCommands.join("; ");
 
         console.log("applying keybinds directly via hyprctl")
+        lastApplyTime = Date.now();
         hyprctlProcess.command = ["hyprctl", "--batch", fullBatchCommand];
         hyprctlProcess.running = true;
     }
@@ -368,6 +371,10 @@ QtObject {
         target: Hyprland
         function onRawEvent(event) {
             if (event.name === "configreloaded") {
+                // ignore configreloaded events triggered by our own hyprctl calls
+                if (Date.now() - lastApplyTime < 1000) {
+                    return;
+                }
                 console.log("HyprlandKeybinds: Detectado configreloaded, reaplicando keybindings...");
                 applyKeybinds();
             }

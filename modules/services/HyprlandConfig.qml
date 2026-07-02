@@ -11,6 +11,7 @@ QtObject {
     id: root
 
     property Process hyprctlProcess: Process {}
+    property real lastApplyTime: 0.0
 
     property var barInstances: []
 
@@ -96,6 +97,7 @@ QtObject {
         console.log(`HyprlandConfig: Applying ignorealpha: ${ignoreAlphaValue}, explicit: ${Config.hyprland.blurExplicitIgnoreAlpha}`);
         batchCommand += ` ; keyword layerrule noanim,quickshell ; keyword layerrule blur,quickshell ; keyword layerrule blurpopups,quickshell ; keyword layerrule ignorealpha ${ignoreAlphaValue},quickshell`;
         console.log("HyprlandConfig: Applying hyprctl batch command.");
+        lastApplyTime = Date.now();
         hyprctlProcess.command = ["hyprctl", "--batch", batchCommand];
         hyprctlProcess.running = true;
     }
@@ -283,6 +285,10 @@ QtObject {
         target: Hyprland
         function onRawEvent(event) {
             if (event.name === "configreloaded") {
+                // ignore configreloaded events triggered by our own hyprctl calls
+                if (Date.now() - lastApplyTime < 1000) {
+                    return;
+                }
                 console.log("HyprlandConfig: Detectado configreloaded, reaplicando configuración...");
                 applyHyprlandConfig();
             }

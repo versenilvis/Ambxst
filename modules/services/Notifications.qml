@@ -34,6 +34,13 @@ Singleton {
 
         interval: originalInterval
         running: !isPaused
+        repeat: false
+
+        Component.onCompleted: {
+            if (running) {
+                restart();
+            }
+        }
 
         function pause() {
             if (!isPaused) {

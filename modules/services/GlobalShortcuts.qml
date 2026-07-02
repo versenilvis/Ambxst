@@ -3,6 +3,7 @@ import Quickshell.Hyprland._GlobalShortcuts
 import qs.modules.globals
 import qs.modules.services
 import qs.config
+import qs.modules.bar.workspaces
 
 import Quickshell.Io
 
@@ -65,6 +66,7 @@ Item {
             
             // Bar
             case "toggle-bar": toggleBarPinned(); break;
+            case "update-windows": HyprlandData.updateWindowList(); break;
                 
             default: console.warn("Unknown IPC command:", command);
         }
