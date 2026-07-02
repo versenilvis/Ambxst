@@ -175,6 +175,8 @@ reload)
 			sleep 0.1
 		done
 	fi
+	pkill -f ambxst-daemon || true
+	rm -f "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/ambxst-daemon.sock"
 	echo "Starting Ambxst..."
 	# Relaunch the script in background
 	nohup "${SCRIPT_DIR}/cli.sh" >/tmp/ambxst_reload_start.log 2>&1 &

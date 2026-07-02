@@ -69,26 +69,48 @@ def fetch_youtube_metadata(url, timeout=5):
         return None
 
 
-def fetch_twitter_metadata(url, timeout=5):
-    """Fetch metadata from Twitter/X using oEmbed API."""
-    try:
-        # Twitter oEmbed API
-        oembed_url = f"https://publish.twitter.com/oembed?url={quote(url)}"
+def extract_tweet_id(url):
+    match = re.search(r"status/(\d+)", url)
+    if match:
+        return match.group(1)
+    return None
 
-        req = urllib.request.Request(oembed_url)
+
+def fetch_twitter_metadata(url, timeout=5):
+    tweet_id = extract_tweet_id(url)
+    if not tweet_id:
+        return None
+
+    try:
+        # use vxtwitter api
+        api_url = f"https://api.vxtwitter.com/Twitter/status/{tweet_id}"
+        req = urllib.request.Request(api_url, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(req, timeout=timeout) as response:
             data = json.loads(response.read().decode("utf-8"))
 
+        # find thumbnail or image
+        image = ""
+        media_extended = data.get("media_extended", [])
+        if media_extended and isinstance(media_extended, list):
+            image = media_extended[0].get("thumbnail_url", "")
+            if not image:
+                image = media_extended[0].get("url", "")
+        
+        if not image:
+            media_urls = data.get("mediaURLs", [])
+            if media_urls and isinstance(media_urls, list):
+                image = media_urls[0]
+
         return {
-            "title": data.get("author_name", "Tweet"),
-            "description": re.sub(r"<[^>]+>", "", data.get("html", "")),  # Strip HTML
-            "image": "",
+            "title": data.get("text", "Tweet"),
+            "description": f"{data.get('user_name', 'Unknown')} (@{data.get('user_screen_name', '')})",
+            "image": image,
             "url": url,
             "request_url": url,
             "site_name": "X (Twitter)",
             "type": "article",
             "favicon": "https://abs.twimg.com/favicons/twitter.3.ico",
-            "author": data.get("author_name", ""),
+            "author": data.get("user_name", ""),
         }
     except Exception as e:
         return None
