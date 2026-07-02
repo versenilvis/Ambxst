@@ -31,6 +31,7 @@ PanelWindow {
     property bool usingFallback: false
     property bool _wallpaperDirInitialized: false
     property string currentMatugenScheme: wallpaperConfig.adapter.matugenScheme
+    property bool _isDestroying: false
 
     // sync state from the primary wallpaper manager to secondary instances
     Binding {
@@ -38,6 +39,7 @@ PanelWindow {
         property: "wallpaperPaths"
         value: GlobalStates.wallpaperManager ? GlobalStates.wallpaperManager.wallpaperPaths : []
         when: GlobalStates.wallpaperManager !== null && GlobalStates.wallpaperManager !== wallpaper
+        restoreMode: Binding.RestoreNone
     }
 
     Binding {
@@ -45,6 +47,7 @@ PanelWindow {
         property: "currentIndex"
         value: GlobalStates.wallpaperManager ? GlobalStates.wallpaperManager.currentIndex : 0
         when: GlobalStates.wallpaperManager !== null && GlobalStates.wallpaperManager !== wallpaper
+        restoreMode: Binding.RestoreNone
     }
 
     Binding {
@@ -52,6 +55,7 @@ PanelWindow {
         property: "subfolderFilters"
         value: GlobalStates.wallpaperManager ? GlobalStates.wallpaperManager.subfolderFilters : []
         when: GlobalStates.wallpaperManager !== null && GlobalStates.wallpaperManager !== wallpaper
+        restoreMode: Binding.RestoreNone
     }
     
     Binding {
@@ -59,6 +63,7 @@ PanelWindow {
         property: "initialLoadCompleted"
         value: GlobalStates.wallpaperManager ? GlobalStates.wallpaperManager.initialLoadCompleted : false
         when: GlobalStates.wallpaperManager !== null && GlobalStates.wallpaperManager !== wallpaper
+        restoreMode: Binding.RestoreNone
     }
 
 
@@ -221,7 +226,11 @@ PanelWindow {
     }
 
     function scanSubfolders() {
-        // Explicitly update command with current wallpaperDir
+        if (!wallpaperDir || wallpaperDir === "") {
+            console.warn("scanSubfolders: wallpaperDir is empty, skipping")
+            return
+        }
+        // explicitly update command with current wallpaperDir
         var cmd = ["find", wallpaperDir, "-type", "d", "-mindepth", "1", "-maxdepth", "1"];
         scanSubfoldersProcess.command = cmd;
         scanSubfoldersProcess.running = true;
@@ -370,7 +379,6 @@ PanelWindow {
         // Other instances (for other screens) share the same data via GlobalStates
         if (GlobalStates.wallpaperManager !== null) {
             // Another instance already registered, skip initialization
-            _wallpaperDirInitialized = true;
             return;
         }
         
@@ -396,8 +404,41 @@ PanelWindow {
     }
 
     Component.onDestruction: {
+        _isDestroying = true;
         if (GlobalStates.wallpaperManager === wallpaper) {
             GlobalStates.wallpaperManager = null;
+        }
+    }
+
+    Connections {
+        target: GlobalStates
+        ignoreUnknownSignals: true
+        function onWallpaperManagerChanged() {
+            if (GlobalStates.wallpaperManager === null && !wallpaper._isDestroying) {
+                console.log("wallpaper: promoting instance as new wallpaperManager");
+                GlobalStates.wallpaperManager = wallpaper;
+                
+                if (wallpaperConfig.adapter.wallPath && !wallpaper._wallpaperDirInitialized) {
+                    wallpaper._wallpaperDirInitialized = true;
+                    
+                    var targetDir = wallpaper.wallpaperDir || wallpaperConfig.adapter.wallPath;
+                    if (targetDir && targetDir !== "") {
+                        directoryWatcher.path = targetDir;
+                        directoryWatcher.reload();
+                        presetsWatcher.reload();
+                        officialPresetsWatcher.reload();
+                        
+                        var cmd = ["find", targetDir, "-type", "f", "(", "-name", "*.jpg", "-o", "-name", "*.jpeg", "-o", "-name", "*.png", "-o", "-name", "*.webp", "-o", "-name", "*.tif", "-o", "-name", "*.tiff", "-o", "-name", "*.gif", "-o", "-name", "*.mp4", "-o", "-name", "*.webm", "-o", "-name", "*.mov", "-o", "-name", "*.avi", "-o", "-name", "*.mkv", ")"];
+                        scanWallpapers.command = cmd;
+                        scanWallpapers.running = true;
+                        wallpaper.scanSubfolders();
+                    }
+                    
+                    delayedThumbnailGen.start();
+                } else {
+                    wallpaperConfig.reload();
+                }
+            }
         }
     }
 
@@ -470,15 +511,16 @@ PanelWindow {
                     if (!wallpaper._wallpaperDirInitialized && GlobalStates.wallpaperManager === wallpaper) {
                         wallpaper._wallpaperDirInitialized = true;
                         
-                        // Set up directory watcher
-                        directoryWatcher.path = wallpaper.wallpaperDir;
-                        directoryWatcher.reload();
-                        
-                        // Perform initial wallpaper scan
-                        var cmd = ["find", wallpaper.wallpaperDir, "-type", "f", "(", "-name", "*.jpg", "-o", "-name", "*.jpeg", "-o", "-name", "*.png", "-o", "-name", "*.webp", "-o", "-name", "*.tif", "-o", "-name", "*.tiff", "-o", "-name", "*.gif", "-o", "-name", "*.mp4", "-o", "-name", "*.webm", "-o", "-name", "*.mov", "-o", "-name", "*.avi", "-o", "-name", "*.mkv", ")"];
-                        scanWallpapers.command = cmd;
-                        scanWallpapers.running = true;
-                        wallpaper.scanSubfolders();
+                        var targetDir = wallPath || wallpaper.wallpaperDir;
+                        if (targetDir && targetDir !== "") {
+                            directoryWatcher.path = targetDir;
+                            directoryWatcher.reload();
+                            
+                            var cmd = ["find", targetDir, "-type", "f", "(", "-name", "*.jpg", "-o", "-name", "*.jpeg", "-o", "-name", "*.png", "-o", "-name", "*.webp", "-o", "-name", "*.tif", "-o", "-name", "*.tiff", "-o", "-name", "*.gif", "-o", "-name", "*.mp4", "-o", "-name", "*.webm", "-o", "-name", "*.mov", "-o", "-name", "*.avi", "-o", "-name", "*.mkv", ")"];
+                            scanWallpapers.command = cmd;
+                            scanWallpapers.running = true;
+                            wallpaper.scanSubfolders();
+                        }
                         
                         // Start thumbnail generation
                         delayedThumbnailGen.start();
@@ -627,7 +669,7 @@ PanelWindow {
     Process {
         id: scanSubfoldersProcess
         running: false
-        command: ["find", wallpaperDir, "-type", "d", "-mindepth", "1", "-maxdepth", "1"]
+        command: []
 
         stdout: StdioCollector {
             onStreamFinished: {
