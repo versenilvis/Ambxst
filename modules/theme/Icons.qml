@@ -121,6 +121,7 @@ QtObject {
     readonly property string firefox: "<font face='Symbols Nerd Font Mono'>󰈹</font>"
     readonly property string chromium: "<font face='Symbols Nerd Font Mono'></font>"
     readonly property string telegram: "<font face='Symbols Nerd Font Mono'></font>"
+    readonly property string youtube: "<font face='Symbols Nerd Font Mono'></font>"
 
     // Clock
     readonly property string clock: ""
