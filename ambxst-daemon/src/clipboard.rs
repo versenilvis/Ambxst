@@ -275,7 +275,8 @@ impl ClipboardManager {
                 "update clipboard_items set updated_at = ?1, display_index = 0 where content_hash = ?2",
                 params![ts, hash]
             )?;
-            return Ok(false);
+            // return true to notify client of item order update
+            return Ok(true);
         }
 
         let preview = make_preview(content, mime_type);
@@ -322,7 +323,8 @@ impl ClipboardManager {
                 "update clipboard_items set updated_at = ?1, display_index = 0 where content_hash = ?2",
                 params![ts, hash]
             )?;
-            return Ok(false);
+            // return true to notify client of item order update
+            return Ok(true);
         }
 
         let ext = mime_to_ext(mime_type);

@@ -65,8 +65,60 @@ struct AppState {
 
 type SharedState = Arc<Mutex<AppState>>;
 
+fn init_clipboard_if_needed(state: &SharedState, db_path: Option<&str>, data_dir: Option<&str>) {
+    let mut s = state.lock().unwrap();
+    if s.clipboard_mgr.is_none() {
+        let home = std::env::var("HOME").unwrap_or_else(|_| "/home/verse".to_string());
+        let default_db = format!("{}/.local/share/Ambxst/clipboard.db", home);
+        let default_bin = format!("{}/.local/share/Ambxst/clipboard-data", home);
+        let db_p = Path::new(db_path.unwrap_or(&default_db)).to_path_buf();
+        let bin_p = Path::new(data_dir.unwrap_or(&default_bin)).to_path_buf();
+        match clipboard::ClipboardManager::new(&db_p, &bin_p) {
+            Ok(mgr) => {
+                let mgr_arc = Arc::new(mgr);
+                s.clipboard_mgr = Some(mgr_arc.clone());
+
+                let state_clone = state.clone();
+                let (tx, mut rx) = mpsc::unbounded_channel::<()>();
+                clipboard::spawn_watcher(mgr_arc, tx);
+
+                tokio::spawn(async move {
+                    while let Some(()) = rx.recv().await {
+                        let items = {
+                            let s_guard = state_clone.lock().unwrap();
+                            if let Some(ref m) = s_guard.clipboard_mgr {
+                                m.list(50, 0).ok()
+                            } else {
+                                None
+                            }
+                        };
+                        if let Some(items_list) = items {
+                            let event = ServerEvent {
+                                r#type: "clipboard".to_string(),
+                                data: items_list,
+                            };
+                            if let Ok(msg) = serde_json::to_string(&event) {
+                                let mut s_guard = state_clone.lock().unwrap();
+                                broadcast_message(&mut s_guard.clients, msg);
+                            }
+                        }
+                    }
+                });
+            }
+            Err(e) => {
+                eprintln!("failed to init clipboard manager: {}", e);
+            }
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    #[cfg(target_os = "linux")]
+    unsafe {
+        libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGTERM);
+    }
+
     // determine socket path
     let runtime_dir = std::env::var("XDG_RUNTIME_DIR")
         .unwrap_or_else(|_| format!("/tmp"));
@@ -88,6 +140,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         clients: Vec::new(),
         clipboard_mgr: None,
     }));
+
+    init_clipboard_if_needed(&state, None, None);
 
     // start dbus watchdog
     watchdog::spawn_dbus_watchdog();
@@ -323,6 +377,7 @@ async fn handle_client(
                     }
                 }
                 ClientCommand::ListClipboard { limit, offset } => {
+                    init_clipboard_if_needed(&state, None, None);
                     let mgr = {
                         let s = state.lock().unwrap();
                         s.clipboard_mgr.clone()
