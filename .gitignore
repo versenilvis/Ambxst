@@ -3,3 +3,4 @@
 scripts/__pycache__
 checkerror.txt
 ambxst-daemon/target/
+bin/
