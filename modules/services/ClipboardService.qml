@@ -13,6 +13,7 @@ QtObject {
     property int pageSize: 50
     property bool hasMoreItems: false
     property bool _isAppending: false
+    property var _previewQueue: []
 
     readonly property string dbPath: Quickshell.dataPath("clipboard.db")
     readonly property string binaryDataDir: Quickshell.dataPath("clipboard-data")
@@ -38,6 +39,11 @@ QtObject {
         }
 
         function onClipboardContentReceived(itemId, content) {
+            if (content && root.isUrl(content)) {
+                if (!root.linkPreviewCache[itemId]) {
+                    root.fetchLinkPreview(content.trim(), itemId);
+                }
+            }
             root.fullContentRetrieved(itemId, content);
         }
     }
@@ -49,18 +55,26 @@ QtObject {
             onRead: data => { linkPreviewProcess._out += data + "\n"; }
         }
         stderr: SplitParser { onRead: data => {} }
-        onExited: {
+        onExited: exitCode => {
             if (exitCode === 0 && _out.trim().length > 0) {
                 var raw = _out.trim();
-                root.linkPreviewCache[requestItemId] = raw;
                 try {
                     var meta = JSON.parse(raw);
+                    // store as parsed object under both id and url
+                    root.linkPreviewCache[requestItemId] = meta;
+                    if (meta.url) {
+                        root.linkPreviewCache[meta.url.trim()] = meta;
+                    }
                     root.linkPreviewFetched(meta.url || "", meta, requestItemId);
                 } catch(e) {
+                    // store raw string under id as fallback
+                    root.linkPreviewCache[requestItemId] = raw;
                     root.linkPreviewFetched(raw, {}, requestItemId);
                 }
             }
             _out = "";
+            // process next queue item
+            root._processQueue();
         }
     }
 
@@ -108,6 +122,21 @@ QtObject {
         root.hasMoreItems = jsonArray.length >= root.pageSize;
         root.listCompleted();
         root._operationInProgress = false;
+
+        // auto-fetch link previews in background
+        for (var j = 0; j < clipboardItems.length; j++) {
+            var ci = clipboardItems[j];
+            if (!ci.isFile && !ci.isImage && root.isUrl(ci.preview)) {
+                if (ci.preview.endsWith("...")) {
+                    // retrieve full content first
+                    root.getFullContent(ci.id);
+                } else {
+                    if (!root.linkPreviewCache[ci.id]) {
+                        root.fetchLinkPreview(ci.preview.trim(), ci.id);
+                    }
+                }
+            }
+        }
     }
 
     function initializeClipboardBackend() {
@@ -119,6 +148,7 @@ QtObject {
     }
 
     function list() {
+        root.initializeClipboardBackend();
         root._isAppending = false;
         DaemonClient.sendCommand({
             type: "list_clipboard",
@@ -218,11 +248,32 @@ QtObject {
         return "file://" + item.binaryPath;
     }
 
+    function isUrl(text) {
+        if (!text) return false;
+        var trimmed = text.trim();
+        return /^https?:\/\/[^\s]+/.test(trimmed);
+    }
+
+    function _processQueue() {
+        if (linkPreviewProcess.running) return;
+        if (root._previewQueue.length === 0) return;
+
+        var next = root._previewQueue.shift();
+        linkPreviewProcess.requestItemId = next.itemId;
+        linkPreviewProcess.command = ["python3", linkPreviewScriptPath, next.url, "5"];
+        linkPreviewProcess.running = true;
+    }
+
     function fetchLinkPreview(url, itemId) {
         if (root.linkPreviewCache[itemId]) return;
-        linkPreviewProcess.requestItemId = itemId;
-        linkPreviewProcess.command = ["python3", linkPreviewScriptPath, url, "5"];
-        linkPreviewProcess.running = true;
+        
+        // check if already in queue
+        for (var i = 0; i < root._previewQueue.length; i++) {
+            if (root._previewQueue[i].itemId === itemId) return;
+        }
+        
+        root._previewQueue.push({url: url, itemId: itemId});
+        root._processQueue();
     }
 
     function copyAndTypeEmoji(emojiText) {

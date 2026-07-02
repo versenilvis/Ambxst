@@ -8,7 +8,8 @@ Singleton {
     id: root
 
     // status properties
-    property bool daemonConnected: socket.connected
+    property var socket: null
+    property bool daemonConnected: socket ? socket.connected : false
 
     // incoming event signals
     signal systemResourcesReceived(var data)
@@ -38,62 +39,80 @@ Singleton {
     }
 
     // socket communication
-    property Socket socket: Socket {
-        id: socket
-        path: Quickshell.env("XDG_RUNTIME_DIR") + "/ambxst-daemon.sock"
-        connected: true
+    function connectSocket() {
+        if (socket) {
+            socket.connected = false;
+            socket.destroy();
+            socket = null;
+        }
 
-        parser: SplitParser {
-            splitMarker: "\n"
-            onRead: text => {
-                const raw = text.trim();
-                if (raw.length === 0) return;
-
-                try {
-                    const event = JSON.parse(raw);
-                    if (event && event.type) {
-                        switch (event.type) {
-                            case "system_resources":
-                                root.systemResourcesReceived(event.data);
-                                break;
-                            case "weather":
-                                root.weatherReceived(event.data);
-                                break;
-                            case "desktop":
-                                root.desktopReceived(event.data);
-                                break;
-                            case "top_apps":
-                                root.topAppsReceived(event.data);
-                                break;
-                            case "clipboard":
-                                root.clipboardReceived(event.data);
-                                break;
-                            case "clipboard_content":
-                                root.clipboardContentReceived(event.data.id, event.data.content);
-                                break;
-                        }
+        socket = Qt.createQmlObject(`
+            import Quickshell.Io;
+            Socket {
+                path: "${Quickshell.env("XDG_RUNTIME_DIR")}/ambxst-daemon.sock"
+                connected: false
+                parser: SplitParser {
+                    splitMarker: "\\n"
+                    onRead: text => {
+                        root.handleSocketRead(text);
                     }
-                } catch (e) {
-                    console.warn("DaemonClient: JSON parse error:", e);
+                }
+                onError: error => {
+                    console.warn("DaemonClient: Socket error: " + error);
+                    socket.connected = false;
                 }
             }
+        `, root);
+
+        socket.connected = true;
+    }
+
+    function handleSocketRead(text) {
+        const raw = text.trim();
+        if (raw.length === 0) return;
+
+        try {
+            const event = JSON.parse(raw);
+            if (event && event.type) {
+                switch (event.type) {
+                    case "system_resources":
+                        root.systemResourcesReceived(event.data);
+                        break;
+                    case "weather":
+                        root.weatherReceived(event.data);
+                        break;
+                    case "desktop":
+                        root.desktopReceived(event.data);
+                        break;
+                    case "top_apps":
+                        root.topAppsReceived(event.data);
+                        break;
+                    case "clipboard":
+                        root.clipboardReceived(event.data);
+                        break;
+                    case "clipboard_content":
+                        root.clipboardContentReceived(event.data.id, event.data.content);
+                        break;
+                }
+            }
+        } catch (e) {
+            console.warn("DaemonClient: JSON parse error:", e);
         }
     }
 
     // reconnect loop
     property Timer reconnectTimer: Timer {
         interval: 2000
-        running: !socket.connected
+        running: !root.daemonConnected
         repeat: true
         onTriggered: {
-            socket.connected = false;
-            socket.connected = true;
+            root.connectSocket();
         }
     }
 
     // helper function to send command to daemon
     function sendCommand(cmdObj) {
-        if (socket.connected) {
+        if (socket && socket.connected) {
             socket.write(JSON.stringify(cmdObj) + "\n");
             socket.flush();
         } else {
@@ -102,6 +121,6 @@ Singleton {
     }
 
     Component.onCompleted: {
-        // start daemon and connect socket
+        root.connectSocket();
     }
 }
