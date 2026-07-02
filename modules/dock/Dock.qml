@@ -174,37 +174,6 @@ Scope {
                 x: root.isBottom ? (parent.width - width) / 2 : (root.isLeft ? 0 : parent.width - width)
                 y: root.isVertical ? (parent.height - height) / 2 : parent.height - height
 
-                Behavior on x {
-                    enabled: Config.animDuration > 0
-                    NumberAnimation {
-                        duration: Config.animDuration / 4
-                        easing.type: Easing.OutCubic
-                    }
-                }
-                Behavior on y {
-                    enabled: Config.animDuration > 0
-                    NumberAnimation {
-                        duration: Config.animDuration / 4
-                        easing.type: Easing.OutCubic
-                    }
-                }
-
-                Behavior on width {
-                    enabled: Config.animDuration > 0 && root.isVertical
-                    NumberAnimation {
-                        duration: Config.animDuration / 4
-                        easing.type: Easing.OutCubic
-                    }
-                }
-
-                Behavior on height {
-                    enabled: Config.animDuration > 0 && !root.isVertical
-                    NumberAnimation {
-                        duration: Config.animDuration / 4
-                        easing.type: Easing.OutCubic
-                    }
-                }
-
                 // Dock container
                 Item {
                     id: dockContainer
@@ -233,21 +202,6 @@ Scope {
                     // Position using x/y
                     x: root.isBottom ? (parent.width - width) / 2 : (root.isLeft ? root.edgeSideMargin : parent.width - width - root.edgeSideMargin)
                     y: root.isVertical ? (parent.height - height) / 2 : parent.height - height - root.edgeSideMargin
-
-                    Behavior on x {
-                        enabled: Config.animDuration > 0
-                        NumberAnimation {
-                            duration: Config.animDuration / 4
-                            easing.type: Easing.OutCubic
-                        }
-                    }
-                    Behavior on y {
-                        enabled: Config.animDuration > 0
-                        NumberAnimation {
-                            duration: Config.animDuration / 4
-                            easing.type: Easing.OutCubic
-                        }
-                    }
 
                     // Animation for dock reveal
                     opacity: dockWindow.reveal ? 1 : 0
