@@ -64,6 +64,11 @@ Singleton {
         }
     }
 
+    Process {
+        id: lockFileProc
+        running: false
+    }
+
     // ═══════════════════════════════════════════════════════════════
     // HYPRLAND LAYOUT STATE (dynamic, not persisted)
     // ═══════════════════════════════════════════════════════════════
@@ -143,6 +148,9 @@ Singleton {
     Component.onCompleted: {
         // Reference the singleton to ensure it loads
         LockscreenService.toString();
+        // remove stale lock file on startup
+        lockFileProc.command = ["rm", "-f", "/tmp/ambxst-locked"];
+        lockFileProc.running = true;
     }
 
     // Persistent launcher state across monitors
@@ -213,6 +221,11 @@ Singleton {
     onLockscreenVisibleChanged: {
         if (lockscreenVisible) {
             lockscreenTimestamp = Date.now();
+            lockFileProc.command = ["touch", "/tmp/ambxst-locked"];
+            lockFileProc.running = true;
+        } else {
+            lockFileProc.command = ["rm", "-f", "/tmp/ambxst-locked"];
+            lockFileProc.running = true;
         }
     }
 

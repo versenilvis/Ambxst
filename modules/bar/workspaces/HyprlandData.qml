@@ -26,9 +26,31 @@ Singleton {
         }
     }
 
+    Timer {
+        id: debounceTimer
+        interval: 30
+        repeat: false
+        onTriggered: {
+            getClients.running = true
+            getMonitors.running = true
+        }
+    }
+
+    Timer {
+        id: pollTimer
+        interval: 2000
+        repeat: true
+        running: true
+        onTriggered: {
+            // only poll if the system layout is ready
+            if (GlobalStates.hyprlandLayoutReady) {
+                root.updateWindowList()
+            }
+        }
+    }
+
     function updateWindowList() {
-        getClients.running = true
-        getMonitors.running = true
+        debounceTimer.restart()
     }
 
     Component.onCompleted: {
@@ -39,11 +61,12 @@ Singleton {
         target: Hyprland
 
         function onRawEvent(event) {
-            if(event.name in [
+            const ignoredEvents = [
                 "activewindow", "focusedmon", "monitoradded", 
                 "createworkspace", "destroyworkspace", "moveworkspace", 
-                "activespecial", "movewindow", "windowtitle"
-            ]) return ;
+                "activespecial", "windowtitle"
+            ];
+            if (ignoredEvents.includes(event.name)) return ;
             updateWindowList()
         }
     }

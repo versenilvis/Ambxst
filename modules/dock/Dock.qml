@@ -13,6 +13,7 @@ import qs.modules.components
 import qs.modules.corners
 import qs.modules.globals
 import qs.config
+import qs.modules.bar.workspaces
 
 Scope {
     id: root
@@ -104,15 +105,27 @@ Scope {
                 return toplevel.fullscreen === true;
             }
 
-            // Reveal logic: pinned, hover, no active window
+            readonly property HyprlandMonitor hyprlandMonitor: Hyprland.monitorFor(dockWindow.screen)
+            readonly property int activeWorkspaceId: hyprlandMonitor?.activeWorkspace?.id ?? 1
+
+            // check if the current workspace is empty or only contains floating windows
+            readonly property bool isWorkspaceEmptyOrFloating: {
+                const windows = HyprlandData.windowList.filter(w => w.workspace.id === activeWorkspaceId);
+                return windows.every(w => w.floating === true);
+            }
+
+            // reveal logic: pinned, hover, no active window, or empty/floating workspace
             property bool reveal: {
-                // Fullscreen behavior: Force auto-hide if allowed, otherwise hide
+                // fullscreen behavior: force auto-hide if allowed, otherwise hide
                 if (activeWindowFullscreen) {
                     return (Config.dock?.availableOnFullscreen ?? false) && (Config.dock?.hoverToReveal && dockMouseArea.containsMouse);
                 }
 
-                // Normal behavior
-                return root.pinned || (Config.dock?.hoverToReveal && dockMouseArea.containsMouse) || !ToplevelManager.activeToplevel?.activated
+                // normal behavior
+                return root.pinned 
+                    || (Config.dock?.hoverToReveal && dockMouseArea.containsMouse) 
+                    || !ToplevelManager.activeToplevel?.activated
+                    || isWorkspaceEmptyOrFloating
             }
 
             anchors {
@@ -429,7 +442,7 @@ Scope {
                         anchors.fill: parent
                         variant: "bg"
                         enableShadow: true
-                        radius: Styling.radius(4)
+                        radius: Styling.radius(-4)
                     }
 
                     // Horizontal layout (bottom dock)
