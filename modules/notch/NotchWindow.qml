@@ -13,7 +13,6 @@ import qs.modules.widgets.tools
 import qs.modules.services
 import qs.modules.components
 import qs.config
-import "./NotchNotificationView.qml"
 
 PanelWindow {
     id: notchPanel
@@ -353,7 +352,7 @@ PanelWindow {
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.topMargin: 4
             width: Math.round(popupHovered ? 420 + 48 : 320 + 48)
-            height: shouldShowNotificationPopup ? (popupHovered ? notificationPopup.implicitHeight + 32 : notificationPopup.implicitHeight + 32) : 0
+            height: shouldShowNotificationPopup ? ((notificationPopupLoader.item ? notificationPopupLoader.item.implicitHeight : 0) + 32) : 0
             clip: false
             visible: height > 0
             z: 999
@@ -425,20 +424,14 @@ PanelWindow {
                 }
             }
 
-            NotchNotificationView {
-                id: notificationPopup
+            Loader {
+                id: notificationPopupLoader
                 anchors.fill: parent
                 anchors.margins: 16
-                visible: notificationPopupContainer.shouldShowNotificationPopup
-                opacity: visible ? 1 : 0
-                notchHovered: notificationPopupContainer.popupHovered
+                active: notificationPopupContainer.shouldShowNotificationPopup
 
-                Behavior on opacity {
-                    enabled: Config.animDuration > 0
-                    NumberAnimation {
-                        duration: Config.animDuration
-                        easing.type: Easing.OutQuart
-                    }
+                sourceComponent: NotchNotificationView {
+                    notchHovered: notificationPopupContainer.popupHovered
                 }
             }
         }

@@ -239,8 +239,8 @@ Item {
         }
     }
 
-    property int defaultHeight: Config.showBackground ? (screenNotchOpen || hasActiveNotifications ? Math.max(stackContainer.height, 44) : 44) : (screenNotchOpen || hasActiveNotifications ? Math.max(stackContainer.height, 40) : 40)
-    property int islandHeight: screenNotchOpen || hasActiveNotifications ? Math.max(stackContainer.height, 36) : 36
+    property int defaultHeight: Config.showBackground ? Math.max(stackContainer.height, 44) : Math.max(stackContainer.height, 40)
+    property int islandHeight: Math.max(stackContainer.height, 36)
 
     // Corner size calculation for dynamic width (only for default theme)
     readonly property int cornerSize: Config.roundness > 0 ? Config.roundness + 4 : 0

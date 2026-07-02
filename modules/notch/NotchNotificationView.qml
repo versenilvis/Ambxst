@@ -228,6 +228,7 @@ Item {
                     // only active when component is visible to avoid duplicate work
                     Connections {
                         target: Notifications
+                        ignoreUnknownSignals: true
                         enabled: root.visible
                         function onPopupListChanged() {
                             if (Notifications.popupList.length === 0) {
