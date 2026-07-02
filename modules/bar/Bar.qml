@@ -55,7 +55,7 @@ PanelWindow {
 
     // Reveal logic: bar only shows when pinned and not in fullscreen
     // No hover reveal, only Ctrl+Esc toggle controls visibility
-    readonly property bool reveal: !shouldAutoHide
+    readonly property bool reveal: !shouldAutoHide || notchOpen
 
     // Timer to delay hiding the bar after mouse leaves
     Timer {

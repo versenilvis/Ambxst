@@ -117,7 +117,7 @@ PanelWindow {
 
     // Should auto-hide: when bar is not top, bar is unpinned, or fullscreen
     // Notch hides together with bar, but can be revealed independently by hover
-    readonly property bool shouldAutoHide: barPosition !== "top" || !barPinned || activeWindowFullscreen
+    readonly property bool shouldAutoHide: barPosition !== "top" || !barPinned || (activeWindowFullscreen && !(Config.bar?.availableOnFullscreen ?? false))
 
     // Check if the bar for this screen is vertical
     readonly property bool isBarVertical: barPosition === "left" || barPosition === "right"
