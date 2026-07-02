@@ -433,8 +433,8 @@ Rectangle {
 
                                 Text {
                                     text: {
-                                        const usedGB = (SystemResources.ramUsed / 1024 / 1024).toFixed(1);
-                                        const totalGB = (SystemResources.ramTotal / 1024 / 1024).toFixed(1);
+                                        const usedGB = (SystemResources.ramUsed / 1024 / 1024 / 1024).toFixed(1);
+                                        const totalGB = (SystemResources.ramTotal / 1024 / 1024 / 1024).toFixed(1);
                                         return `${usedGB} GB / ${totalGB} GB`;
                                     }
                                     font.family: Config.theme.font
@@ -592,7 +592,16 @@ Rectangle {
                                     spacing: 4
 
                                     Text {
-                                        text: modelData
+                                        text: {
+                                            const usedB = SystemResources.diskUsed[modelData] || 0;
+                                            const totalB = SystemResources.diskTotal[modelData] || 0;
+                                            if (totalB > 0) {
+                                                const usedGB = (usedB / 1024 / 1024 / 1024).toFixed(1);
+                                                const totalGB = (totalB / 1024 / 1024 / 1024).toFixed(1);
+                                                return `${modelData}  (${usedGB} GB / ${totalGB} GB)`;
+                                            }
+                                            return modelData;
+                                        }
                                         font.family: Config.theme.font
                                         font.pixelSize: Styling.fontSize(-2)
                                         color: Colors.overBackground
