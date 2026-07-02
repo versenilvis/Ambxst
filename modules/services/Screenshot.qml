@@ -247,16 +247,16 @@ QtObject {
             return;
         }
         
-        // Build a single command string to run grim for all monitors in parallel
-        // cmd: grim -o output1 path1 & grim -o output2 path2 & wait
-        var cmd = "";
+        // disable software cursor during capture to avoid photographing cursor, then restore if it was set
+        var cmd = "PREV=$(hyprctl getoption cursor:no_hardware_cursors -j 2>/dev/null | jq -r '.int'); ";
+        cmd += "hyprctl keyword cursor:no_hardware_cursors false >/dev/null 2>&1 && sleep 0.15; ";
         for (var i = 0; i < root.monitors.length; i++) {
             var m = root.monitors[i];
             var path = root.tempPathBase + "_" + m.name + ".png";
             // Ensure path is quoted safely
             cmd += `grim -o "${m.name}" "${path}" & `;
         }
-        cmd += "wait";
+        cmd += "wait; if [ \"$PREV\" = \"1\" ]; then hyprctl keyword cursor:no_hardware_cursors true >/dev/null 2>&1; fi";
         
         console.log("Screenshot: Executing freeze batch: " + cmd);
         freezeProcess.command = ["bash", "-c", cmd];
