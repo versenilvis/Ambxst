@@ -40,9 +40,8 @@ Item {
     }
 
     // Computed dimensions
-    //     readonly property real mainRowContentWidth: 200 + userInfo.width + separator1.width + separator2.width + notifIndicator.width + (mainRow.spacing * 4) + mainRowMargin
-    readonly property real mainRowContentWidth: 180
-    readonly property real mainRowHeight: Config.showBackground ? (Config.notchTheme === "island" ? 36 : 44) : (Config.notchTheme === "island" ? 36 : 40)
+    readonly property real mainRowContentWidth: notchMedia.implicitWidth
+    readonly property real mainRowHeight: notchMedia.implicitHeight
     readonly property real notificationMinWidth: expandedState ? 450 : 380
     readonly property real notificationContainerHeight: notificationView.implicitHeight + notificationPaddingTop + notificationPaddingBottom
 
@@ -93,13 +92,12 @@ Item {
         anchors.fill: parent
 
         // mainRow - ẩn khi có notification
-        Row {
+        Item {
             id: mainRow
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.verticalCenter: parent.verticalCenter
             width: parent.width - mainRowMargin
             height: mainRowHeight
-            spacing: 4
 
             opacity: hasActiveNotifications ? 0 : 1
             visible: opacity > 0
@@ -112,7 +110,11 @@ Item {
                 }
             }
 
-
+            NotchMediaView {
+                id: notchMedia
+                expandedState: root.expandedState
+                anchors.centerIn: parent
+            }
         }
 
         // notification container - drop xuống từ trên

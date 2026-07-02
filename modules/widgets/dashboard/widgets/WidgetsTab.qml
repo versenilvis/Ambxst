@@ -216,7 +216,7 @@ Rectangle {
                 focusSearchInput();
                 
                 // Re-update when UsageTracker finishes loading
-                UsageTracker.usageDataReady.connect(function() {
+                UsageTracker.usageDataReady.connect(() => {
                     AppSearch.invalidateCache();
                     updateFilteredApps();
                 });
