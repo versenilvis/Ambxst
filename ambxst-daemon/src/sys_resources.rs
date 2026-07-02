@@ -32,6 +32,8 @@ pub struct SystemStats {
     pub cpu: CpuInfo,
     pub ram: RamInfo,
     pub disk: std::collections::HashMap<String, f32>,
+    pub disk_used: std::collections::HashMap<String, u64>,
+    pub disk_total: std::collections::HashMap<String, u64>,
     pub gpu: GpuInfo,
 }
 
@@ -220,6 +222,8 @@ impl SysMonitor {
         };
 
         let mut disk_map = std::collections::HashMap::new();
+        let mut disk_used_map = std::collections::HashMap::new();
+        let mut disk_total_map = std::collections::HashMap::new();
         let disks = Disks::new_with_refreshed_list();
         for disk in disks.list() {
             let mount = disk.mount_point().to_string_lossy().into_owned();
@@ -232,7 +236,9 @@ impl SysMonitor {
                 } else {
                     0.0
                 };
-                disk_map.insert(mount, usage);
+                disk_map.insert(mount.clone(), usage);
+                disk_used_map.insert(mount.clone(), used);
+                disk_total_map.insert(mount, total);
             }
         }
 
@@ -250,6 +256,8 @@ impl SysMonitor {
                 available: mem_available,
             },
             disk: disk_map,
+            disk_used: disk_used_map,
+            disk_total: disk_total_map,
             gpu: GpuInfo {
                 detected: self.gpu_vendor != "none",
                 vendor: self.gpu_vendor.clone(),
