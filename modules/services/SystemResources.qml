@@ -42,6 +42,8 @@ Singleton {
 
     // Disk metrics - map of mountpoint to usage percentage
     property var diskUsage: ({})
+    property var diskUsed: ({})
+    property var diskTotal: ({})
 
     // Disk types - map of mountpoint to type ("ssd", "hdd", or "unknown")
     property var diskTypes: ({})
@@ -76,6 +78,8 @@ Singleton {
             root.ramAvailable = stats.ram.available;
             
             root.diskUsage = stats.disk;
+            root.diskUsed = stats.disk_used || ({});
+            root.diskTotal = stats.disk_total || ({});
             
             root.gpuDetected = stats.gpu.detected;
             if (stats.gpu.detected) {
