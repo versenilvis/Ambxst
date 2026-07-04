@@ -65,14 +65,14 @@ struct AppState {
 
 type SharedState = Arc<Mutex<AppState>>;
 
-fn init_clipboard_if_needed(state: &SharedState, db_path: Option<&str>, data_dir: Option<&str>) {
+fn init_clipboard_if_needed(state: &SharedState, _db_path: Option<&str>, _data_dir: Option<&str>) {
     let mut s = state.lock().unwrap();
     if s.clipboard_mgr.is_none() {
         let home = std::env::var("HOME").unwrap_or_else(|_| "/home/verse".to_string());
         let default_db = format!("{}/.local/share/Ambxst/clipboard.db", home);
         let default_bin = format!("{}/.local/share/Ambxst/clipboard-data", home);
-        let db_p = Path::new(db_path.unwrap_or(&default_db)).to_path_buf();
-        let bin_p = Path::new(data_dir.unwrap_or(&default_bin)).to_path_buf();
+        let db_p = Path::new(&default_db).to_path_buf();
+        let bin_p = Path::new(&default_bin).to_path_buf();
         match clipboard::ClipboardManager::new(&db_p, &bin_p) {
             Ok(mgr) => {
                 let mgr_arc = Arc::new(mgr);
@@ -122,6 +122,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // determine socket path
     let runtime_dir = std::env::var("XDG_RUNTIME_DIR")
         .unwrap_or_else(|_| format!("/tmp"));
+    let lock_path = Path::new(&runtime_dir).join("ambxst-daemon.lock");
+    let my_pid = std::process::id();
+
+    if let Ok(content) = std::fs::read_to_string(&lock_path) {
+        if let Ok(old_pid) = content.trim().parse::<i32>() {
+            if old_pid > 0 && old_pid as u32 != my_pid {
+                println!("Killing old ambxst-daemon instance (PID {})", old_pid);
+                unsafe { libc::kill(old_pid, libc::SIGTERM); }
+                std::thread::sleep(std::time::Duration::from_millis(200));
+                unsafe { libc::kill(old_pid, libc::SIGKILL); }
+            }
+        }
+    }
+
+    let _ = std::process::Command::new("killall").arg("-q").arg("wl-paste").status();
+
+    use std::os::unix::io::AsRawFd;
+    let lock_file = std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .open(&lock_path)?;
+    let _ = unsafe { libc::flock(lock_file.as_raw_fd(), libc::LOCK_EX) };
+    let _ = std::fs::write(&lock_path, format!("{}", my_pid));
+
     let socket_path = Path::new(&runtime_dir).join("ambxst-daemon.sock");
 
     // clean up old socket
@@ -321,49 +346,9 @@ async fn handle_client(
                         let _ = client_tx.send(format!("{}\n", msg));
                     }
                 }
-                ClientCommand::InitClipboard { db_path, data_dir } => {
-                    let mut s = state.lock().unwrap();
-                    if s.clipboard_mgr.is_none() {
-                        let db_path_buf = Path::new(&db_path).to_path_buf();
-                        let data_dir_buf = Path::new(&data_dir).to_path_buf();
-                        match clipboard::ClipboardManager::new(&db_path_buf, &data_dir_buf) {
-                            Ok(mgr) => {
-                                let mgr_arc = Arc::new(mgr);
-                                s.clipboard_mgr = Some(mgr_arc.clone());
-
-                                let state_clone = state.clone();
-                                let (tx, mut rx) = mpsc::unbounded_channel::<()>();
-                                clipboard::spawn_watcher(mgr_arc, tx);
-
-                                tokio::spawn(async move {
-                                    while let Some(()) = rx.recv().await {
-                                        let items = {
-                                            let s_guard = state_clone.lock().unwrap();
-                                            if let Some(ref m) = s_guard.clipboard_mgr {
-                                                m.list(50, 0).ok()
-                                            } else {
-                                                None
-                                            }
-                                        };
-                                        if let Some(items_list) = items {
-                                            let event = ServerEvent {
-                                                r#type: "clipboard".to_string(),
-                                                data: items_list,
-                                            };
-                                            if let Ok(msg) = serde_json::to_string(&event) {
-                                                let mut s_guard = state_clone.lock().unwrap();
-                                                broadcast_message(&mut s_guard.clients, msg);
-                                            }
-                                        }
-                                    }
-                                });
-                            }
-                            Err(e) => {
-                                eprintln!("failed to init clipboard manager: {}", e);
-                            }
-                        }
-                    }
-
+                ClientCommand::InitClipboard { .. } => {
+                    init_clipboard_if_needed(&state, None, None);
+                    let s = state.lock().unwrap();
                     if let Some(ref mgr) = s.clipboard_mgr {
                         if let Ok(items) = mgr.list(50, 0) {
                             let event = ServerEvent {

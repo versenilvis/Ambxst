@@ -36,9 +36,12 @@ impl ClipboardManager {
         let _ = fs::create_dir_all(data_dir);
 
         let conn = Connection::open(db_path)?;
+        conn.busy_timeout(std::time::Duration::from_millis(5000))?;
         
         conn.execute_batch("
             pragma journal_mode = WAL;
+            pragma synchronous = NORMAL;
+            pragma busy_timeout = 5000;
             pragma cache_size = 2000;
             pragma mmap_size = 0;
             pragma foreign_keys = ON;
@@ -439,11 +442,17 @@ pub fn spawn_watcher(
 ) {
     tokio::spawn(async move {
         loop {
-            let mut child = match tokio::process::Command::new("wl-paste")
-                .args(&["--watch", "echo", "CLIPBOARD_CHANGE"])
+            let mut cmd = tokio::process::Command::new("wl-paste");
+            cmd.args(&["--watch", "echo", "CLIPBOARD_CHANGE"])
                 .stdout(std::process::Stdio::piped())
-                .stderr(std::process::Stdio::null())
-                .spawn()
+                .stderr(std::process::Stdio::null());
+            unsafe {
+                cmd.pre_exec(|| {
+                    libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGTERM);
+                    Ok(())
+                });
+            }
+            let mut child = match cmd.spawn()
             {
                 Ok(child) => child,
                 Err(e) => {
@@ -479,30 +488,48 @@ pub fn spawn_watcher(
 }
 
 async fn check_and_insert(manager: &ClipboardManager) -> Result<bool, String> {
-    if let Ok(uri_list) = wl_paste("text/uri-list").await {
-        if !uri_list.is_empty() {
-            let cleaned = uri_list.replace('\r', "");
-            return manager.insert_text(&cleaned, "text/uri-list").map_err(|e| e.to_string());
-        }
-    }
+    let types = match wl_paste_list_types().await {
+        Ok(t) => t,
+        Err(_) => return Ok(false),
+    };
 
-    if let Ok(types) = wl_paste_list_types().await {
-        for mime in types {
-            if mime.starts_with("image/") {
-                if let Ok(data) = wl_paste_bytes(&mime).await {
-                    if !data.is_empty() {
-                        return manager.insert_image(&data, &mime).map_err(|e| e.to_string());
-                    }
+    for mime in &types {
+        if mime.starts_with("image/") {
+            if let Ok(data) = wl_paste_bytes(mime).await {
+                if !data.is_empty() {
+                    return manager.insert_image(&data, mime).map_err(|e| e.to_string());
                 }
             }
         }
     }
 
-    for mime in &["text/plain;charset=utf-8", "text/plain"] {
-        if let Ok(text) = wl_paste(mime).await {
-            if !text.is_empty() {
-                let cleaned = text.replace('\r', "");
-                return manager.insert_text(&cleaned, "text/plain").map_err(|e| e.to_string());
+    if types.iter().any(|m| m == "text/uri-list") {
+        if let Ok(uri_list) = wl_paste("text/uri-list").await {
+            if !uri_list.is_empty() {
+                let cleaned = uri_list.replace('\r', "");
+                return manager.insert_text(&cleaned, "text/uri-list").map_err(|e| e.to_string());
+            }
+        }
+    }
+
+    for mime in &["text/plain;charset=utf-8", "text/plain", "UTF8_STRING", "STRING"] {
+        if types.iter().any(|m| m == mime) {
+            if let Ok(text) = wl_paste(mime).await {
+                if !text.is_empty() {
+                    let cleaned = text.replace('\r', "");
+                    return manager.insert_text(&cleaned, "text/plain").map_err(|e| e.to_string());
+                }
+            }
+        }
+    }
+
+    for mime in &types {
+        if mime.starts_with("text/") {
+            if let Ok(text) = wl_paste(mime).await {
+                if !text.is_empty() {
+                    let cleaned = text.replace('\r', "");
+                    return manager.insert_text(&cleaned, mime).map_err(|e| e.to_string());
+                }
             }
         }
     }

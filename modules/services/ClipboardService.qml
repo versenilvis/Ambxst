@@ -15,8 +15,8 @@ QtObject {
     property bool _isAppending: false
     property var _previewQueue: []
 
-    readonly property string dbPath: Quickshell.dataPath("clipboard.db")
-    readonly property string binaryDataDir: Quickshell.dataPath("clipboard-data")
+    readonly property string dbPath: Quickshell.env("HOME") + "/.local/share/Ambxst/clipboard.db"
+    readonly property string binaryDataDir: Quickshell.env("HOME") + "/.local/share/Ambxst/clipboard-data"
     readonly property string linkPreviewScriptPath: Qt.resolvedUrl("../../scripts/link_preview.py").toString().replace("file://", "")
 
     property bool _initialized: false
@@ -30,6 +30,7 @@ QtObject {
         function onDaemonConnectedChanged() {
             if (DaemonClient.daemonConnected && root._initialized) {
                 root.initializeClipboardBackend();
+                root.list();
             }
         }
 
@@ -287,6 +288,7 @@ QtObject {
         root._initialized = true;
         if (DaemonClient.daemonConnected) {
             root.initializeClipboardBackend();
+            root.list();
         }
     }
 }

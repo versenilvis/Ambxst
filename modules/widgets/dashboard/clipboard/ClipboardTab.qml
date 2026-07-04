@@ -3599,6 +3599,7 @@ Item {
     }
 
     Component.onCompleted: {
+        updateFilteredItems();
         refreshClipboardHistory();
         Qt.callLater(() => {
             focusSearchInput();
