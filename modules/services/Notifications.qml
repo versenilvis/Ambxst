@@ -116,7 +116,7 @@ Singleton {
         const id = notification.id + root.idOffset;
         notification.closed.connect(function (reason) {
             if (reason === 3) {
-                root.discardNotification(id);
+                root.timeoutNotification(id);
             }
         });
         return {
