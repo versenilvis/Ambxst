@@ -247,9 +247,9 @@ QtObject {
             return;
         }
         
-        // disable software cursor during capture to avoid photographing cursor, then restore if it was set
+        // disable software cursor only if active to avoid unnecessary delay, then restore if it was set
         var cmd = "PREV=$(hyprctl getoption cursor:no_hardware_cursors -j 2>/dev/null | jq -r '.int'); ";
-        cmd += "hyprctl keyword cursor:no_hardware_cursors false >/dev/null 2>&1 && sleep 0.15; ";
+        cmd += "if [ \"$PREV\" = \"1\" ]; then hyprctl keyword cursor:no_hardware_cursors false >/dev/null 2>&1 && sleep 0.15; fi; ";
         for (var i = 0; i < root.monitors.length; i++) {
             var m = root.monitors[i];
             var path = root.tempPathBase + "_" + m.name + ".png";

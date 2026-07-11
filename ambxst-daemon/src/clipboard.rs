@@ -488,10 +488,20 @@ pub fn spawn_watcher(
 }
 
 async fn check_and_insert(manager: &ClipboardManager) -> Result<bool, String> {
-    let types = match wl_paste_list_types().await {
-        Ok(t) => t,
-        Err(_) => return Ok(false),
-    };
+    let mut types = Vec::new();
+    for attempt in 0..3 {
+        if let Ok(t) = wl_paste_list_types().await {
+            if !t.is_empty() {
+                types = t;
+                break;
+            }
+        }
+        tokio::time::sleep(tokio::time::Duration::from_millis(40 * (attempt + 1))).await;
+    }
+
+    if types.is_empty() {
+        return Ok(false);
+    }
 
     for mime in &types {
         if mime.starts_with("image/") {
@@ -538,79 +548,91 @@ async fn check_and_insert(manager: &ClipboardManager) -> Result<bool, String> {
 }
 
 async fn wl_paste(mime: &str) -> Result<String, String> {
-    let out = tokio::process::Command::new("wl-paste")
-        .args(&["--no-newline", "--type", mime])
-        .output()
-        .await
-        .map_err(|e| e.to_string())?;
+    for _ in 0..2 {
+        let out = tokio::process::Command::new("wl-paste")
+            .args(&["--no-newline", "--type", mime])
+            .output()
+            .await
+            .map_err(|e| e.to_string())?;
 
-    if out.status.success() {
-        Ok(String::from_utf8_lossy(&out.stdout).to_string())
-    } else {
-        Err(format!("wl-paste failed: {}", String::from_utf8_lossy(&out.stderr)))
+        if out.status.success() {
+            return Ok(String::from_utf8_lossy(&out.stdout).to_string());
+        }
+        tokio::time::sleep(tokio::time::Duration::from_millis(30)).await;
     }
+    Err("wl-paste failed".to_string())
 }
 
 async fn wl_paste_bytes(mime: &str) -> Result<Vec<u8>, String> {
-    let out = tokio::process::Command::new("wl-paste")
-        .args(&["--no-newline", "--type", mime])
-        .output()
-        .await
-        .map_err(|e| e.to_string())?;
+    for _ in 0..2 {
+        let out = tokio::process::Command::new("wl-paste")
+            .args(&["--no-newline", "--type", mime])
+            .output()
+            .await
+            .map_err(|e| e.to_string())?;
 
-    if out.status.success() {
-        Ok(out.stdout)
-    } else {
-        Err(format!("wl-paste bytes failed: {}", String::from_utf8_lossy(&out.stderr)))
+        if out.status.success() {
+            return Ok(out.stdout);
+        }
+        tokio::time::sleep(tokio::time::Duration::from_millis(30)).await;
     }
+    Err("wl-paste bytes failed".to_string())
 }
 
 async fn wl_paste_list_types() -> Result<Vec<String>, String> {
-    let out = tokio::process::Command::new("wl-paste")
-        .arg("--list-types")
-        .output()
-        .await
-        .map_err(|e| e.to_string())?;
+    for _ in 0..2 {
+        let out = tokio::process::Command::new("wl-paste")
+            .arg("--list-types")
+            .output()
+            .await
+            .map_err(|e| e.to_string())?;
 
-    if out.status.success() {
-        let s = String::from_utf8_lossy(&out.stdout);
-        let mut list = Vec::new();
-        for line in s.lines() {
-            let trimmed = line.trim();
-            if !trimmed.is_empty() {
-                list.push(trimmed.to_string());
+        if out.status.success() {
+            let s = String::from_utf8_lossy(&out.stdout);
+            let mut list = Vec::new();
+            for line in s.lines() {
+                let trimmed = line.trim();
+                if !trimmed.is_empty() {
+                    list.push(trimmed.to_string());
+                }
+            }
+            if !list.is_empty() {
+                return Ok(list);
             }
         }
-        Ok(list)
-    } else {
-        Err(format!("wl-paste list types failed"))
+        tokio::time::sleep(tokio::time::Duration::from_millis(30)).await;
     }
+    Err("wl-paste list types failed".to_string())
 }
 
 pub async fn copy_to_clipboard(item: &ClipboardItem) -> Result<(), std::io::Error> {
+    let mime = if item.mime_type.is_empty() { "text/plain" } else { &item.mime_type };
     if item.is_image == 1 && !item.binary_path.is_empty() {
         let file = fs::read(&item.binary_path)?;
         let mut child = tokio::process::Command::new("wl-copy")
-            .args(&["--type", &item.mime_type])
+            .args(&["--type", mime])
             .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
             .spawn()?;
-        
         if let Some(mut stdin) = child.stdin.take() {
             use tokio::io::AsyncWriteExt;
-            stdin.write_all(&file).await?;
+            let _ = stdin.write_all(&file).await;
+            // drop stdin → EOF → wl-copy serves the data and stays alive as server
         }
-        child.wait().await?;
     } else {
         let mut child = tokio::process::Command::new("wl-copy")
-            .args(&["--type", &item.mime_type])
+            .args(&["--type", mime])
             .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
             .spawn()?;
-
         if let Some(mut stdin) = child.stdin.take() {
             use tokio::io::AsyncWriteExt;
-            stdin.write_all(item.full_content.as_bytes()).await?;
+            let _ = stdin.write_all(item.full_content.as_bytes()).await;
         }
-        child.wait().await?;
+        // detach — wl-copy keeps running until another app replaces the selection
+        let _ = child;
     }
     Ok(())
 }
