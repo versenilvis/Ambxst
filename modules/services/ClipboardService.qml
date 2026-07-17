@@ -279,7 +279,7 @@ QtObject {
 
     function copyAndTypeEmoji(emojiText) {
         var p = Qt.createQmlObject('import Quickshell.Io; Process {}', Qt.application);
-        p.command = ["sh", "-c", "printf '%s' '" + emojiText.replace(/'/g, "'\\''") + "' | wl-copy && sleep 0.1 && wtype -M ctrl -P v -p v -m ctrl"];
+        p.command = ["sh", "-c", "printf '%s' '" + emojiText.replace(/'/g, "'\\''") + "' | wl-copy"];
         p.onExited.connect(function() { p.destroy(); });
         p.running = true;
     }

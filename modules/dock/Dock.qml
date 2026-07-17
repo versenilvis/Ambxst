@@ -101,7 +101,16 @@ Scope {
                 const toplevel = ToplevelManager.activeToplevel;
                 if (!toplevel || !toplevel.activated)
                     return false;
-                // Check if the toplevel is fullscreen
+                if (screen && toplevel.screens && toplevel.screens.length > 0 && !toplevel.screens.includes(screen))
+                    return false;
+                if (screen && HyprlandData) {
+                    if (!HyprlandData.windowList || HyprlandData.windowList.length === 0)
+                        return false;
+                    const monitorId = Hyprland.monitorFor(screen)?.id;
+                    const hasFullscreenOnMonitor = HyprlandData.windowList.some(w => (w.monitor === screen.name || w.monitor === monitorId) && (w.fullscreen === 1 || (typeof w.fullscreen === 'boolean' && w.fullscreen === true)));
+                    if (!hasFullscreenOnMonitor)
+                        return false;
+                }
                 return toplevel.fullscreen === true;
             }
 

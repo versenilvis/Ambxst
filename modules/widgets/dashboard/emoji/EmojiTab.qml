@@ -335,8 +335,8 @@ Rectangle {
         };
 
         root.addToRecent(emojiForRecent);
-        Visibilities.setActiveModule("");
         ClipboardService.copyAndTypeEmoji(emojiToCopy);
+        Visibilities.setActiveModule("");
     }
 
     function onDownPressed() {

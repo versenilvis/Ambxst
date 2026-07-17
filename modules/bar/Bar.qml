@@ -5,6 +5,7 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Widgets
 import Quickshell.Wayland
+import Quickshell.Hyprland
 import qs.modules.bar.workspaces
 import qs.modules.theme
 import qs.modules.bar.clock
@@ -35,6 +36,16 @@ PanelWindow {
         const toplevel = ToplevelManager.activeToplevel;
         if (!toplevel || !toplevel.activated)
             return false;
+        if (screen && toplevel.screens && toplevel.screens.length > 0 && !toplevel.screens.includes(screen))
+            return false;
+        if (screen && HyprlandData) {
+            if (!HyprlandData.windowList || HyprlandData.windowList.length === 0)
+                return false;
+            const monitorId = Hyprland.monitorFor(screen)?.id;
+            const hasFullscreenOnMonitor = HyprlandData.windowList.some(w => (w.monitor === screen.name || w.monitor === monitorId) && (w.fullscreen === 1 || (typeof w.fullscreen === 'boolean' && w.fullscreen === true)));
+            if (!hasFullscreenOnMonitor)
+                return false;
+        }
         return toplevel.fullscreen === true;
     }
 
@@ -49,13 +60,8 @@ PanelWindow {
     // Track if mouse is over bar area
     readonly property bool isMouseOverBar: barMouseArea.containsMouse
 
-    // Check if notch is open (dashboard, powermenu, etc.) - bar should show when notch is expanded
-    readonly property var screenVisibilities: screen ? Visibilities.getForScreen(screen.name) : null
-    readonly property bool notchOpen: screenVisibilities ? (screenVisibilities.dashboard || screenVisibilities.powermenu || screenVisibilities.tools) : false
-
-    // Reveal logic: bar only shows when pinned and not in fullscreen
-    // No hover reveal, only Ctrl+Esc toggle controls visibility
-    readonly property bool reveal: !shouldAutoHide || notchOpen
+    // Reveal logic: bar visibility is purely controlled by shouldAutoHide (pinned and fullscreen states)
+    readonly property bool reveal: !shouldAutoHide
 
     // Timer to delay hiding the bar after mouse leaves
     Timer {

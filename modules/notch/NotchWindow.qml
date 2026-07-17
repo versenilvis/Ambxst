@@ -5,6 +5,7 @@ import Quickshell.Io
 import Quickshell.Wayland
 import Quickshell.Hyprland
 import qs.modules.globals
+import qs.modules.bar.workspaces
 import qs.modules.theme
 import qs.modules.widgets.defaultview
 import qs.modules.widgets.dashboard
@@ -107,11 +108,21 @@ PanelWindow {
         return false;
     }
 
-    // Fullscreen detection - check if active toplevel is fullscreen
+    // Fullscreen detection - check if active toplevel is fullscreen on this screen
     readonly property bool activeWindowFullscreen: {
         const toplevel = ToplevelManager.activeToplevel;
         if (!toplevel || !toplevel.activated)
             return false;
+        if (screen && toplevel.screens && toplevel.screens.length > 0 && !toplevel.screens.includes(screen))
+            return false;
+        if (screen && HyprlandData) {
+            if (!HyprlandData.windowList || HyprlandData.windowList.length === 0)
+                return false;
+            const monitorId = Hyprland.monitorFor(screen)?.id;
+            const hasFullscreenOnMonitor = HyprlandData.windowList.some(w => (w.monitor === screen.name || w.monitor === monitorId) && (w.fullscreen === 1 || (typeof w.fullscreen === 'boolean' && w.fullscreen === true)));
+            if (!hasFullscreenOnMonitor)
+                return false;
+        }
         return toplevel.fullscreen === true;
     }
 
