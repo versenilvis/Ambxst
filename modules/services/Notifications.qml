@@ -59,9 +59,7 @@ Singleton {
         }
 
         function triggerTimeout() {
-            delete root.timersById[id];
             root.timeoutNotification(id);
-            destroy();
         }
 
         onTriggered: triggerTimeout()
@@ -80,6 +78,7 @@ Singleton {
     property var latestTimeForApp: ({})
     property var totalCounts: ({})  // Conteo total independiente del almacenamiento: {appName: {summary: count}}
     property var timersById: ({})
+    property var pendingTimeoutIds: []
 
     Component {
         id: notifTimerComponent
@@ -115,7 +114,7 @@ Singleton {
     function notificationToObject(notification) {
         const id = notification.id + root.idOffset;
         notification.closed.connect(function (reason) {
-            if (reason === 3) {
+            if (reason === 1 || reason === 3) {
                 root.timeoutNotification(id);
             }
         });
@@ -357,20 +356,30 @@ Singleton {
         interval: 350
         running: false
         repeat: false
-        property int notificationId: -1
         onTriggered: {
-            const index = root.list.findIndex(notif => notif.id === notificationId);
-            if (index !== -1 && root.list[index] != null) {
-                root.list[index].popup = false;
+            const ids = root.pendingTimeoutIds.slice(0);
+            root.pendingTimeoutIds = [];
+            ids.forEach(notifId => {
+                const index = root.list.findIndex(notif => notif.id === notifId);
+                if (index !== -1 && root.list[index] != null) {
+                    root.list[index].popup = false;
+                }
+                root.timeout(notifId);
+            });
+            if (ids.length > 0) {
                 triggerListChange();
             }
-            root.timeout(notificationId);
         }
     }
 
     function timeoutNotification(id) {
+        destroyTimer(id);
         root.timeoutWithAnimation(id);
-        timeoutAnimationTimer.notificationId = id;
+        const newIds = root.pendingTimeoutIds.slice(0);
+        if (newIds.indexOf(id) === -1) {
+            newIds.push(id);
+        }
+        root.pendingTimeoutIds = newIds;
         timeoutAnimationTimer.restart();
     }
 
