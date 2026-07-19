@@ -741,7 +741,7 @@ Rectangle {
                     clip: true
 
                     cacheBuffer: 96
-                    reuseItems: false
+                    reuseItems: true
 
                     model: emojisModel
                     currentIndex: root.selectedIndex

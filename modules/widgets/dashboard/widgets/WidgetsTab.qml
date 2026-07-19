@@ -144,9 +144,16 @@ Rectangle {
 
             function updateFilteredApps() {
                 if (searchText.length > 0) {
-                    filteredApps = AppSearch.fuzzyQuery(searchText);
+                    AppSearch.searchApps(searchText);
                 } else {
-                    filteredApps = AppSearch.getAllApps();
+                    AppSearch.searchApps("");
+                }
+            }
+
+            Connections {
+                target: AppSearch
+                function onSearchResultsChanged() {
+                    appLauncher.filteredApps = AppSearch.searchResults;
                 }
             }
 
@@ -543,7 +550,7 @@ Rectangle {
                     clip: true
                     interactive: appLauncher.expandedItemIndex === -1
                     cacheBuffer: 96
-                    reuseItems: false
+                    reuseItems: true
 
                     // Propiedad para detectar si está en movimiento (drag o flick)
                     property bool isScrolling: dragging || flicking
