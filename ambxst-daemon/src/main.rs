@@ -4,6 +4,11 @@ mod desktop;
 mod usage;
 mod watchdog;
 mod clipboard;
+mod app_search;
+mod link_preview;
+mod thumbgen;
+mod tools;
+mod network;
 
 use std::sync::{Arc, Mutex};
 use std::path::{Path, PathBuf};
@@ -15,6 +20,10 @@ use serde::{Deserialize, Serialize};
 #[derive(Deserialize, Debug)]
 #[serde(tag = "type")]
 enum ClientCommand {
+    #[serde(rename = "generate_thumbnails")]
+    GenerateThumbnails { config_path: String, cache_base_path: String, fallback_path: Option<String> },
+    #[serde(rename = "fetch_link_preview")]
+    FetchLinkPreview { url: String },
     #[serde(rename = "update_weather")]
     UpdateWeather { location: String },
     #[serde(rename = "record_usage")]
@@ -47,6 +56,14 @@ enum ClientCommand {
     CopyToClipboard { id: i64 },
     #[serde(rename = "get_content_clipboard")]
     GetContentClipboard { id: i64 },
+    #[serde(rename = "search_apps")]
+    SearchApps { query: String },
+    #[serde(rename = "colorpicker")]
+    Colorpicker,
+    #[serde(rename = "ocr")]
+    Ocr { langs: Vec<String> },
+    #[serde(rename = "qr_scan")]
+    QrScan,
 }
 
 #[derive(Serialize, Clone, Debug)]
@@ -61,6 +78,7 @@ struct AppState {
     desktop_items: Vec<desktop::DesktopItem>,
     clients: Vec<mpsc::UnboundedSender<String>>,
     clipboard_mgr: Option<Arc<clipboard::ClipboardManager>>,
+    app_searcher: app_search::AppSearcher,
 }
 
 type SharedState = Arc<Mutex<AppState>>;
@@ -164,6 +182,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         desktop_items: Vec::new(),
         clients: Vec::new(),
         clipboard_mgr: None,
+        app_searcher: app_search::AppSearcher::new(),
     }));
 
     init_clipboard_if_needed(&state, None, None);
@@ -208,6 +227,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             if let Ok(msg) = serde_json::to_string(&event) {
                 broadcast_message(&mut s.clients, msg);
             }
+        }
+    });
+
+    let (net_tx, mut net_rx) = tokio::sync::mpsc::channel(32);
+    let state_clone = state.clone();
+    tokio::spawn(async move {
+        while let Some(msg) = net_rx.recv().await {
+            let mut s = state_clone.lock().unwrap();
+            broadcast_message(&mut s.clients, msg);
+        }
+    });
+    
+    tokio::spawn(async move {
+        if let Err(e) = network::monitor_network(net_tx).await {
+            eprintln!("Network monitor error: {}", e);
         }
     });
 
@@ -280,6 +314,32 @@ async fn handle_client(
     while let Ok(Some(line)) = lines.next_line().await {
         if let Ok(cmd) = serde_json::from_str::<ClientCommand>(&line) {
             match cmd {
+                ClientCommand::GenerateThumbnails { config_path, cache_base_path, fallback_path } => {
+                    let client_tx = client_tx.clone();
+                    tokio::spawn(async move {
+                        let success = thumbgen::generate_thumbnails(&config_path, &cache_base_path, fallback_path).await;
+                        let event = ServerEvent {
+                            r#type: "thumbnails_generated".to_string(),
+                            data: serde_json::json!({ "success": success }),
+                        };
+                        if let Ok(msg) = serde_json::to_string(&event) {
+                            let _ = client_tx.send(format!("{}\n", msg));
+                        }
+                    });
+                }
+                ClientCommand::FetchLinkPreview { url } => {
+                    let client_tx = client_tx.clone();
+                    tokio::spawn(async move {
+                        let data = link_preview::fetch_preview(&url).await;
+                        let event = ServerEvent {
+                            r#type: "link_preview".to_string(),
+                            data: serde_json::to_value(&data).unwrap_or(serde_json::Value::Null),
+                        };
+                        if let Ok(msg) = serde_json::to_string(&event) {
+                            let _ = client_tx.send(format!("{}\n", msg));
+                        }
+                    });
+                }
                 ClientCommand::UpdateWeather { location } => {
                     let client_tx = client_tx.clone();
                     tokio::spawn(async move {
@@ -318,6 +378,28 @@ async fn handle_client(
                     if let Ok(msg) = serde_json::to_string(&event) {
                         let _ = client_tx.send(format!("{}\n", msg));
                     }
+                }
+                ClientCommand::SearchApps { query } => {
+                    let results = {
+                        let s = state.lock().unwrap();
+                        s.app_searcher.search(&query)
+                    };
+                    let event = ServerEvent {
+                        r#type: "app_search_results".to_string(),
+                        data: results,
+                    };
+                    if let Ok(msg) = serde_json::to_string(&event) {
+                        let _ = client_tx.send(format!("{}\n", msg));
+                    }
+                }
+                ClientCommand::Colorpicker => {
+                    tools::colorpicker();
+                }
+                ClientCommand::Ocr { langs } => {
+                    tools::ocr(langs);
+                }
+                ClientCommand::QrScan => {
+                    tools::qr_scan();
                 }
                 ClientCommand::ExecuteDesktop { path } => {
                     desktop_watcher.execute_file(&path);

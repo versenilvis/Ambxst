@@ -2,12 +2,13 @@ use std::fs;
 use std::path::Path;
 use std::process::Command;
 use serde::Serialize;
-use sysinfo::{System, Disks};
+use sysinfo::{System, Disks, DiskKind};
 
 #[derive(Serialize, Clone, Debug)]
 pub struct CpuInfo {
     pub usage: f32,
     pub temp: i32,
+    pub model: String,
 }
 
 #[derive(Serialize, Clone, Debug)]
@@ -25,6 +26,7 @@ pub struct GpuInfo {
     pub count: usize,
     pub usages: Vec<f32>,
     pub temps: Vec<i32>,
+    pub names: Vec<String>,
 }
 
 #[derive(Serialize, Clone, Debug)]
@@ -34,6 +36,7 @@ pub struct SystemStats {
     pub disk: std::collections::HashMap<String, f32>,
     pub disk_used: std::collections::HashMap<String, u64>,
     pub disk_total: std::collections::HashMap<String, u64>,
+    pub disk_type: std::collections::HashMap<String, String>,
     pub gpu: GpuInfo,
 }
 
@@ -42,6 +45,7 @@ pub struct SysMonitor {
     gpu_vendor: String,
     gpu_count: usize,
     amd_cards: Vec<String>,
+    gpu_names: Vec<String>,
 }
 
 impl SysMonitor {
@@ -52,6 +56,7 @@ impl SysMonitor {
         let mut gpu_vendor = "none".to_string();
         let mut gpu_count = 0;
         let mut amd_cards = Vec::new();
+        let mut gpu_names = Vec::new();
 
         // check for nvidia
         if Command::new("nvidia-smi").stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).status().is_ok() {
@@ -64,6 +69,14 @@ impl SysMonitor {
                     if let Ok(val) = s.trim().parse::<usize>() {
                         gpu_count = val;
                     }
+                }
+            }
+            if let Ok(out) = Command::new("nvidia-smi")
+                .args(["--query-gpu=name", "--format=csv,noheader"])
+                .output()
+            {
+                if let Ok(s) = std::str::from_utf8(&out.stdout) {
+                    gpu_names = s.trim().lines().map(|l| l.trim().to_string()).collect();
                 }
             }
         } else {
@@ -83,9 +96,11 @@ impl SysMonitor {
                 amd_cards.sort();
                 gpu_vendor = "amd".to_string();
                 gpu_count = amd_cards.len();
+                gpu_names = (0..gpu_count).map(|i| format!("AMD GPU {}", i)).collect();
             } else if Command::new("intel_gpu_top").arg("-h").stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).status().is_ok() {
                 gpu_vendor = "intel".to_string();
                 gpu_count = 1;
+                gpu_names = vec!["Intel GPU 0".to_string()];
             }
         }
 
@@ -94,6 +109,7 @@ impl SysMonitor {
             gpu_vendor,
             gpu_count,
             amd_cards,
+            gpu_names,
         }
     }
 
@@ -212,6 +228,33 @@ impl SysMonitor {
         let cpu_usage = self.sys.global_cpu_info().cpu_usage();
         let cpu_temp = self.get_cpu_temp();
 
+        let mut cpu_model = String::new();
+        if let Some(cpu) = self.sys.cpus().first() {
+            let mut model = cpu.brand().to_string();
+            model = model.replace(" CPU", "");
+            model = model.replace(" FPU", "");
+            model = model.replace(" APU", "");
+            model = model.replace(" Processor", "");
+            model = model.replace(" Dual-Core", "");
+            model = model.replace(" Quad-Core", "");
+            model = model.replace(" Six-Core", "");
+            model = model.replace(" Eight-Core", "");
+            model = model.replace(" Ten-Core", "");
+            model = model.replace(" 2-Core", "");
+            model = model.replace(" 4-Core", "");
+            model = model.replace(" 6-Core", "");
+            model = model.replace(" 8-Core", "");
+            model = model.replace(" 10-Core", "");
+            model = model.replace(" 12-Core", "");
+            model = model.replace(" 14-Core", "");
+            model = model.replace(" 16-Core", "");
+            if let Some(idx) = model.find(" w/ Radeon") { model.truncate(idx); }
+            if let Some(idx) = model.find(" with Radeon") { model.truncate(idx); }
+            if let Some(idx) = model.find('@') { model.truncate(idx); }
+            let parts: Vec<&str> = model.split_whitespace().collect();
+            cpu_model = parts.join(" ");
+        }
+
         let mem_total = self.sys.total_memory();
         let mem_available = self.sys.available_memory();
         let mem_used = mem_total.saturating_sub(mem_available);
@@ -224,6 +267,7 @@ impl SysMonitor {
         let mut disk_map = std::collections::HashMap::new();
         let mut disk_used_map = std::collections::HashMap::new();
         let mut disk_total_map = std::collections::HashMap::new();
+        let mut disk_type_map = std::collections::HashMap::new();
         let disks = Disks::new_with_refreshed_list();
         for disk in disks.list() {
             let mount = disk.mount_point().to_string_lossy().into_owned();
@@ -238,7 +282,13 @@ impl SysMonitor {
                 };
                 disk_map.insert(mount.clone(), usage);
                 disk_used_map.insert(mount.clone(), used);
-                disk_total_map.insert(mount, total);
+                disk_total_map.insert(mount.clone(), total);
+                let type_str = match disk.kind() {
+                    DiskKind::HDD => "hdd",
+                    DiskKind::SSD => "ssd",
+                    _ => "unknown",
+                };
+                disk_type_map.insert(mount, type_str.to_string());
             }
         }
 
@@ -248,6 +298,7 @@ impl SysMonitor {
             cpu: CpuInfo {
                 usage: cpu_usage,
                 temp: cpu_temp,
+                model: cpu_model,
             },
             ram: RamInfo {
                 usage: ram_usage,
@@ -258,12 +309,14 @@ impl SysMonitor {
             disk: disk_map,
             disk_used: disk_used_map,
             disk_total: disk_total_map,
+            disk_type: disk_type_map,
             gpu: GpuInfo {
                 detected: self.gpu_vendor != "none",
                 vendor: self.gpu_vendor.clone(),
                 count: self.gpu_count,
                 usages: gpu_usages,
                 temps: gpu_temps,
+                names: self.gpu_names.clone(),
             },
         }
     }
