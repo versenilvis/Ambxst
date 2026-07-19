@@ -28,9 +28,19 @@ ClippingRectangle {
 
     function getIconSource(iconName) {
         if (!iconName) return "";
-        if (iconName.startsWith("file://")) return iconName;
-        if (iconName.startsWith("/")) return "file://" + iconName;
-        return "image://icon/" + iconName;
+        
+        // Strip any query parameters like ?fallback=... which break Quickshell icon resolution
+        let cleanIcon = iconName;
+        let queryIdx = cleanIcon.indexOf('?');
+        if (queryIdx !== -1) {
+            cleanIcon = cleanIcon.substring(0, queryIdx);
+        }
+        
+        if (cleanIcon.startsWith("file://")) return cleanIcon;
+        if (cleanIcon.startsWith("/")) return "file://" + cleanIcon;
+        
+        // Quickshell uses fallback internally, so we just provide the clean name
+        return "image://icon/" + cleanIcon;
     }
 
     Rectangle {

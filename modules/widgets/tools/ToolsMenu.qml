@@ -77,17 +77,7 @@ ActionGrid {
         }
     ]
 
-    Process {
-        id: colorPickerProc
-    }
 
-    Process {
-        id: ocrProc
-    }
-
-    Process {
-        id: qrProc
-    }
 
     Process {
         id: openFolderProc
@@ -124,14 +114,9 @@ ActionGrid {
             
              root.itemSelected();
         } else if (action.tooltip === "Color Picker") {
-            var scriptPath = Qt.resolvedUrl("../../../scripts/colorpicker.py").toString().replace("file://", "");
-            // Run detached so it survives when the menu closes
-            colorPickerProc.command = ["bash", "-c", "nohup python3 \"" + scriptPath + "\" > /dev/null 2>&1 &"];
-            colorPickerProc.running = true;
+            DaemonClient.colorpicker();
             root.itemSelected();
         } else if (action.tooltip === "OCR") {
-            var scriptPath = Qt.resolvedUrl("../../../scripts/ocr.sh").toString().replace("file://", "");
-            
             // Build languages string from Config
             var ocrConfig = Config.system.ocr;
             var langs = [];
@@ -149,15 +134,11 @@ ActionGrid {
             }
             
             if (langs.length === 0) langs.push("eng");
-            var langString = langs.join("+");
 
-            ocrProc.command = ["bash", "-c", "nohup \"" + scriptPath + "\" \"" + langString + "\" > /dev/null 2>&1 &"];
-            ocrProc.running = true;
+            DaemonClient.ocr(langs);
             root.itemSelected();
         } else if (action.tooltip === "QR Code") {
-            var scriptPath = Qt.resolvedUrl("../../../scripts/qr_scan.sh").toString().replace("file://", "");
-            qrProc.command = ["bash", "-c", "nohup \"" + scriptPath + "\" > /dev/null 2>&1 &"];
-            qrProc.running = true;
+            DaemonClient.qrScan();
             root.itemSelected();
         } else if (action.tooltip === "Google Lens") {
             Screenshot.captureMode = "lens";

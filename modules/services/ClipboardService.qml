@@ -13,11 +13,9 @@ QtObject {
     property int pageSize: 50
     property bool hasMoreItems: false
     property bool _isAppending: false
-    property var _previewQueue: []
 
     readonly property string dbPath: Quickshell.env("HOME") + "/.local/share/Ambxst/clipboard.db"
     readonly property string binaryDataDir: Quickshell.env("HOME") + "/.local/share/Ambxst/clipboard-data"
-    readonly property string linkPreviewScriptPath: Qt.resolvedUrl("../../scripts/link_preview.py").toString().replace("file://", "")
 
     property bool _initialized: false
     signal listCompleted()
@@ -47,35 +45,31 @@ QtObject {
             }
             root.fullContentRetrieved(itemId, content);
         }
-    }
 
-    property Process linkPreviewProcess: Process {
-        property string requestItemId: ""
-        property string _out: ""
-        stdout: SplitParser {
-            onRead: data => { linkPreviewProcess._out += data + "\n"; }
-        }
-        stderr: SplitParser { onRead: data => {} }
-        onExited: exitCode => {
-            if (exitCode === 0 && _out.trim().length > 0) {
-                var raw = _out.trim();
-                try {
-                    var meta = JSON.parse(raw);
-                    // store as parsed object under both id and url
-                    root.linkPreviewCache[requestItemId] = meta;
-                    if (meta.url) {
-                        root.linkPreviewCache[meta.url.trim()] = meta;
-                    }
-                    root.linkPreviewFetched(meta.url || "", meta, requestItemId);
-                } catch(e) {
-                    // store raw string under id as fallback
-                    root.linkPreviewCache[requestItemId] = raw;
-                    root.linkPreviewFetched(raw, {}, requestItemId);
+        function onLinkPreviewReceived(meta) {
+            if (!meta || !meta.request_url) return;
+            
+            // Map request URL back to ID if we had a mapping (or just use URL)
+            var requestUrl = meta.request_url;
+            var itemId = "";
+            for (var id in root.linkPreviewCache) {
+                if (root.linkPreviewCache[id] === requestUrl) {
+                    itemId = id;
+                    break;
                 }
             }
-            _out = "";
-            // process next queue item
-            root._processQueue();
+            
+            if (meta.error) {
+                // cache fallback
+                var fallbackStr = "Failed to fetch preview";
+                if (itemId) root.linkPreviewCache[itemId] = fallbackStr;
+                root.linkPreviewCache[requestUrl] = fallbackStr;
+                root.linkPreviewFetched(requestUrl, {}, itemId);
+            } else {
+                if (itemId) root.linkPreviewCache[itemId] = meta;
+                root.linkPreviewCache[requestUrl] = meta;
+                root.linkPreviewFetched(meta.url || requestUrl, meta, itemId);
+            }
         }
     }
 
@@ -255,26 +249,12 @@ QtObject {
         return /^https?:\/\/[^\s]+/.test(trimmed);
     }
 
-    function _processQueue() {
-        if (linkPreviewProcess.running) return;
-        if (root._previewQueue.length === 0) return;
-
-        var next = root._previewQueue.shift();
-        linkPreviewProcess.requestItemId = next.itemId;
-        linkPreviewProcess.command = ["python3", linkPreviewScriptPath, next.url, "5"];
-        linkPreviewProcess.running = true;
-    }
-
     function fetchLinkPreview(url, itemId) {
         if (root.linkPreviewCache[itemId]) return;
         
-        // check if already in queue
-        for (var i = 0; i < root._previewQueue.length; i++) {
-            if (root._previewQueue[i].itemId === itemId) return;
-        }
-        
-        root._previewQueue.push({url: url, itemId: itemId});
-        root._processQueue();
+        // Mark as fetching to avoid duplicate requests
+        root.linkPreviewCache[itemId] = url;
+        DaemonClient.fetchLinkPreview(url);
     }
 
     function copyAndTypeEmoji(emojiText) {

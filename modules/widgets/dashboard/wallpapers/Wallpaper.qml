@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
 import qs.modules.globals
+import qs.modules.services
 import qs.config
 
 PanelWindow {
@@ -597,33 +598,13 @@ PanelWindow {
         }
     }
 
-    // Proceso para generar thumbnails de videos
-    Process {
-        id: thumbnailGeneratorScript
-        running: false
-        command: ["python3", decodeURIComponent(Qt.resolvedUrl("../../../../scripts/thumbgen.py").toString().replace("file://", "")), Quickshell.dataDir + "/wallpapers.json", Quickshell.dataDir, fallbackDir]
-
-        stdout: StdioCollector {
-            onStreamFinished: {
-                if (text.length > 0) {
-                    console.log("Thumbnail Generator:", text);
-                }
-            }
-        }
-
-        stderr: StdioCollector {
-            onStreamFinished: {
-                if (text.length > 0) {
-                    console.warn("Thumbnail Generator Error:", text);
-                }
-            }
-        }
-
-        onExited: function (exitCode) {
-            if (exitCode === 0) {
+    Connections {
+        target: DaemonClient
+        function onThumbnailsGenerated(success) {
+            if (success) {
                 console.log("✅ Video thumbnails generated successfully");
             } else {
-                console.warn("⚠️ Thumbnail generation failed with code:", exitCode);
+                console.warn("⚠️ Thumbnail generation failed or nothing to generate");
             }
         }
     }
@@ -632,7 +613,13 @@ PanelWindow {
         id: delayedThumbnailGen
         interval: 5000 // Delay 5 seconds after startup to not block initial load
         repeat: false
-        onTriggered: thumbnailGeneratorScript.running = true
+        onTriggered: {
+            DaemonClient.generateThumbnails(
+                Quickshell.dataDir + "/wallpapers.json",
+                Quickshell.dataDir,
+                fallbackDir
+            );
+        }
     }
 
     // Proceso para generar frame de lockscreen con el script de Python

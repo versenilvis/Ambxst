@@ -182,12 +182,10 @@ Singleton {
         updateNetworkStrength.running = true;
     }
 
-    Process {
-        id: subscriber
-        running: true
-        command: ["bash", Qt.resolvedUrl("../../scripts/nmcli_monitor.sh").toString().replace("file://", "")]
-        stdout: SplitParser {
-            onRead: root.update()
+    Connections {
+        target: DaemonClient
+        function onNetworkChanged() {
+            root.update();
         }
     }
 

@@ -206,7 +206,15 @@ Item {
                             id: groupSmallAppIcon
                             Layout.preferredWidth: 16
                             Layout.preferredHeight: 16
-                            source: (notificationGroup && notificationGroup.appIcon !== "") ? "image://icon/" + notificationGroup.appIcon : ""
+                            source: {
+                                if (notificationGroup && notificationGroup.appIcon !== "") {
+                                    let cleanIcon = notificationGroup.appIcon;
+                                    let qIdx = cleanIcon.indexOf('?');
+                                    if (qIdx !== -1) cleanIcon = cleanIcon.substring(0, qIdx);
+                                    return "image://icon/" + cleanIcon;
+                                }
+                                return "";
+                            }
                             fillMode: Image.PreserveAspectFit
                             smooth: true
                             visible: notificationGroup && notificationGroup.appIcon !== "" && root.validNotifications.some(n => n.image !== "")
