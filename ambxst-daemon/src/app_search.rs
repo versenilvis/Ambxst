@@ -165,15 +165,26 @@ fn fff_match(query: &str, target: &str) -> Option<i32> {
     let mut curr_q = q_chars.next()?;
     let mut score = 0;
     let mut consecutive = 0;
+    let mut is_start_of_word = true;
+    let mut first_match_index: i32 = -1;
     
-    for c in target.chars() {
+    for (i, c) in target.chars().enumerate() {
+        let current_char_is_start = is_start_of_word;
+        is_start_of_word = c.is_whitespace() || c == '-' || c == '_';
+        
         if c == curr_q {
+            if first_match_index == -1 {
+                first_match_index = i as i32;
+            }
             score += 10 + consecutive * 5;
+            if current_char_is_start {
+                score += 20; // Bonus for start of word
+            }
             consecutive += 1;
             if let Some(next_q) = q_chars.next() {
                 curr_q = next_q;
             } else {
-                return Some(score);
+                return Some(score - first_match_index);
             }
         } else {
             consecutive = 0;
