@@ -441,6 +441,8 @@ pub fn spawn_watcher(
     on_change: mpsc::UnboundedSender<()>,
 ) {
     tokio::spawn(async move {
+        let is_processing = Arc::new(tokio::sync::Mutex::new(false));
+
         loop {
             let mut cmd = tokio::process::Command::new("wl-paste");
             cmd.args(&["--watch", "echo", "CLIPBOARD_CHANGE"])
@@ -452,8 +454,7 @@ pub fn spawn_watcher(
                     Ok(())
                 });
             }
-            let mut child = match cmd.spawn()
-            {
+            let mut child = match cmd.spawn() {
                 Ok(child) => child,
                 Err(e) => {
                     eprintln!("failed to start wl-paste --watch: {}, retrying in 2s", e);
@@ -468,16 +469,23 @@ pub fn spawn_watcher(
 
             while let Ok(Some(line)) = lines.next_line().await {
                 if line.trim() == "CLIPBOARD_CHANGE" {
-                    match check_and_insert(&manager).await {
-                        Ok(inserted) => {
-                            if inserted {
-                                let _ = on_change.send(());
+                    let mgr = manager.clone();
+                    let tx = on_change.clone();
+                    let lock = is_processing.clone();
+
+                    tokio::spawn(async move {
+                        let Ok(_guard) = lock.try_lock() else { return; };
+                        match check_and_insert(&mgr).await {
+                            Ok(inserted) => {
+                                if inserted {
+                                    let _ = tx.send(());
+                                }
+                            }
+                            Err(e) => {
+                                eprintln!("clipboard check/insert error: {}", e);
                             }
                         }
-                        Err(e) => {
-                            eprintln!("clipboard check/insert error: {}", e);
-                        }
-                    }
+                    });
                 }
             }
 
@@ -549,60 +557,60 @@ async fn check_and_insert(manager: &ClipboardManager) -> Result<bool, String> {
 
 async fn wl_paste(mime: &str) -> Result<String, String> {
     for _ in 0..2 {
-        let out = tokio::process::Command::new("wl-paste")
+        let child_fut = tokio::process::Command::new("wl-paste")
             .args(&["--no-newline", "--type", mime])
-            .output()
-            .await
-            .map_err(|e| e.to_string())?;
+            .output();
 
-        if out.status.success() {
-            return Ok(String::from_utf8_lossy(&out.stdout).to_string());
+        if let Ok(Ok(out)) = tokio::time::timeout(tokio::time::Duration::from_millis(1500), child_fut).await {
+            if out.status.success() {
+                return Ok(String::from_utf8_lossy(&out.stdout).to_string());
+            }
         }
         tokio::time::sleep(tokio::time::Duration::from_millis(30)).await;
     }
-    Err("wl-paste failed".to_string())
+    Err("wl-paste failed or timed out".to_string())
 }
 
 async fn wl_paste_bytes(mime: &str) -> Result<Vec<u8>, String> {
     for _ in 0..2 {
-        let out = tokio::process::Command::new("wl-paste")
+        let child_fut = tokio::process::Command::new("wl-paste")
             .args(&["--no-newline", "--type", mime])
-            .output()
-            .await
-            .map_err(|e| e.to_string())?;
+            .output();
 
-        if out.status.success() {
-            return Ok(out.stdout);
+        if let Ok(Ok(out)) = tokio::time::timeout(tokio::time::Duration::from_millis(1500), child_fut).await {
+            if out.status.success() {
+                return Ok(out.stdout);
+            }
         }
         tokio::time::sleep(tokio::time::Duration::from_millis(30)).await;
     }
-    Err("wl-paste bytes failed".to_string())
+    Err("wl-paste bytes failed or timed out".to_string())
 }
 
 async fn wl_paste_list_types() -> Result<Vec<String>, String> {
     for _ in 0..2 {
-        let out = tokio::process::Command::new("wl-paste")
+        let child_fut = tokio::process::Command::new("wl-paste")
             .arg("--list-types")
-            .output()
-            .await
-            .map_err(|e| e.to_string())?;
+            .output();
 
-        if out.status.success() {
-            let s = String::from_utf8_lossy(&out.stdout);
-            let mut list = Vec::new();
-            for line in s.lines() {
-                let trimmed = line.trim();
-                if !trimmed.is_empty() {
-                    list.push(trimmed.to_string());
+        if let Ok(Ok(out)) = tokio::time::timeout(tokio::time::Duration::from_millis(1500), child_fut).await {
+            if out.status.success() {
+                let s = String::from_utf8_lossy(&out.stdout);
+                let mut list = Vec::new();
+                for line in s.lines() {
+                    let trimmed = line.trim();
+                    if !trimmed.is_empty() {
+                        list.push(trimmed.to_string());
+                    }
                 }
-            }
-            if !list.is_empty() {
-                return Ok(list);
+                if !list.is_empty() {
+                    return Ok(list);
+                }
             }
         }
         tokio::time::sleep(tokio::time::Duration::from_millis(30)).await;
     }
-    Err("wl-paste list types failed".to_string())
+    Err("wl-paste list types failed or timed out".to_string())
 }
 
 pub async fn copy_to_clipboard(item: &ClipboardItem) -> Result<(), std::io::Error> {
