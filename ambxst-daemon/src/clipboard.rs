@@ -415,14 +415,16 @@ fn truncate_string_bytes(s: &str, limit: usize) -> String {
     if s.len() <= limit {
         return s.to_string();
     }
-    if limit <= 3 {
-        return s[..limit].to_string();
+    let target = if limit >= 3 { limit - 3 } else { 0 };
+    let mut end = target;
+    while end > 0 && !s.is_char_boundary(end) {
+        end -= 1;
     }
-    let mut truncated = &s[..limit - 3];
-    while !truncated.is_empty() && std::str::from_utf8(truncated.as_bytes()).is_err() {
-        truncated = &truncated[..truncated.len() - 1];
+    if end == 0 && target > 0 {
+        // If we somehow couldn't find a boundary, just return '...'
+        return "...".to_string();
     }
-    format!("{}...", truncated)
+    format!("{}...", &s[..end])
 }
 
 fn mime_to_ext(mime: &str) -> &'static str {
