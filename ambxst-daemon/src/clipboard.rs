@@ -441,8 +441,6 @@ pub fn spawn_watcher(
     on_change: mpsc::UnboundedSender<()>,
 ) {
     tokio::spawn(async move {
-        let is_processing = Arc::new(tokio::sync::Mutex::new(false));
-
         loop {
             let mut cmd = tokio::process::Command::new("wl-paste");
             cmd.args(&["--watch", "echo", "CLIPBOARD_CHANGE"])
@@ -466,15 +464,22 @@ pub fn spawn_watcher(
             let stdout = child.stdout.take().unwrap();
             let reader = BufReader::new(stdout);
             let mut lines = reader.lines();
+            
+            let mut debounce_task: Option<tokio::task::JoinHandle<()>> = None;
 
             while let Ok(Some(line)) = lines.next_line().await {
                 if line.trim() == "CLIPBOARD_CHANGE" {
                     let mgr = manager.clone();
                     let tx = on_change.clone();
-                    let lock = is_processing.clone();
 
-                    tokio::spawn(async move {
-                        let Ok(_guard) = lock.try_lock() else { return; };
+                    if let Some(task) = debounce_task.take() {
+                        task.abort();
+                    }
+
+                    debounce_task = Some(tokio::spawn(async move {
+                        // Wait for spammy events to settle and payload to be ready
+                        tokio::time::sleep(tokio::time::Duration::from_millis(150)).await;
+                        
                         match check_and_insert(&mgr).await {
                             Ok(inserted) => {
                                 if inserted {
@@ -485,7 +490,7 @@ pub fn spawn_watcher(
                                 eprintln!("clipboard check/insert error: {}", e);
                             }
                         }
-                    });
+                    }));
                 }
             }
 
