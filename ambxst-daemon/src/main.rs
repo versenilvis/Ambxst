@@ -56,6 +56,8 @@ enum ClientCommand {
     CopyToClipboard { id: i64 },
     #[serde(rename = "get_content_clipboard")]
     GetContentClipboard { id: i64 },
+    #[serde(rename = "search_clipboard")]
+    SearchClipboard { query: String },
     #[serde(rename = "search_apps")]
     SearchApps { query: String },
     #[serde(rename = "colorpicker")]
@@ -453,6 +455,27 @@ async fn handle_client(
                         let client_tx = client_tx.clone();
                         tokio::spawn(async move {
                             if let Ok(items) = mgr.list(limit, offset) {
+                                let event = ServerEvent {
+                                    r#type: "clipboard".to_string(),
+                                    data: items,
+                                };
+                                if let Ok(msg) = serde_json::to_string(&event) {
+                                    let _ = client_tx.send(format!("{}\n", msg));
+                                }
+                            }
+                        });
+                    }
+                }
+                ClientCommand::SearchClipboard { query } => {
+                    init_clipboard_if_needed(&state, None, None);
+                    let mgr = {
+                        let s = state.lock().unwrap();
+                        s.clipboard_mgr.clone()
+                    };
+                    if let Some(mgr) = mgr {
+                        let client_tx = client_tx.clone();
+                        tokio::spawn(async move {
+                            if let Ok(items) = mgr.search_fuzzy(&query) {
                                 let event = ServerEvent {
                                     r#type: "clipboard".to_string(),
                                     data: items,

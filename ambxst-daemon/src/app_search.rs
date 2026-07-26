@@ -158,7 +158,7 @@ fn parse_desktop_file(path: &Path) -> Option<AppEntry> {
 }
 
 // FFF: Fast Fuzzy Finder matching algorithm
-fn fff_match(query: &str, target: &str) -> Option<i32> {
+pub fn fff_match(query: &str, target: &str) -> Option<i32> {
     if query.is_empty() { return Some(0); }
     
     let mut q_chars = query.chars();

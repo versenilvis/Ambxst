@@ -124,6 +124,79 @@ impl ClipboardManager {
         Ok(items)
     }
 
+    pub fn search_fuzzy(&self, query: &str) -> Result<Vec<ClipboardItem>, rusqlite::Error> {
+        if query.is_empty() {
+            return self.list(50, 0);
+        }
+        
+        let conn = self.conn.lock().unwrap();
+        // Fetch a larger chunk for fuzzy search, prioritizing pinned and newest
+        let mut stmt = conn.prepare("
+            select id, content_hash, mime_type, preview, coalesce(full_content, ''),
+                   is_image, coalesce(binary_path, ''), size, pinned, alias,
+                   display_index, created_at, updated_at
+            from clipboard_items
+            where is_image = 0
+            order by pinned desc, updated_at desc
+            limit 1000
+        ")?;
+        let rows = stmt.query_map([], |row| {
+            Ok(ClipboardItem {
+                id: row.get(0)?,
+                content_hash: row.get(1)?,
+                mime_type: row.get(2)?,
+                preview: row.get(3)?,
+                full_content: row.get(4)?,
+                is_image: row.get(5)?,
+                binary_path: row.get(6)?,
+                size: row.get(7)?,
+                pinned: row.get(8)?,
+                alias: row.get(9)?,
+                display_index: row.get(10)?,
+                created_at: row.get(11)?,
+                updated_at: row.get(12)?,
+            })
+        })?;
+        
+        let mut items = Vec::new();
+        for r in rows {
+            items.push(r?);
+        }
+        
+        let query_lower = query.to_lowercase();
+        
+        let mut scored_items: Vec<(i32, ClipboardItem)> = items.into_iter().filter_map(|item| {
+            let mut search_target = item.preview.to_lowercase();
+            if let Some(ref alias) = item.alias {
+                search_target.push_str(" ");
+                search_target.push_str(&alias.to_lowercase());
+            }
+            if !item.full_content.is_empty() {
+                // only search first 1000 chars of full content to avoid lag
+                let limit = std::cmp::min(item.full_content.len(), 1000);
+                if let Some(end) = item.full_content.char_indices().nth(limit).map(|(i, _)| i) {
+                    search_target.push_str(" ");
+                    search_target.push_str(&item.full_content[..end].to_lowercase());
+                } else {
+                    search_target.push_str(" ");
+                    search_target.push_str(&item.full_content.to_lowercase());
+                }
+            }
+            
+            if let Some(score) = crate::app_search::fff_match(&query_lower, &search_target) {
+                Some((score, item))
+            } else {
+                None
+            }
+        }).collect();
+        
+        // Sort by highest score first
+        scored_items.sort_by(|a, b| b.0.cmp(&a.0));
+        
+        // Return top 50
+        Ok(scored_items.into_iter().map(|(_, item)| item).take(50).collect())
+    }
+
     pub fn get_full_content(&self, id: i64) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare("

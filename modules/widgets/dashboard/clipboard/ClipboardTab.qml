@@ -268,7 +268,7 @@ Item {
     }
 
     onSearchTextChanged: {
-        updateFilteredItems();
+        ClipboardService.search(searchText);
     }
 
     function clearSearch() {
@@ -403,18 +403,9 @@ Item {
             currentIdToKeep = allItems[selectedIndex].id;
         }
 
-        var newItems = [];
-
-        for (var i = 0; i < ClipboardService.items.length; i++) {
-            var item = ClipboardService.items[i];
-            var content = item.preview || "";
-            var alias = item.alias || "";
-
-            // Search in both content and alias
-            if (searchText.length === 0 || content.toLowerCase().includes(searchText.toLowerCase()) || alias.toLowerCase().includes(searchText.toLowerCase())) {
-                newItems.push(item);
-            }
-        }
+        // The backend daemon now handles fuzzy searching, so ClipboardService.items
+        // already contains the search results.
+        var newItems = ClipboardService.items.slice();
 
         allItems = newItems;
         // Don't reset scroll or animation state here to prevent jumps during rapid updates

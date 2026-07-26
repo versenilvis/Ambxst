@@ -152,6 +152,15 @@ QtObject {
         });
     }
 
+    function search(query) {
+        root.initializeClipboardBackend();
+        root._isAppending = false;
+        DaemonClient.sendCommand({
+            type: "search_clipboard",
+            query: query
+        });
+    }
+
     function loadMore() {
         if (!root.hasMoreItems) return;
         root._isAppending = true;
