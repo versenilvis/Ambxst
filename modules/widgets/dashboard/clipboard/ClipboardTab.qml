@@ -412,6 +412,26 @@ Item {
         // Don't reset scroll or animation state here to prevent jumps during rapid updates
 
         // Smart sync itemsModel to minimize delegate destruction/creation
+        // For search results, the list is completely different, so bypass smart sync 
+        // to avoid QML ListModel setProperty bugs with JS objects that cause empty text
+        if (searchText.length > 0) {
+            itemsModel.clear();
+            for (var k = 0; k < newItems.length; k++) {
+                itemsModel.append({
+                    itemId: newItems[k].id,
+                    itemData: newItems[k]
+                });
+            }
+            
+            // Force selection to 0 if we are searching and haven't navigated yet
+            if (newItems.length > 0 && (!hasNavigatedFromSearch || selectedIndex < 0 || selectedIndex >= newItems.length)) {
+                selectedIndex = 0;
+                resultsList.currentIndex = 0;
+            }
+            return;
+        }
+
+        // Smart sync for normal appending/updates
         var modelIndex = 0;
         var newIndex = 0;
 
@@ -425,9 +445,7 @@ Item {
                 if (currentModelItem.itemId === newItemId) {
                     // Match found: update data if needed and advance
                     if (currentModelItem.itemData !== newItem) {
-                        itemsModel.set(modelIndex, {
-                            itemData: newItem
-                        });
+                        itemsModel.setProperty(modelIndex, "itemData", newItem);
                     }
                     modelIndex++;
                     newIndex++;
@@ -445,9 +463,7 @@ Item {
                     if (foundLaterIndex !== -1) {
                         // Found later: move it here
                         itemsModel.move(foundLaterIndex, modelIndex, 1);
-                        itemsModel.set(modelIndex, {
-                            itemData: newItem
-                        });
+                        itemsModel.setProperty(modelIndex, "itemData", newItem);
                         modelIndex++;
                         newIndex++;
                     } else {
@@ -494,8 +510,8 @@ Item {
             pendingItemIdToSelect = "";
         }
 
-        // Try to maintain current selection if no pending item was forced
-        if (currentIdToKeep !== "" && (searchText.length === 0 || hasNavigatedFromSearch)) {
+        // Try to maintain current selection if no pending item was forced (only for non-search updates)
+        if (currentIdToKeep !== "" && searchText.length === 0) {
             for (var i = 0; i < newItems.length; i++) {
                 if (newItems[i].id === currentIdToKeep) {
                     selectedIndex = i;
@@ -505,14 +521,8 @@ Item {
             }
         }
 
-        // Default behavior when no pending item
-        if (searchText.length > 0 && allItems.length > 0) {
-            // Force selection to 0 if we are searching and haven't navigated yet
-            if (selectedIndex < 0 || selectedIndex >= allItems.length || !hasNavigatedFromSearch) {
-                selectedIndex = 0;
-                resultsList.currentIndex = 0;
-            }
-        } else if (searchText.length === 0) {
+        // Default behavior for non-search updates when clearing search
+        if (searchText.length === 0) {
             // When clearing search, only reset if we haven't navigated or if list is empty
             if (!hasNavigatedFromSearch || allItems.length === 0) {
                 selectedIndex = -1;
