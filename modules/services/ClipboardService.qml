@@ -74,14 +74,11 @@ QtObject {
     }
 
     function _applyItems(jsonArray, append) {
-        if (!append && jsonArray.length === root.items.length && jsonArray.length > 0) {
-            var first = jsonArray[0];
-            var cur = root.items[0];
-            if (cur && cur.hash === (first.content_hash || "") && cur.id === first.id.toString()) {
-                root.listCompleted();
-                return;
-            }
-        }
+        // Only skip update if we are NOT appending, the lengths are the same, the first item is the same,
+        // AND we are NOT in the middle of a search update. (For safety, we can just remove this optimization entirely
+        // or check if it's explicitly a list refresh vs search).
+        // Since list_clipboard and search_clipboard both call this, it's safer to just always update, 
+        // or add a flag to distinguish. For now, let's just always apply the items to avoid search bugs!
         var clipboardItems = [];
         for (var i = 0; i < jsonArray.length; i++) {
             var item = jsonArray[i];

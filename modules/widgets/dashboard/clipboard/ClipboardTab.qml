@@ -268,6 +268,7 @@ Item {
     }
 
     onSearchTextChanged: {
+        hasNavigatedFromSearch = false;
         ClipboardService.search(searchText);
     }
 
@@ -494,7 +495,7 @@ Item {
         }
 
         // Try to maintain current selection if no pending item was forced
-        if (currentIdToKeep !== "") {
+        if (currentIdToKeep !== "" && (searchText.length === 0 || hasNavigatedFromSearch)) {
             for (var i = 0; i < newItems.length; i++) {
                 if (newItems[i].id === currentIdToKeep) {
                     selectedIndex = i;
@@ -506,8 +507,8 @@ Item {
 
         // Default behavior when no pending item
         if (searchText.length > 0 && allItems.length > 0) {
-            // Only force selection to 0 if we were previously unselected or invalid
-            if (selectedIndex < 0 || selectedIndex >= allItems.length) {
+            // Force selection to 0 if we are searching and haven't navigated yet
+            if (selectedIndex < 0 || selectedIndex >= allItems.length || !hasNavigatedFromSearch) {
                 selectedIndex = 0;
                 resultsList.currentIndex = 0;
             }
