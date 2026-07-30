@@ -57,6 +57,26 @@ QtObject {
         applyTimer.restart();
     }
 
+    property bool isLuaParser: false
+
+    onIsLuaParserChanged: {
+        console.log("HyprlandConfig: isLuaParser changed to " + isLuaParser + ", reapplying config...");
+        applyHyprlandConfig();
+    }
+
+    property Process checkParserProcess: Process {
+        command: ["sh", "-c", "hyprctl keyword _check_parser_ 1 2>&1 | grep -q 'non-legacy' && echo lua || echo legacy"]
+        stdout: SplitParser {
+            onRead: (data) => {
+                if (data && data.trim() === "lua") {
+                    root.isLuaParser = true;
+                } else {
+                    root.isLuaParser = false;
+                }
+            }
+        }
+    }
+
     function applyHyprlandConfigInternal() {
         // Verificar que los adapters estén cargados antes de aplicar configuración
         if (!Config.loader.loaded) {
@@ -78,28 +98,83 @@ QtObject {
         const shadowColorFormatted = formatColorForHyprland(shadowColorWithOpacity);
         const shadowColorInactiveFormatted = formatColorForHyprland(shadowColorInactiveWithOpacity);
 
-        let batchCommand = [`keyword bezier myBezier,0.4,0.0,0.2,1.0`, `keyword cursor:no_warps true`, `keyword input:mouse_refocus false`, `keyword general:layout ${GlobalStates.hyprlandLayout}`, `keyword decoration:rounding ${Config.hyprlandRounding}`, `keyword general:gaps_in ${Config.hyprland.gapsIn}`, `keyword general:gaps_out ${Config.hyprland.gapsOut}`, `keyword decoration:shadow:enabled ${Config.hyprland.shadowEnabled ? 1 : 0}`, `keyword decoration:shadow:range ${Config.hyprland.shadowRange}`, `keyword decoration:shadow:render_power ${Config.hyprland.shadowRenderPower}`, `keyword decoration:shadow:sharp ${Config.hyprland.shadowSharp ? 1 : 0}`, `keyword decoration:shadow:ignore_window ${Config.hyprland.shadowIgnoreWindow ? 1 : 0}`, `keyword decoration:shadow:color ${shadowColorFormatted}`, `keyword decoration:shadow:color_inactive ${shadowColorInactiveFormatted}`, `keyword decoration:shadow:offset ${Config.hyprland.shadowOffset}`, `keyword decoration:shadow:scale ${Config.hyprland.shadowScale}`, `keyword decoration:blur:enabled ${Config.hyprland.blurEnabled ? 1 : 0}`, `keyword decoration:blur:size ${Config.hyprland.blurSize}`, `keyword decoration:blur:passes ${Config.hyprland.blurPasses}`, `keyword decoration:blur:ignore_opacity ${Config.hyprland.blurIgnoreOpacity ? 1 : 0}`, `keyword decoration:blur:new_optimizations ${Config.hyprland.blurNewOptimizations ? 1 : 0}`, `keyword decoration:blur:xray ${Config.hyprland.blurXray ? 1 : 0}`, `keyword decoration:blur:noise ${Config.hyprland.blurNoise}`, `keyword decoration:blur:contrast ${Config.hyprland.blurContrast}`, `keyword decoration:blur:brightness ${Config.hyprland.blurBrightness}`, `keyword decoration:blur:vibrancy ${Config.hyprland.blurVibrancy}`, `keyword decoration:blur:vibrancy_darkness ${Config.hyprland.blurVibrancyDarkness}`, `keyword decoration:blur:special ${Config.hyprland.blurSpecial ? 1 : 0}`, `keyword decoration:blur:popups ${Config.hyprland.blurPopups ? 1 : 0}`, `keyword decoration:blur:popups_ignorealpha ${Config.hyprland.blurPopupsIgnorealpha}`, `keyword decoration:blur:input_methods ${Config.hyprland.blurInputMethods ? 1 : 0}`, `keyword decoration:blur:input_methods_ignorealpha ${Config.hyprland.blurInputMethodsIgnorealpha}`, `keyword animation windows,1,2.5,myBezier,popin 80%`, `keyword animation border,1,2.5,myBezier`, `keyword animation fade,1,2.5,myBezier`].join(" ; ");
-
         // Calcular ignorealpha
         let ignoreAlphaValue = 0.0;
 
         if (Config.hyprland.blurExplicitIgnoreAlpha) {
             ignoreAlphaValue = Config.hyprland.blurIgnoreAlphaValue.toFixed(2);
         } else {
-            // Calcular ignorealpha dinámicamente basado en la opacidad de los StyledRect
-            // Si barbg tiene opacidad > 0, usar el menor entre barbg y bg; si no, usar bg
             const barBgOpacity = (Config.theme.srBarBg && Config.theme.srBarBg.opacity !== undefined) ? Config.theme.srBarBg.opacity : 0;
             const bgOpacity = (Config.theme.srBg && Config.theme.srBg.opacity !== undefined) ? Config.theme.srBg.opacity : 1.0;
             ignoreAlphaValue = (barBgOpacity > 0 ? Math.min(barBgOpacity, bgOpacity) : bgOpacity).toFixed(2);
-            console.log(`HyprlandConfig: Auto ignorealpha calculated: ${ignoreAlphaValue} (bg: ${bgOpacity}, bar: ${barBgOpacity})`);
         }
 
-        console.log(`HyprlandConfig: Applying ignorealpha: ${ignoreAlphaValue}, explicit: ${Config.hyprland.blurExplicitIgnoreAlpha}`);
-        batchCommand += ` ; keyword layerrule noanim,quickshell ; keyword layerrule blur,quickshell ; keyword layerrule blurpopups,quickshell ; keyword layerrule ignorealpha ${ignoreAlphaValue},quickshell`;
-        console.log("HyprlandConfig: Applying hyprctl batch command.");
         lastApplyTime = Date.now();
-        hyprctlProcess.command = ["hyprctl", "--batch", batchCommand];
-        hyprctlProcess.running = true;
+
+        if (root.isLuaParser) {
+            let offsetArr = [0, 0];
+            if (Config.hyprland.shadowOffset) {
+                const parts = Config.hyprland.shadowOffset.split(' ').map(p => parseFloat(p)).filter(n => !isNaN(n));
+                if (parts.length >= 2) offsetArr = parts;
+            }
+
+            let luaCode = [];
+            luaCode.push(`hl.curve("myBezier", { type = "bezier", points = { { 0.4, 0.0 }, { 0.2, 1.0 } } })`);
+            luaCode.push(`hl.config({
+                cursor = { no_warps = true },
+                input = { mouse_refocus = false },
+                general = {
+                    layout = "${GlobalStates.hyprlandLayout}",
+                    gaps_in = ${Config.hyprland.gapsIn},
+                    gaps_out = ${Config.hyprland.gapsOut}
+                },
+                decoration = {
+                    rounding = ${Config.hyprlandRounding},
+                    shadow = {
+                        enabled = ${Config.hyprland.shadowEnabled ? "true" : "false"},
+                        range = ${Config.hyprland.shadowRange},
+                        render_power = ${Config.hyprland.shadowRenderPower},
+                        sharp = ${Config.hyprland.shadowSharp ? "true" : "false"},
+                        color = "${shadowColorFormatted}",
+                        color_inactive = "${shadowColorInactiveFormatted}",
+                        offset = { ${offsetArr.join(", ")} },
+                        scale = ${Config.hyprland.shadowScale}
+                    },
+                    blur = {
+                        enabled = ${Config.hyprland.blurEnabled ? "true" : "false"},
+                        size = ${Config.hyprland.blurSize},
+                        passes = ${Config.hyprland.blurPasses},
+                        ignore_opacity = ${Config.hyprland.blurIgnoreOpacity ? "true" : "false"},
+                        new_optimizations = ${Config.hyprland.blurNewOptimizations ? "true" : "false"},
+                        xray = ${Config.hyprland.blurXray ? "true" : "false"},
+                        noise = ${Config.hyprland.blurNoise},
+                        contrast = ${Config.hyprland.blurContrast},
+                        brightness = ${Config.hyprland.blurBrightness},
+                        vibrancy = ${Config.hyprland.blurVibrancy},
+                        vibrancy_darkness = ${Config.hyprland.blurVibrancyDarkness},
+                        special = ${Config.hyprland.blurSpecial ? "true" : "false"},
+                        popups = ${Config.hyprland.blurPopups ? "true" : "false"},
+                        popups_ignorealpha = ${Config.hyprland.blurPopupsIgnorealpha},
+                        input_methods = ${Config.hyprland.blurInputMethods ? "true" : "false"},
+                        input_methods_ignorealpha = ${Config.hyprland.blurInputMethodsIgnorealpha}
+                    }
+                }
+            })`);
+            luaCode.push(`hl.animation({ leaf = "windows", enabled = true, speed = 2.5, bezier = "myBezier", style = "popin 80%" })`);
+            luaCode.push(`hl.animation({ leaf = "border", enabled = true, speed = 2.5, bezier = "myBezier" })`);
+            luaCode.push(`hl.animation({ leaf = "fade", enabled = true, speed = 2.5, bezier = "myBezier" })`);
+            luaCode.push(`hl.layer_rule({ match = { namespace = "^(quickshell)$" }, no_anim = true, blur = true, blur_popups = true, ignore_alpha = ${ignoreAlphaValue} })`);
+
+            console.log("HyprlandConfig: Applying hyprctl eval (Lua parser).");
+            hyprctlProcess.command = ["hyprctl", "eval", luaCode.join(";\n")];
+            hyprctlProcess.running = true;
+        } else {
+            let batchCommand = [`keyword bezier myBezier,0.4,0.0,0.2,1.0`, `keyword cursor:no_warps true`, `keyword input:mouse_refocus false`, `keyword general:layout ${GlobalStates.hyprlandLayout}`, `keyword decoration:rounding ${Config.hyprlandRounding}`, `keyword general:gaps_in ${Config.hyprland.gapsIn}`, `keyword general:gaps_out ${Config.hyprland.gapsOut}`, `keyword decoration:shadow:enabled ${Config.hyprland.shadowEnabled ? 1 : 0}`, `keyword decoration:shadow:range ${Config.hyprland.shadowRange}`, `keyword decoration:shadow:render_power ${Config.hyprland.shadowRenderPower}`, `keyword decoration:shadow:sharp ${Config.hyprland.shadowSharp ? 1 : 0}`, `keyword decoration:shadow:ignore_window ${Config.hyprland.shadowIgnoreWindow ? 1 : 0}`, `keyword decoration:shadow:color ${shadowColorFormatted}`, `keyword decoration:shadow:color_inactive ${shadowColorInactiveFormatted}`, `keyword decoration:shadow:offset ${Config.hyprland.shadowOffset}`, `keyword decoration:shadow:scale ${Config.hyprland.shadowScale}`, `keyword decoration:blur:enabled ${Config.hyprland.blurEnabled ? 1 : 0}`, `keyword decoration:blur:size ${Config.hyprland.blurSize}`, `keyword decoration:blur:passes ${Config.hyprland.blurPasses}`, `keyword decoration:blur:ignore_opacity ${Config.hyprland.blurIgnoreOpacity ? 1 : 0}`, `keyword decoration:blur:new_optimizations ${Config.hyprland.blurNewOptimizations ? 1 : 0}`, `keyword decoration:blur:xray ${Config.hyprland.blurXray ? 1 : 0}`, `keyword decoration:blur:noise ${Config.hyprland.blurNoise}`, `keyword decoration:blur:contrast ${Config.hyprland.blurContrast}`, `keyword decoration:blur:brightness ${Config.hyprland.blurBrightness}`, `keyword decoration:blur:vibrancy ${Config.hyprland.blurVibrancy}`, `keyword decoration:blur:vibrancy_darkness ${Config.hyprland.blurVibrancyDarkness}`, `keyword decoration:blur:special ${Config.hyprland.blurSpecial ? 1 : 0}`, `keyword decoration:blur:popups ${Config.hyprland.blurPopups ? 1 : 0}`, `keyword decoration:blur:popups_ignorealpha ${Config.hyprland.blurPopupsIgnorealpha}`, `keyword decoration:blur:input_methods ${Config.hyprland.blurInputMethods ? 1 : 0}`, `keyword decoration:blur:input_methods_ignorealpha ${Config.hyprland.blurInputMethodsIgnorealpha}`, `keyword animation windows,1,2.5,myBezier,popin 80%`, `keyword animation border,1,2.5,myBezier`, `keyword animation fade,1,2.5,myBezier`].join(" ; ");
+            batchCommand += ` ; keyword layerrule noanim,quickshell ; keyword layerrule blur,quickshell ; keyword layerrule blurpopups,quickshell ; keyword layerrule ignorealpha ${ignoreAlphaValue},quickshell`;
+            console.log("HyprlandConfig: Applying hyprctl batch command (Legacy parser).");
+            hyprctlProcess.command = ["hyprctl", "--batch", batchCommand];
+            hyprctlProcess.running = true;
+        }
     }
 
     property Connections configConnections: Connections {
@@ -296,6 +371,7 @@ QtObject {
     }
 
     Component.onCompleted: {
+        checkParserProcess.running = true;
         // Si Config loader ya está cargado, aplicar inmediatamente
         if (Config.loader.loaded) {
             applyHyprlandConfig();

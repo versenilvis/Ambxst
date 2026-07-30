@@ -124,60 +124,70 @@ QtObject {
         hasPreviousBinds = true;
     }
 
+    property bool isLuaParser: false
+
+    onIsLuaParserChanged: {
+        console.log("HyprlandKeybinds: isLuaParser changed to " + isLuaParser + ", reapplying keybinds...");
+        applyKeybinds();
+    }
+
+    property Process checkParserProcess: Process {
+        command: ["sh", "-c", "hyprctl keyword _check_parser_ 1 2>&1 | grep -q 'non-legacy' && echo lua || echo legacy"]
+        stdout: SplitParser {
+            onRead: (data) => {
+                if (data && data.trim() === "lua") {
+                    root.isLuaParser = true;
+                } else {
+                    root.isLuaParser = false;
+                }
+            }
+        }
+    }
+
     function applyKeybindsInternal() {
-        // Verificar que el adapter esté cargado
         if (!Config.keybindsLoader.loaded) {
             console.log("HyprlandKeybinds: Esperando que se cargue el adapter...");
             return;
         }
 
-        // Esperar a que el layout esté listo
         if (!GlobalStates.hyprlandLayoutReady) {
             console.log("HyprlandKeybinds: Esperando que se detecte el layout de Hyprland...");
             return;
         }
 
-        console.log("HyprlandKeybinds: Aplicando keybindings (layout: " + GlobalStates.hyprlandLayout + ")...");
+        console.log("HyprlandKeybinds: Aplicando keybindings (layout: " + GlobalStates.hyprlandLayout + ", isLua: " + isLuaParser + ")...");
 
-        // Construir lista de unbinds
-        let unbindCommands = [];
-
-        // Helper function para formatear modifiers
+        // Helper functions (Legacy)
         function formatModifiers(modifiers) {
             if (!modifiers || modifiers.length === 0)
                 return "";
             return modifiers.join(" ");
         }
 
-        // Helper function para crear un bind command (old format for ambxst binds)
         function createBindCommand(keybind, flags) {
             const mods = formatModifiers(keybind.modifiers);
             const key = keybind.key;
             const dispatcher = keybind.dispatcher;
             const argument = keybind.argument || "";
             const bindKeyword = flags ? `bind${flags}` : "bind";
-            // Para bindm no se incluye argumento si está vacío
             if (flags === "m" && !argument) {
                 return `keyword ${bindKeyword} ${mods},${key},${dispatcher}`;
             }
             return `keyword ${bindKeyword} ${mods},${key},${dispatcher},${argument}`;
         }
 
-        // Helper function para crear un unbind command (old format)
         function createUnbindCommand(keybind) {
             const mods = formatModifiers(keybind.modifiers);
             const key = keybind.key;
             return `keyword unbind ${mods},${key}`;
         }
 
-        // Helper function para crear unbind command desde key object (new format)
         function createUnbindFromKey(keyObj) {
             const mods = formatModifiers(keyObj.modifiers);
             const key = keyObj.key;
             return `keyword unbind ${mods},${key}`;
         }
 
-        // Helper function para crear bind command desde key + action (new format)
         function createBindFromKeyAction(keyObj, action) {
             const mods = formatModifiers(keyObj.modifiers);
             const key = keyObj.key;
@@ -185,19 +195,103 @@ QtObject {
             const argument = action.argument || "";
             const flags = action.flags || "";
             const bindKeyword = flags ? `bind${flags}` : "bind";
-            // Para bindm no se incluye argumento si está vacío
             if (flags === "m" && !argument) {
                 return `keyword ${bindKeyword} ${mods},${key},${dispatcher}`;
             }
             return `keyword ${bindKeyword} ${mods},${key},${dispatcher},${argument}`;
         }
 
-        // Construir batch command con todos los binds
-        let batchCommands = [];
+        // Helper functions (Lua)
+        function createUnbindCommandLua(keybind) {
+            if (!keybind) return "";
+            const mods = keybind.modifiers && keybind.modifiers.length > 0 ? keybind.modifiers.join(" + ") : "";
+            const key = keybind.key || "";
+            const bindStr = mods ? `${mods} + ${key}` : key;
+            return `hl.unbind(${JSON.stringify(bindStr)})`;
+        }
 
-        // First, unbind previous keybinds if we have them stored
+        function createUnbindFromKeyLua(keyObj) {
+            if (!keyObj) return "";
+            const mods = keyObj.modifiers && keyObj.modifiers.length > 0 ? keyObj.modifiers.join(" + ") : "";
+            const key = keyObj.key || "";
+            const bindStr = mods ? `${mods} + ${key}` : key;
+            return `hl.unbind(${JSON.stringify(bindStr)})`;
+        }
+
+        function createBindCommandLua(keybind, flags) {
+            if (!keybind) return "";
+            const mods = keybind.modifiers && keybind.modifiers.length > 0 ? keybind.modifiers.join(" + ") : "";
+            const key = keybind.key || "";
+            const bindStr = mods ? `${mods} + ${key}` : key;
+            const dispatcher = keybind.dispatcher || "";
+            const argument = keybind.argument || "";
+
+            let dspExpr = "";
+            if (dispatcher === "exec") {
+                dspExpr = `hl.dsp.exec_cmd(${JSON.stringify(argument)})`;
+            } else if (dispatcher === "global") {
+                dspExpr = `hl.dsp.global(${JSON.stringify(argument)})`;
+            } else {
+                dspExpr = `hl.dsp.exec_raw(${JSON.stringify(dispatcher + (argument ? " " + argument : ""))})`;
+            }
+
+            let opts = [];
+            if (flags) {
+                if (flags.includes("l")) opts.push("locked = true");
+                if (flags.includes("r")) opts.push("release = true");
+                if (flags.includes("e")) opts.push("repeat = true");
+                if (flags.includes("m")) opts.push("mouse = true");
+                if (flags.includes("n")) opts.push("non_consuming = true");
+            }
+
+            if (opts.length > 0) {
+                return `hl.bind(${JSON.stringify(bindStr)}, ${dspExpr}, { ${opts.join(", ")} })`;
+            } else {
+                return `hl.bind(${JSON.stringify(bindStr)}, ${dspExpr})`;
+            }
+        }
+
+        function createBindFromKeyActionLua(keyObj, action) {
+            if (!keyObj || !action) return "";
+            const mods = keyObj.modifiers && keyObj.modifiers.length > 0 ? keyObj.modifiers.join(" + ") : "";
+            const key = keyObj.key || "";
+            const bindStr = mods ? `${mods} + ${key}` : key;
+            const dispatcher = action.dispatcher || "";
+            const argument = action.argument || "";
+            const flags = action.flags || "";
+
+            let dspExpr = "";
+            if (dispatcher === "exec") {
+                dspExpr = `hl.dsp.exec_cmd(${JSON.stringify(argument)})`;
+            } else if (dispatcher === "global") {
+                dspExpr = `hl.dsp.global(${JSON.stringify(argument)})`;
+            } else {
+                dspExpr = `hl.dsp.exec_raw(${JSON.stringify(dispatcher + (argument ? " " + argument : ""))})`;
+            }
+
+            let opts = [];
+            if (flags) {
+                if (flags.includes("l")) opts.push("locked = true");
+                if (flags.includes("r")) opts.push("release = true");
+                if (flags.includes("e")) opts.push("repeat = true");
+                if (flags.includes("m")) opts.push("mouse = true");
+                if (flags.includes("n")) opts.push("non_consuming = true");
+            }
+
+            if (opts.length > 0) {
+                return `hl.bind(${JSON.stringify(bindStr)}, ${dspExpr}, { ${opts.join(", ")} })`;
+            } else {
+                return `hl.bind(${JSON.stringify(bindStr)}, ${dspExpr})`;
+            }
+        }
+
+        let unbindCommands = [];
+        let batchCommands = [];
+        let unbindCommandsLua = [];
+        let batchCommandsLua = [];
+
+        // Unbind previous keybinds if stored
         if (hasPreviousBinds) {
-            // Unbind previous ambxst dashboard keybinds
             if (previousAmbxstBinds.dashboard) {
                 unbindCommands.push(createUnbindCommand(previousAmbxstBinds.dashboard.widgets));
                 unbindCommands.push(createUnbindCommand(previousAmbxstBinds.dashboard.clipboard));
@@ -205,9 +299,15 @@ QtObject {
                 unbindCommands.push(createUnbindCommand(previousAmbxstBinds.dashboard.tmux));
                 unbindCommands.push(createUnbindCommand(previousAmbxstBinds.dashboard.wallpapers));
                 unbindCommands.push(createUnbindCommand(previousAmbxstBinds.dashboard.notes));
+
+                unbindCommandsLua.push(createUnbindCommandLua(previousAmbxstBinds.dashboard.widgets));
+                unbindCommandsLua.push(createUnbindCommandLua(previousAmbxstBinds.dashboard.clipboard));
+                unbindCommandsLua.push(createUnbindCommandLua(previousAmbxstBinds.dashboard.emoji));
+                unbindCommandsLua.push(createUnbindCommandLua(previousAmbxstBinds.dashboard.tmux));
+                unbindCommandsLua.push(createUnbindCommandLua(previousAmbxstBinds.dashboard.wallpapers));
+                unbindCommandsLua.push(createUnbindCommandLua(previousAmbxstBinds.dashboard.notes));
             }
 
-            // Unbind previous ambxst system keybinds
             if (previousAmbxstBinds.system) {
                 unbindCommands.push(createUnbindCommand(previousAmbxstBinds.system.overview));
                 unbindCommands.push(createUnbindCommand(previousAmbxstBinds.system.powermenu));
@@ -220,25 +320,35 @@ QtObject {
                 if (previousAmbxstBinds.system.reload) unbindCommands.push(createUnbindCommand(previousAmbxstBinds.system.reload));
                 if (previousAmbxstBinds.system.quit) unbindCommands.push(createUnbindCommand(previousAmbxstBinds.system.quit));
                 if (previousAmbxstBinds.system.toggleBar) unbindCommands.push(createUnbindCommand(previousAmbxstBinds.system.toggleBar));
+
+                unbindCommandsLua.push(createUnbindCommandLua(previousAmbxstBinds.system.overview));
+                unbindCommandsLua.push(createUnbindCommandLua(previousAmbxstBinds.system.powermenu));
+                unbindCommandsLua.push(createUnbindCommandLua(previousAmbxstBinds.system.config));
+                unbindCommandsLua.push(createUnbindCommandLua(previousAmbxstBinds.system.lockscreen));
+                unbindCommandsLua.push(createUnbindCommandLua(previousAmbxstBinds.system.tools));
+                unbindCommandsLua.push(createUnbindCommandLua(previousAmbxstBinds.system.screenshot));
+                unbindCommandsLua.push(createUnbindCommandLua(previousAmbxstBinds.system.screenrecord));
+                unbindCommandsLua.push(createUnbindCommandLua(previousAmbxstBinds.system.lens));
+                if (previousAmbxstBinds.system.reload) unbindCommandsLua.push(createUnbindCommandLua(previousAmbxstBinds.system.reload));
+                if (previousAmbxstBinds.system.quit) unbindCommandsLua.push(createUnbindCommandLua(previousAmbxstBinds.system.quit));
+                if (previousAmbxstBinds.system.toggleBar) unbindCommandsLua.push(createUnbindCommandLua(previousAmbxstBinds.system.toggleBar));
             }
 
-            // Unbind previous custom keybinds
             for (let i = 0; i < previousCustomBinds.length; i++) {
                 const prev = previousCustomBinds[i];
                 if (prev.keys) {
                     for (let k = 0; k < prev.keys.length; k++) {
                         unbindCommands.push(createUnbindFromKey(prev.keys[k]));
+                        unbindCommandsLua.push(createUnbindFromKeyLua(prev.keys[k]));
                     }
                 } else {
                     unbindCommands.push(createUnbindCommand(prev));
+                    unbindCommandsLua.push(createUnbindCommandLua(prev));
                 }
             }
         }
 
-        // Procesar Ambxst keybinds (still use old format)
         const ambxst = Config.keybindsLoader.adapter.ambxst;
-
-        // Dashboard keybinds
         const dashboard = ambxst.dashboard;
         unbindCommands.push(createUnbindCommand(dashboard.widgets));
         unbindCommands.push(createUnbindCommand(dashboard.clipboard));
@@ -247,6 +357,13 @@ QtObject {
         unbindCommands.push(createUnbindCommand(dashboard.wallpapers));
         unbindCommands.push(createUnbindCommand(dashboard.notes));
 
+        unbindCommandsLua.push(createUnbindCommandLua(dashboard.widgets));
+        unbindCommandsLua.push(createUnbindCommandLua(dashboard.clipboard));
+        unbindCommandsLua.push(createUnbindCommandLua(dashboard.emoji));
+        unbindCommandsLua.push(createUnbindCommandLua(dashboard.tmux));
+        unbindCommandsLua.push(createUnbindCommandLua(dashboard.wallpapers));
+        unbindCommandsLua.push(createUnbindCommandLua(dashboard.notes));
+
         batchCommands.push(createBindCommand(dashboard.widgets, dashboard.widgets.flags || ""));
         batchCommands.push(createBindCommand(dashboard.clipboard, dashboard.clipboard.flags || ""));
         batchCommands.push(createBindCommand(dashboard.emoji, dashboard.emoji.flags || ""));
@@ -254,7 +371,13 @@ QtObject {
         batchCommands.push(createBindCommand(dashboard.wallpapers, dashboard.wallpapers.flags || ""));
         batchCommands.push(createBindCommand(dashboard.notes, dashboard.notes.flags || ""));
 
-        // System keybinds
+        batchCommandsLua.push(createBindCommandLua(dashboard.widgets, dashboard.widgets.flags || ""));
+        batchCommandsLua.push(createBindCommandLua(dashboard.clipboard, dashboard.clipboard.flags || ""));
+        batchCommandsLua.push(createBindCommandLua(dashboard.emoji, dashboard.emoji.flags || ""));
+        batchCommandsLua.push(createBindCommandLua(dashboard.tmux, dashboard.tmux.flags || ""));
+        batchCommandsLua.push(createBindCommandLua(dashboard.wallpapers, dashboard.wallpapers.flags || ""));
+        batchCommandsLua.push(createBindCommandLua(dashboard.notes, dashboard.notes.flags || ""));
+
         const system = ambxst.system;
         unbindCommands.push(createUnbindCommand(system.overview));
         unbindCommands.push(createUnbindCommand(system.powermenu));
@@ -268,6 +391,18 @@ QtObject {
         if (system.quit) unbindCommands.push(createUnbindCommand(system.quit));
         if (system.toggleBar) unbindCommands.push(createUnbindCommand(system.toggleBar));
 
+        unbindCommandsLua.push(createUnbindCommandLua(system.overview));
+        unbindCommandsLua.push(createUnbindCommandLua(system.powermenu));
+        unbindCommandsLua.push(createUnbindCommandLua(system.config));
+        unbindCommandsLua.push(createUnbindCommandLua(system.lockscreen));
+        unbindCommandsLua.push(createUnbindCommandLua(system.tools));
+        unbindCommandsLua.push(createUnbindCommandLua(system.screenshot));
+        unbindCommandsLua.push(createUnbindCommandLua(system.screenrecord));
+        unbindCommandsLua.push(createUnbindCommandLua(system.lens));
+        if (system.reload) unbindCommandsLua.push(createUnbindCommandLua(system.reload));
+        if (system.quit) unbindCommandsLua.push(createUnbindCommandLua(system.quit));
+        if (system.toggleBar) unbindCommandsLua.push(createUnbindCommandLua(system.toggleBar));
+
         batchCommands.push(createBindCommand(system.overview, system.overview.flags || ""));
         batchCommands.push(createBindCommand(system.powermenu, system.powermenu.flags || ""));
         batchCommands.push(createBindCommand(system.config, system.config.flags || ""));
@@ -280,38 +415,47 @@ QtObject {
         if (system.quit) batchCommands.push(createBindCommand(system.quit, system.quit.flags || ""));
         if (system.toggleBar) batchCommands.push(createBindCommand(system.toggleBar, system.toggleBar.flags || ""));
 
-        // Procesar custom keybinds (new format with keys[] and actions[])
+        batchCommandsLua.push(createBindCommandLua(system.overview, system.overview.flags || ""));
+        batchCommandsLua.push(createBindCommandLua(system.powermenu, system.powermenu.flags || ""));
+        batchCommandsLua.push(createBindCommandLua(system.config, system.config.flags || ""));
+        batchCommandsLua.push(createBindCommandLua(system.lockscreen, system.lockscreen.flags || ""));
+        batchCommandsLua.push(createBindCommandLua(system.tools, system.tools.flags || ""));
+        batchCommandsLua.push(createBindCommandLua(system.screenshot, system.screenshot.flags || ""));
+        batchCommandsLua.push(createBindCommandLua(system.screenrecord, system.screenrecord.flags || ""));
+        batchCommandsLua.push(createBindCommandLua(system.lens, system.lens.flags || ""));
+        if (system.reload) batchCommandsLua.push(createBindCommandLua(system.reload, system.reload.flags || ""));
+        if (system.quit) batchCommandsLua.push(createBindCommandLua(system.quit, system.quit.flags || ""));
+        if (system.toggleBar) batchCommandsLua.push(createBindCommandLua(system.toggleBar, system.toggleBar.flags || ""));
+
         const customBinds = Config.keybindsLoader.adapter.custom;
         if (customBinds && customBinds.length > 0) {
             for (let i = 0; i < customBinds.length; i++) {
                 const bind = customBinds[i];
 
-                // Check if bind has the new format
                 if (bind.keys && bind.actions) {
-                    // Unbind all keys first (always unbind regardless of layout)
                     for (let k = 0; k < bind.keys.length; k++) {
                         unbindCommands.push(createUnbindFromKey(bind.keys[k]));
+                        unbindCommandsLua.push(createUnbindFromKeyLua(bind.keys[k]));
                     }
 
-                    // Only create binds if enabled
                     if (bind.enabled !== false) {
-                        // For each key, bind only compatible actions
                         for (let k = 0; k < bind.keys.length; k++) {
                             for (let a = 0; a < bind.actions.length; a++) {
                                 const action = bind.actions[a];
-                                // Check if this action is compatible with the current layout
                                 if (isActionCompatibleWithLayout(action)) {
                                     batchCommands.push(createBindFromKeyAction(bind.keys[k], action));
+                                    batchCommandsLua.push(createBindFromKeyActionLua(bind.keys[k], action));
                                 }
                             }
                         }
                     }
                 } else {
-                    // Fallback for old format (shouldn't happen after normalization)
                     unbindCommands.push(createUnbindCommand(bind));
+                    unbindCommandsLua.push(createUnbindCommandLua(bind));
                     if (bind.enabled !== false) {
                         const flags = bind.flags || "";
                         batchCommands.push(createBindCommand(bind, flags));
+                        batchCommandsLua.push(createBindCommandLua(bind, flags));
                     }
                 }
             }
@@ -319,13 +463,19 @@ QtObject {
 
         storePreviousBinds();
 
-        // Combinar unbind y bind en un solo batch
-        const fullBatchCommand = unbindCommands.join("; ") + "; " + batchCommands.join("; ");
-
-        console.log("applying keybinds directly via hyprctl")
         lastApplyTime = Date.now();
-        hyprctlProcess.command = ["hyprctl", "--batch", fullBatchCommand];
-        hyprctlProcess.running = true;
+
+        if (root.isLuaParser) {
+            const allLuaCode = unbindCommandsLua.concat(batchCommandsLua).filter(c => c !== "");
+            console.log("HyprlandKeybinds: Applying keybindings via hyprctl eval (Lua parser)");
+            hyprctlProcess.command = ["hyprctl", "eval", allLuaCode.join(";\n")];
+            hyprctlProcess.running = true;
+        } else {
+            const fullBatchCommand = unbindCommands.join("; ") + "; " + batchCommands.join("; ");
+            console.log("HyprlandKeybinds: Applying keybindings via hyprctl batch (Legacy parser)");
+            hyprctlProcess.command = ["hyprctl", "--batch", fullBatchCommand];
+            hyprctlProcess.running = true;
+        }
     }
 
     property Connections configConnections: Connections {

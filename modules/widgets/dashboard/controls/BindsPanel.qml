@@ -34,7 +34,9 @@ Item {
                 const keyObj = bind.keys[k];
                 const mods = keyObj.modifiers && keyObj.modifiers.length > 0 ? keyObj.modifiers.join(" ") : "";
                 const key = keyObj.key || "";
-                const command = `hyprctl keyword unbind ${mods},${key}`;
+                const luaMods = keyObj.modifiers && keyObj.modifiers.length > 0 ? keyObj.modifiers.join(" + ") : "";
+                const luaKeyStr = luaMods ? `${luaMods} + ${key}` : key;
+                const command = `hyprctl keyword unbind ${mods},${key} 2>/dev/null || hyprctl eval "hl.unbind('${luaKeyStr}')"`;
                 console.log("BindsPanel: Unbinding keybind:", command);
                 unbindProcess.command = ["sh", "-c", command];
                 unbindProcess.running = true;
@@ -43,7 +45,9 @@ Item {
             // Old format fallback
             const mods = bind.modifiers && bind.modifiers.length > 0 ? bind.modifiers.join(" ") : "";
             const key = bind.key || "";
-            const command = `hyprctl keyword unbind ${mods},${key}`;
+            const luaMods = bind.modifiers && bind.modifiers.length > 0 ? bind.modifiers.join(" + ") : "";
+            const luaKeyStr = luaMods ? `${luaMods} + ${key}` : key;
+            const command = `hyprctl keyword unbind ${mods},${key} 2>/dev/null || hyprctl eval "hl.unbind('${luaKeyStr}')"`;
             console.log("BindsPanel: Unbinding keybind:", command);
             unbindProcess.command = ["sh", "-c", command];
             unbindProcess.running = true;

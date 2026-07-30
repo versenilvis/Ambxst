@@ -131,13 +131,16 @@ Singleton {
 
     function isDpmsOnCommand(cmd) {
         const value = (cmd || "").trim();
-        return value === "ambxst screen on" || value === "hyprctl dispatch dpms on";
+        return value === "ambxst screen on" 
+            || value === "hyprctl dispatch dpms on"
+            || value.includes("hl.dsp.dpms(true)");
     }
 
     function isScreenOffCommand(cmd) {
         const value = (cmd || "").trim();
         return value === "ambxst screen off" 
             || value === "hyprctl dispatch dpms off"
+            || value.includes("hl.dsp.dpms(false)")
             || value.includes("wlopm --off")
             || value.includes("dpms off");
     }

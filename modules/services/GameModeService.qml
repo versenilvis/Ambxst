@@ -85,8 +85,8 @@ Singleton {
                             
                             // If state says it should be enabled, apply it
                             if (root.toggled) {
-                                enableProcess.command = ["hyprctl", "--batch", 
-                                    "keyword animations:enabled 0; keyword decoration:shadow:enabled 0; keyword decoration:blur:enabled 0; keyword general:gaps_in 0; keyword general:gaps_out 0; keyword general:border_size 1; keyword decoration:rounding 0"]
+                                enableProcess.command = ["sh", "-c", 
+                                    "hyprctl --batch \"keyword animations:enabled 0; keyword decoration:shadow:enabled 0; keyword decoration:blur:enabled 0; keyword general:gaps_in 0; keyword general:gaps_out 0; keyword general:border_size 1; keyword decoration:rounding 0\" 2>/dev/null || hyprctl eval \"hl.config({ animations = { enabled = false }, decoration = { rounding = 0, shadow = { enabled = false }, blur = { enabled = false } }, general = { gaps_in = 0, gaps_out = 0, border_size = 1 } })\""]
                                 enableProcess.running = true
                             }
                         }
@@ -110,8 +110,8 @@ Singleton {
             disableProcess.command = ["hyprctl", "reload"]
             disableProcess.running = true
         } else {
-            enableProcess.command = ["hyprctl", "--batch", 
-                "keyword animations:enabled 0; keyword decoration:shadow:enabled 0; keyword decoration:blur:enabled 0; keyword general:gaps_in 0; keyword general:gaps_out 0; keyword general:border_size 1; keyword decoration:rounding 0"]
+            enableProcess.command = ["sh", "-c", 
+                "hyprctl --batch \"keyword animations:enabled 0; keyword decoration:shadow:enabled 0; keyword decoration:blur:enabled 0; keyword general:gaps_in 0; keyword general:gaps_out 0; keyword general:border_size 1; keyword decoration:rounding 0\" 2>/dev/null || hyprctl eval \"hl.config({ animations = { enabled = false }, decoration = { rounding = 0, shadow = { enabled = false }, blur = { enabled = false } }, general = { gaps_in = 0, gaps_out = 0, border_size = 1 } })\""]
             enableProcess.running = true
         }
     }

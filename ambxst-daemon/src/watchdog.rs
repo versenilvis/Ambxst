@@ -70,7 +70,7 @@ pub fn spawn_dbus_watchdog() {
                                     let _ = Command::new("sh").args(["-c", &cmd]).spawn();
                                 } else {
                                     let cmd = get_command_from_config(&["idle", "general", "after_sleep_cmd"], "ambxst screen on");
-                                    if cmd == "ambxst screen on" || cmd == "hyprctl dispatch dpms on" {
+                                    if cmd == "ambxst screen on" || cmd == "hyprctl dispatch dpms on" || cmd.contains("hl.dsp.dpms(true)") || cmd.contains("hl.dsp.dpms") {
                                         // skip duplicate dpms commands
                                     } else {
                                         tokio::spawn(async move {

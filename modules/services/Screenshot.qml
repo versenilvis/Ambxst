@@ -249,14 +249,14 @@ QtObject {
         
         // disable software cursor only if active to avoid unnecessary delay, then restore if it was set
         var cmd = "PREV=$(hyprctl getoption cursor:no_hardware_cursors -j 2>/dev/null | jq -r '.int'); ";
-        cmd += "if [ \"$PREV\" = \"1\" ]; then hyprctl keyword cursor:no_hardware_cursors false >/dev/null 2>&1 && sleep 0.15; fi; ";
+        cmd += "if [ \"$PREV\" = \"1\" ]; then (hyprctl keyword cursor:no_hardware_cursors false 2>/dev/null || hyprctl eval 'hl.config({ cursor = { no_hardware_cursors = false } })') >/dev/null 2>&1 && sleep 0.15; fi; ";
         for (var i = 0; i < root.monitors.length; i++) {
             var m = root.monitors[i];
             var path = root.tempPathBase + "_" + m.name + ".png";
             // Ensure path is quoted safely
             cmd += `grim -o "${m.name}" "${path}" & `;
         }
-        cmd += "wait; if [ \"$PREV\" = \"1\" ]; then hyprctl keyword cursor:no_hardware_cursors true >/dev/null 2>&1; fi";
+        cmd += "wait; if [ \"$PREV\" = \"1\" ]; then (hyprctl keyword cursor:no_hardware_cursors true 2>/dev/null || hyprctl eval 'hl.config({ cursor = { no_hardware_cursors = true } })') >/dev/null 2>&1; fi";
         
         console.log("Screenshot: Executing freeze batch: " + cmd);
         freezeProcess.command = ["bash", "-c", cmd];
