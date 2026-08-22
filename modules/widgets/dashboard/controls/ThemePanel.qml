@@ -91,18 +91,6 @@ Item {
         colorPickerCurrentColor = color;
     }
 
-    FileView {
-        id: wallpaperConfig
-        path: Quickshell.dataPath("wallpapers.json")
-
-        JsonAdapter {
-            property string currentWall: ""
-            property string wallPath: ""
-            property string matugenScheme: "scheme-tonal-spot"
-            property string activeColorPreset: ""
-        }
-    }
-
     // Convert sr property name to variant id (srBg -> bg, srPrimaryFocus -> primaryfocus)
     function srNameToId(srName: string): string {
         return srName.substring(2).toLowerCase();
@@ -278,58 +266,6 @@ Item {
                                 font.weight: Font.Medium
                                 color: Colors.overSurfaceVariant
                                 Layout.bottomMargin: -4
-                            }
-
-                            // Wallpaper Path
-                            RowLayout {
-                                Layout.fillWidth: true
-                                spacing: 8
-
-                                Text {
-                                    text: "Wallpapers"
-                                    font.family: Config.theme.font
-                                    font.pixelSize: Styling.fontSize(0)
-                                    color: Colors.overBackground
-                                    Layout.preferredWidth: 80
-                                }
-
-                                StyledRect {
-                                    variant: "common"
-                                    Layout.fillWidth: true
-                                    Layout.preferredHeight: 32
-                                    radius: Styling.radius(-2)
-
-                                    TextInput {
-                                        id: wallPathInput
-                                        anchors.fill: parent
-                                        anchors.margins: 8
-                                        font.family: Config.theme.font
-                                        font.pixelSize: Styling.fontSize(0)
-                                        color: Colors.overBackground
-                                        selectByMouse: true
-                                        clip: true
-                                        verticalAlignment: TextInput.AlignVCenter
-
-                                        // Placeholder for default path
-                                        Text {
-                                            anchors.fill: parent
-                                            verticalAlignment: Text.AlignVCenter
-                                            text: "Default"
-                                            font: parent.font
-                                            color: Colors.overSurfaceVariant
-                                            visible: !parent.text && !parent.activeFocus
-                                        }
-
-                                        text: wallpaperConfig.adapter.wallPath
-
-                                        onEditingFinished: {
-                                            if (wallpaperConfig.adapter.wallPath !== text) {
-                                                wallpaperConfig.adapter.wallPath = text;
-                                                wallpaperConfig.writeAdapter();
-                                            }
-                                        }
-                                    }
-                                }
                             }
 
                             // Tint Icons toggle

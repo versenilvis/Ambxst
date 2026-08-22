@@ -10,7 +10,6 @@ import qs.config
 Singleton {
     id: root
 
-    property var wallpaperManager: null
     property string avatarCacheBuster: ""
     property string currentUsername: "user"
 
@@ -184,19 +183,12 @@ Singleton {
     property int dashboardCurrentTab: 0
     
     // Widgets tab internal state (for prefix-based tabs)
-    // 0=launcher, 1=clipboard, 2=emoji, 3=tmux, 4=wallpapers
+    // 0=launcher, 1=clipboard, 2=emoji, 3=tmux
     property int widgetsTabCurrentIndex: 0
-
-    // Persistent wallpaper navigation state
-    property int wallpaperSelectedIndex: -1
-
-    function clearWallpaperState() {
-        wallpaperSelectedIndex = -1;
-    }
 
     function getNotchOpen(screenName) {
         let visibilities = Visibilities.getForScreen(screenName);
-        return visibilities.launcher || visibilities.dashboard || visibilities.overview || visibilities.presets;
+        return visibilities.launcher || visibilities.dashboard || visibilities.overview;
     }
 
     function getActiveLauncher() {
@@ -214,11 +206,6 @@ Singleton {
         return active ? active.overview : false;
     }
 
-    function getActivePresets() {
-        let active = Visibilities.getForActive();
-        return active ? active.presets : false;
-    }
-
     function getActiveNotchOpen() {
         let active = Visibilities.getForActive();
         return active ? (active.launcher || active.dashboard || active.overview) : false;
@@ -227,7 +214,6 @@ Singleton {
     // Legacy properties for backward compatibility - use active screen
     readonly property bool notchOpen: getActiveNotchOpen()
     readonly property bool overviewOpen: getActiveOverview()
-    readonly property bool presetsOpen: getActivePresets()
     readonly property bool launcherOpen: getActiveLauncher()
     readonly property bool dashboardOpen: getActiveDashboard()
 

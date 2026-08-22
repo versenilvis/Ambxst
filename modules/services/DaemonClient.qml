@@ -20,7 +20,6 @@ Singleton {
     signal clipboardContentReceived(string itemId, string content)
     signal appSearchResultsReceived(var data)
     signal linkPreviewReceived(var data)
-    signal thumbnailsGenerated(bool success)
     signal networkChanged()
 
     // spawn daemon process
@@ -103,9 +102,6 @@ Singleton {
                     case "link_preview":
                         root.linkPreviewReceived(event.data);
                         break;
-                    case "thumbnails_generated":
-                        root.thumbnailsGenerated(event.data.success);
-                        break;
                     case "network_changed":
                         root.networkChanged();
                         break;
@@ -147,15 +143,6 @@ Singleton {
         sendCommand({
             type: "fetch_link_preview",
             url: url
-        });
-    }
-
-    function generateThumbnails(configPath, cacheBasePath, fallbackPath) {
-        sendCommand({
-            type: "generate_thumbnails",
-            config_path: configPath,
-            cache_base_path: cacheBasePath,
-            fallback_path: fallbackPath
         });
     }
 

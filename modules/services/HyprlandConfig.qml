@@ -93,7 +93,7 @@ QtObject {
 
         lastApplyTime = Date.now();
 
-        if (root.isLuaParser) {
+        if (isLuaParser) {
             let offsetArr = [0, 0];
             if (Config.hyprland.shadowOffset) {
                 const parts = Config.hyprland.shadowOffset.split(' ').map(p => parseFloat(p)).filter(n => !isNaN(n));

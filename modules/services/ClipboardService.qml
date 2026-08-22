@@ -13,6 +13,8 @@ QtObject {
     property int pageSize: 50
     property bool hasMoreItems: false
     property bool _isAppending: false
+    property bool _backendInitialized: false
+    property string _pendingSearchQuery: ""
 
     readonly property string dbPath: Quickshell.env("HOME") + "/.local/share/Ambxst/clipboard.db"
     readonly property string binaryDataDir: Quickshell.env("HOME") + "/.local/share/Ambxst/clipboard-data"
@@ -27,6 +29,7 @@ QtObject {
         
         function onDaemonConnectedChanged() {
             if (DaemonClient.daemonConnected && root._initialized) {
+                root._backendInitialized = false;
                 root.initializeClipboardBackend();
                 root.list();
             }
@@ -132,6 +135,10 @@ QtObject {
     }
 
     function initializeClipboardBackend() {
+        if (root._backendInitialized)
+            return;
+
+        root._backendInitialized = true;
         DaemonClient.sendCommand({
             type: "init_clipboard",
             db_path: root.dbPath,
@@ -140,6 +147,8 @@ QtObject {
     }
 
     function list() {
+        searchTimer.stop();
+        root._pendingSearchQuery = "";
         root.initializeClipboardBackend();
         root._isAppending = false;
         DaemonClient.sendCommand({
@@ -152,10 +161,26 @@ QtObject {
     function search(query) {
         root.initializeClipboardBackend();
         root._isAppending = false;
-        DaemonClient.sendCommand({
-            type: "search_clipboard",
-            query: query
-        });
+        root._pendingSearchQuery = query;
+
+        if (query.length === 0) {
+            list();
+            return;
+        }
+
+        searchTimer.restart();
+    }
+
+    property Timer searchTimer: Timer {
+        id: searchTimer
+        interval: 120
+        repeat: false
+        onTriggered: {
+            DaemonClient.sendCommand({
+                type: "search_clipboard",
+                query: root._pendingSearchQuery
+            });
+        }
     }
 
     function loadMore() {

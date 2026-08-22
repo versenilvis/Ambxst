@@ -1,7 +1,6 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
-import qs.modules.globals
 
 QtObject {
     id: root
@@ -16,15 +15,7 @@ QtObject {
         try {
             const fmt = (c) => c.toString()
             
-            // Safely get wallpaper image
-            let image = ""
-            if (typeof GlobalStates !== "undefined" && GlobalStates.wallpaperManager) {
-                image = GlobalStates.wallpaperManager.currentWallpaper || ""
-            } else {
-                console.warn("PywalGenerator: GlobalStates.wallpaperManager unavailable. Wallpaper path will be empty.")
-            }
-
-            console.log("PywalGenerator: Using wallpaper:", image)
+            const image = ""
 
             // Helper to escape double quotes for shell echo
             const escape = (str) => {

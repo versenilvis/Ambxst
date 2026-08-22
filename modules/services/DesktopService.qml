@@ -130,10 +130,6 @@ Singleton {
         }
     }
 
-    function generateThumbnails() {
-        // handled in the backend daemon
-    }
-
     function scanDesktop() {
         DaemonClient.sendCommand({ type: "get_desktop" });
     }

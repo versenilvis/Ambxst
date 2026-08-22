@@ -161,38 +161,6 @@ Item {
             anchors.fill: parent
             clip: true
 
-            // Wallpaper background
-            Image {
-                id: workspaceWallpaper
-                anchors.fill: parent
-                fillMode: Image.PreserveAspectCrop
-                asynchronous: true
-                smooth: true
-                // giải phóng texture khi overview đóng
-                cache: false
-
-                property string lockscreenFramePath: {
-                    if (!GlobalStates.wallpaperManager)
-                        return "";
-                    return GlobalStates.wallpaperManager.getLockscreenFramePath(GlobalStates.wallpaperManager.currentWallpaper);
-                }
-                source: GlobalStates.overviewOpen && lockscreenFramePath ? "file://" + lockscreenFramePath : ""
-
-                layer.enabled: true
-                layer.effect: MultiEffect {
-                    maskEnabled: true
-                    maskThresholdMin: 0.5
-                    maskSpreadAtMin: 1.0
-                    maskSource: ShaderEffectSource {
-                        sourceItem: Rectangle {
-                            width: workspaceWallpaper.width
-                            height: workspaceWallpaper.height
-                            radius: Styling.radius(1)
-                        }
-                    }
-                }
-            }
-
             // Semi-transparent overlay
             Rectangle {
                 anchors.fill: parent

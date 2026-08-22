@@ -421,7 +421,7 @@ Item {
 
         // Dashboard binds
         if (ambxst.dashboard) {
-            const dashboardKeys = ["widgets", "clipboard", "emoji", "tmux", "kanban", "wallpapers", "notes"];
+            const dashboardKeys = ["widgets", "clipboard", "emoji", "tmux", "kanban", "notes"];
             for (const key of dashboardKeys) {
                 if (ambxst.dashboard[key]) {
                     binds.push({

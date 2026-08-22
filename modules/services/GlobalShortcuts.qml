@@ -35,9 +35,9 @@ Item {
         switch (command) {
             // Dashboard
             case "dashboard-widgets": toggleDashboardTab(0); break;
-            case "dashboard-wallpapers": toggleDashboardTab(1); break;
-            case "dashboard-kanban": toggleDashboardTab(2); break;
-            case "dashboard-controls": toggleDashboardTab(3); break;
+            case "dashboard-metrics": toggleDashboardTab(1); break;
+            case "dashboard-kanban": toggleDashboardTab(1); break;
+            case "dashboard-controls": toggleDashboardTab(2); break;
             case "dashboard-clipboard": toggleDashboardWithPrefix(Config.prefix.clipboard + " "); break;
             case "dashboard-emoji": toggleDashboardWithPrefix(Config.prefix.emoji + " "); break;
             case "dashboard-notes": toggleDashboardWithPrefix(Config.prefix.notes + " "); break;
@@ -250,16 +250,16 @@ Item {
 
     GlobalShortcut {
         appid: root.appId
-        name: "dashboard-kanban"
-        description: "Open dashboard kanban tab"
+        name: "dashboard-metrics"
+        description: "Open dashboard metrics tab"
 
-        onPressed: toggleDashboardTab(2)
+        onPressed: toggleDashboardTab(1)
     }
 
     GlobalShortcut {
         appid: root.appId
-        name: "dashboard-wallpapers"
-        description: "Open dashboard wallpapers tab"
+        name: "dashboard-kanban"
+        description: "Open dashboard kanban tab"
 
         onPressed: toggleDashboardTab(1)
     }
@@ -277,7 +277,7 @@ Item {
         name: "dashboard-controls"
         description: "Open dashboard controls tab"
 
-        onPressed: toggleDashboardTab(3)
+        onPressed: toggleDashboardTab(2)
     }
 
     // Media player shortcuts

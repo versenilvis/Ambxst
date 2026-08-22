@@ -3,6 +3,5 @@
 var data = {
     "blurTransition": true,
     "windowPreview": true,
-    "wavyLine": true,
-    "presets": false
+    "wavyLine": true
 }

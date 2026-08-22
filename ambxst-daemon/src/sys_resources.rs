@@ -42,6 +42,8 @@ pub struct SystemStats {
 
 pub struct SysMonitor {
     sys: System,
+    cpu_model: String,
+    cpu_temp_path: Option<(std::path::PathBuf, i32)>,
     gpu_vendor: String,
     gpu_count: usize,
     amd_cards: Vec<String>,
@@ -52,6 +54,12 @@ impl SysMonitor {
     pub fn new() -> Self {
         let mut sys = System::new_all();
         sys.refresh_all();
+
+        let cpu_model = sys
+            .cpus()
+            .first()
+            .map(|cpu| Self::format_cpu_model(cpu.brand()))
+            .unwrap_or_default();
 
         let mut gpu_vendor = "none".to_string();
         let mut gpu_count = 0;
@@ -106,6 +114,8 @@ impl SysMonitor {
 
         Self {
             sys,
+            cpu_model,
+            cpu_temp_path: None,
             gpu_vendor,
             gpu_count,
             amd_cards,
@@ -113,7 +123,29 @@ impl SysMonitor {
         }
     }
 
-    pub fn get_cpu_temp(&self) -> i32 {
+    fn format_cpu_model(brand: &str) -> String {
+        let mut model = brand.to_string();
+        for suffix in [
+            " CPU", " FPU", " APU", " Processor", " Dual-Core", " Quad-Core",
+            " Six-Core", " Eight-Core", " Ten-Core", " 2-Core", " 4-Core", " 6-Core",
+            " 8-Core", " 10-Core", " 12-Core", " 14-Core", " 16-Core",
+        ] {
+            model = model.replace(suffix, "");
+        }
+        for marker in [" w/ Radeon", " with Radeon", "@"] {
+            if let Some(index) = model.find(marker) {
+                model.truncate(index);
+            }
+        }
+        model.split_whitespace().collect::<Vec<_>>().join(" ")
+    }
+
+    fn read_temperature(path: &Path, minimum_value: i32) -> Option<i32> {
+        let value = fs::read_to_string(path).ok()?.trim().parse::<i32>().ok()?;
+        (value > minimum_value && value < 120_000).then_some(value / 1_000)
+    }
+
+    fn find_cpu_temp_path() -> Option<(std::path::PathBuf, i32)> {
         // scan standard hwmon directories
         if let Ok(entries) = fs::read_dir("/sys/class/hwmon") {
             for entry in entries.flatten() {
@@ -126,12 +158,9 @@ impl SysMonitor {
                             for sub_entry in sub_entries.flatten() {
                                 let file_name = sub_entry.file_name().to_string_lossy().into_owned();
                                 if file_name.starts_with("temp") && file_name.ends_with("_input") {
-                                    if let Ok(val_str) = fs::read_to_string(sub_entry.path()) {
-                                        if let Ok(val) = val_str.trim().parse::<i32>() {
-                                            if val > 10000 && val < 120000 {
-                                                return val / 1000;
-                                            }
-                                        }
+                                    let temp_path = sub_entry.path();
+                                    if Self::read_temperature(&temp_path, 10_000).is_some() {
+                                        return Some((temp_path, 10_000));
                                     }
                                 }
                             }
@@ -149,12 +178,9 @@ impl SysMonitor {
                 if file_name.starts_with("thermal_zone") {
                     if let Ok(t_type) = fs::read_to_string(path.join("type")) {
                         if ["x86_pkg_temp", "cpu-thermal", "soc_thermal", "proc_thermal"].contains(&t_type.trim()) {
-                            if let Ok(val_str) = fs::read_to_string(path.join("temp")) {
-                                if let Ok(val) = val_str.trim().parse::<i32>() {
-                                    if val > 1000 && val < 120000 {
-                                        return val / 1000;
-                                    }
-                                }
+                            let temp_path = path.join("temp");
+                            if Self::read_temperature(&temp_path, 1_000).is_some() {
+                                return Some((temp_path, 1_000));
                             }
                         }
                     }
@@ -162,7 +188,24 @@ impl SysMonitor {
             }
         }
 
-        -1
+        None
+    }
+
+    pub fn get_cpu_temp(&mut self) -> i32 {
+        if let Some((temp_path, minimum_value)) = self.cpu_temp_path.as_ref() {
+            if let Some(temperature) = Self::read_temperature(temp_path, *minimum_value) {
+                return temperature;
+            }
+            self.cpu_temp_path = None;
+        }
+
+        self.cpu_temp_path = Self::find_cpu_temp_path();
+        self.cpu_temp_path
+            .as_ref()
+            .and_then(|(temp_path, minimum_value)| {
+                Self::read_temperature(temp_path, *minimum_value)
+            })
+            .unwrap_or(-1)
     }
 
     pub fn get_gpu_stats(&self) -> (Vec<f32>, Vec<i32>) {
@@ -228,33 +271,6 @@ impl SysMonitor {
         let cpu_usage = self.sys.global_cpu_info().cpu_usage();
         let cpu_temp = self.get_cpu_temp();
 
-        let mut cpu_model = String::new();
-        if let Some(cpu) = self.sys.cpus().first() {
-            let mut model = cpu.brand().to_string();
-            model = model.replace(" CPU", "");
-            model = model.replace(" FPU", "");
-            model = model.replace(" APU", "");
-            model = model.replace(" Processor", "");
-            model = model.replace(" Dual-Core", "");
-            model = model.replace(" Quad-Core", "");
-            model = model.replace(" Six-Core", "");
-            model = model.replace(" Eight-Core", "");
-            model = model.replace(" Ten-Core", "");
-            model = model.replace(" 2-Core", "");
-            model = model.replace(" 4-Core", "");
-            model = model.replace(" 6-Core", "");
-            model = model.replace(" 8-Core", "");
-            model = model.replace(" 10-Core", "");
-            model = model.replace(" 12-Core", "");
-            model = model.replace(" 14-Core", "");
-            model = model.replace(" 16-Core", "");
-            if let Some(idx) = model.find(" w/ Radeon") { model.truncate(idx); }
-            if let Some(idx) = model.find(" with Radeon") { model.truncate(idx); }
-            if let Some(idx) = model.find('@') { model.truncate(idx); }
-            let parts: Vec<&str> = model.split_whitespace().collect();
-            cpu_model = parts.join(" ");
-        }
-
         let mem_total = self.sys.total_memory();
         let mem_available = self.sys.available_memory();
         let mem_used = mem_total.saturating_sub(mem_available);
@@ -298,7 +314,7 @@ impl SysMonitor {
             cpu: CpuInfo {
                 usage: cpu_usage,
                 temp: cpu_temp,
-                model: cpu_model,
+                model: self.cpu_model.clone(),
             },
             ram: RamInfo {
                 usage: ram_usage,

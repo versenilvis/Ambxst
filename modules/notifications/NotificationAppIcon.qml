@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -9,10 +10,10 @@ import qs.config
 
 ClippingRectangle {
     id: root
-    property var appIcon: ""
-    property var summary: ""
-    property var urgency: NotificationUrgency.Normal
-    property var image: ""
+    property string appIcon: ""
+    property string summary: ""
+    property int urgency: NotificationUrgency.Normal
+    property string image: ""
     property real scale: 1
     property real size: 48 * scale
     property real appIconScale: scale

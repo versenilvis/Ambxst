@@ -1,9 +1,8 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::fs;
 use serde::{Deserialize, Serialize};
 use ini::Ini;
 use std::sync::{Arc, Mutex};
-use std::cmp::Ordering;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct AppEntry {
@@ -66,28 +65,28 @@ impl AppSearcher {
             }
         }
 
+        apps.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+
         if let Ok(mut lock) = self.apps.lock() {
             *lock = apps;
         }
     }
 
     pub fn search(&self, query: &str) -> Vec<AppEntry> {
-        let apps = match self.apps.lock() {
-            Ok(lock) => lock.clone(),
+        let lock = match self.apps.lock() {
+            Ok(lock) => lock,
             Err(_) => return Vec::new(),
         };
 
         if query.is_empty() {
-            let mut sorted = apps;
-            sorted.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
-            return sorted;
+            return lock.clone();
         }
 
         let query_lower = query.to_lowercase();
         
-        let mut scored_apps: Vec<(i32, AppEntry)> = apps.into_iter().filter_map(|app| {
+        let mut scored_apps: Vec<(i32, AppEntry)> = lock.iter().filter_map(|app| {
             if let Some(score) = fff_match(&query_lower, &app.search_string) {
-                Some((score, app))
+                Some((score, app.clone()))
             } else {
                 None
             }

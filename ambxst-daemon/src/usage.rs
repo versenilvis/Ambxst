@@ -36,6 +36,7 @@ impl UsageTracker {
             usage_data: HashMap::new(),
         };
         let _ = tracker.load();
+        tracker.prune_old_entries();
         tracker
     }
 

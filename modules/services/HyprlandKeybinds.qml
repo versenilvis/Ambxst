@@ -83,7 +83,6 @@ QtObject {
                 clipboard: cloneKeybind(ambxst.dashboard.clipboard),
                 emoji: cloneKeybind(ambxst.dashboard.emoji),
                 tmux: cloneKeybind(ambxst.dashboard.tmux),
-                wallpapers: cloneKeybind(ambxst.dashboard.wallpapers),
                 notes: cloneKeybind(ambxst.dashboard.notes)
             },
             system: {
@@ -224,7 +223,6 @@ QtObject {
                 else if (id === "ambxst.emoji") argument = "ambxst run dashboard-emoji";
                 else if (id === "ambxst.notes") argument = "ambxst run dashboard-notes";
                 else if (id === "ambxst.tmux") argument = "ghostty";
-                else if (id === "ambxst.wallpapers") argument = "ambxst run dashboard-wallpapers";
                 else argument = "ambxst run " + id.replace("ambxst.", "");
             }
             return { dispatcher: dispatcher || "", argument: argument };
@@ -305,14 +303,12 @@ QtObject {
                 unbindCommands.push(createUnbindCommand(previousAmbxstBinds.dashboard.clipboard));
                 unbindCommands.push(createUnbindCommand(previousAmbxstBinds.dashboard.emoji));
                 unbindCommands.push(createUnbindCommand(previousAmbxstBinds.dashboard.tmux));
-                unbindCommands.push(createUnbindCommand(previousAmbxstBinds.dashboard.wallpapers));
                 unbindCommands.push(createUnbindCommand(previousAmbxstBinds.dashboard.notes));
 
                 unbindCommandsLua.push(createUnbindCommandLua(previousAmbxstBinds.dashboard.widgets));
                 unbindCommandsLua.push(createUnbindCommandLua(previousAmbxstBinds.dashboard.clipboard));
                 unbindCommandsLua.push(createUnbindCommandLua(previousAmbxstBinds.dashboard.emoji));
                 unbindCommandsLua.push(createUnbindCommandLua(previousAmbxstBinds.dashboard.tmux));
-                unbindCommandsLua.push(createUnbindCommandLua(previousAmbxstBinds.dashboard.wallpapers));
                 unbindCommandsLua.push(createUnbindCommandLua(previousAmbxstBinds.dashboard.notes));
             }
 
@@ -362,28 +358,24 @@ QtObject {
         unbindCommands.push(createUnbindCommand(dashboard.clipboard));
         unbindCommands.push(createUnbindCommand(dashboard.emoji));
         unbindCommands.push(createUnbindCommand(dashboard.tmux));
-        unbindCommands.push(createUnbindCommand(dashboard.wallpapers));
         unbindCommands.push(createUnbindCommand(dashboard.notes));
 
         unbindCommandsLua.push(createUnbindCommandLua(dashboard.widgets));
         unbindCommandsLua.push(createUnbindCommandLua(dashboard.clipboard));
         unbindCommandsLua.push(createUnbindCommandLua(dashboard.emoji));
         unbindCommandsLua.push(createUnbindCommandLua(dashboard.tmux));
-        unbindCommandsLua.push(createUnbindCommandLua(dashboard.wallpapers));
         unbindCommandsLua.push(createUnbindCommandLua(dashboard.notes));
 
         batchCommands.push(createBindCommand(dashboard.widgets, dashboard.widgets.flags || ""));
         batchCommands.push(createBindCommand(dashboard.clipboard, dashboard.clipboard.flags || ""));
         batchCommands.push(createBindCommand(dashboard.emoji, dashboard.emoji.flags || ""));
         batchCommands.push(createBindCommand(dashboard.tmux, dashboard.tmux.flags || ""));
-        batchCommands.push(createBindCommand(dashboard.wallpapers, dashboard.wallpapers.flags || ""));
         batchCommands.push(createBindCommand(dashboard.notes, dashboard.notes.flags || ""));
 
         batchCommandsLua.push(createBindCommandLua(dashboard.widgets, dashboard.widgets.flags || ""));
         batchCommandsLua.push(createBindCommandLua(dashboard.clipboard, dashboard.clipboard.flags || ""));
         batchCommandsLua.push(createBindCommandLua(dashboard.emoji, dashboard.emoji.flags || ""));
         batchCommandsLua.push(createBindCommandLua(dashboard.tmux, dashboard.tmux.flags || ""));
-        batchCommandsLua.push(createBindCommandLua(dashboard.wallpapers, dashboard.wallpapers.flags || ""));
         batchCommandsLua.push(createBindCommandLua(dashboard.notes, dashboard.notes.flags || ""));
 
         const system = ambxst.system;

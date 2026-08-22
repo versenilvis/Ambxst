@@ -826,7 +826,6 @@ Singleton {
             property bool blurTransition: true
             property bool windowPreview: true
             property bool wavyLine: true
-            property bool presets: false
         }
     }
 
@@ -981,7 +980,6 @@ Singleton {
             property string clipboard: "cc"
             property string emoji: "ee"
             property string tmux: "tt"
-            property string wallpapers: "ww"
             property string notes: "nn"
         }
     }
@@ -1230,7 +1228,7 @@ Singleton {
             }
 
             // Check dashboard binds
-            const dashboardKeys = ["clipboard", "emoji", "notes", "tmux", "wallpapers", "widgets"];
+            const dashboardKeys = ["clipboard", "emoji", "notes", "tmux", "widgets"];
             for (const key of dashboardKeys) {
                 if (!current.ambxst.dashboard[key] && adapter.ambxst.dashboard && adapter.ambxst.dashboard[key]) {
                     console.log("Adding missing dashboard bind:", key);
@@ -1384,12 +1382,6 @@ Singleton {
                         property string dispatcher: "exec"
                         property string argument: "ghostty"
                     }
-                    property JsonObject wallpapers: JsonObject {
-                        property list<string> modifiers: ["SUPER"]
-                        property string key: "COMMA"
-                        property string dispatcher: "exec"
-                        property string argument: "ambxst run dashboard-wallpapers"
-                    }
                     property JsonObject widgets: JsonObject {
                         property list<string> modifiers: ["SUPER"]
                         property string key: "Super_L"
@@ -1485,7 +1477,6 @@ Singleton {
                     "emoji": { "modifiers": ["SUPER"], "key": "PERIOD", "dispatcher": "exec", "argument": "ambxst run dashboard-emoji", "flags": "" },
                     "notes": { "modifiers": ["SUPER"], "key": "N", "dispatcher": "exec", "argument": "ambxst run dashboard-notes", "flags": "" },
                     "tmux": { "modifiers": ["SUPER"], "key": "T", "dispatcher": "exec", "argument": "ghostty", "flags": "" },
-                    "wallpapers": { "modifiers": ["SUPER"], "key": "COMMA", "dispatcher": "exec", "argument": "ambxst run dashboard-wallpapers", "flags": "" },
                     "widgets": { "modifiers": ["SUPER"], "key": "Super_L", "dispatcher": "exec", "argument": "ambxst run dashboard-widgets", "flags": "r" }
                 },
                 "system": {
@@ -3260,18 +3251,6 @@ Singleton {
     property int animDuration: Services.GameModeService.toggled ? 0 : theme.animDuration
     property bool tintIcons: theme.tintIcons
 
-    // Detect lightMode changes and run Matugen
-    onLightModeChanged: {
-        console.log("lightMode changed to:", lightMode);
-        if (GlobalStates.wallpaperManager) {
-            var wallpaperManager = GlobalStates.wallpaperManager;
-            if (wallpaperManager.currentWallpaper) {
-                console.log("Re-running Matugen due to lightMode change");
-                wallpaperManager.runMatugenForCurrentWallpaper();
-            }
-        }
-    }
-
     // Bar configuration
     property QtObject bar: barLoader.adapter
     property bool showBackground: theme.srBarBg.opacity > 0
@@ -3297,7 +3276,6 @@ Singleton {
     // Performance configuration
     property QtObject performance: performanceLoader.adapter
     property bool blurTransition: performance.blurTransition
-    property bool enablePresets: performance.presets
 
     // Weather configuration
     property QtObject weather: weatherLoader.adapter

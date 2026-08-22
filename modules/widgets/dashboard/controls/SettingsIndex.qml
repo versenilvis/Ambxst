@@ -30,7 +30,6 @@ QtObject {
         { label: "Theme", keywords: "appearance look style customize", section: 4, subSection: "", subLabel: "Theme", icon: Icons.paintBrush, isIcon: true },
         
         // Theme > General
-        { label: "Wallpapers", keywords: "background image picture desktop", section: 4, subSection: "general", subLabel: "Theme > General", icon: Icons.image, isIcon: true },
         { label: "Tint Icons", keywords: "color icons tint monochrome", section: 4, subSection: "general", subLabel: "Theme > General", icon: Icons.palette, isIcon: true },
         { label: "Enable Corners", keywords: "rounded corners radius screen", section: 4, subSection: "general", subLabel: "Theme > General", icon: Icons.cornersOut, isIcon: true },
         { label: "Animation Duration", keywords: "speed fast slow transition", section: 4, subSection: "general", subLabel: "Theme > General", icon: Icons.clock, isIcon: true },
@@ -45,7 +44,7 @@ QtObject {
         // Theme > Colors
         { label: "Color Scheme", keywords: "palette variant light dark", section: 4, subSection: "colors", subLabel: "Theme > Colors", icon: Icons.palette, isIcon: true },
         { label: "Color Variant", keywords: "background popup internal bar pane", section: 4, subSection: "colors", subLabel: "Theme > Colors", icon: Icons.palette, isIcon: true },
-        { label: "Background Variant", keywords: "wallpaper desktop color", section: 4, subSection: "colors", subLabel: "Theme > Colors", icon: Icons.palette, isIcon: true },
+        { label: "Background Variant", keywords: "desktop color theme", section: 4, subSection: "colors", subLabel: "Theme > Colors", icon: Icons.palette, isIcon: true },
         { label: "Popup Variant", keywords: "dialog modal color", section: 4, subSection: "colors", subLabel: "Theme > Colors", icon: Icons.palette, isIcon: true },
         { label: "Internal BG Variant", keywords: "inside background color", section: 4, subSection: "colors", subLabel: "Theme > Colors", icon: Icons.palette, isIcon: true },
         { label: "Bar BG Variant", keywords: "taskbar panel color", section: 4, subSection: "colors", subLabel: "Theme > Colors", icon: Icons.palette, isIcon: true },
@@ -63,7 +62,6 @@ QtObject {
         { label: "Widgets Keybind", keywords: "dashboard shortcut super", section: 5, subSection: "", subLabel: "Binds > Ambxst", icon: Icons.keyboard, isIcon: true },
         { label: "Clipboard Keybind", keywords: "copy paste shortcut super v", section: 5, subSection: "", subLabel: "Binds > Ambxst", icon: Icons.keyboard, isIcon: true },
         { label: "Emoji Keybind", keywords: "picker shortcut super period", section: 5, subSection: "", subLabel: "Binds > Ambxst", icon: Icons.keyboard, isIcon: true },
-        { label: "Wallpapers Keybind", keywords: "background shortcut super comma", section: 5, subSection: "", subLabel: "Binds > Ambxst", icon: Icons.keyboard, isIcon: true },
         { label: "Notes Keybind", keywords: "note shortcut super n", section: 5, subSection: "", subLabel: "Binds > Ambxst", icon: Icons.keyboard, isIcon: true },
         { label: "Overview Keybind", keywords: "workspace shortcut super tab", section: 5, subSection: "", subLabel: "Binds > Ambxst", icon: Icons.keyboard, isIcon: true },
         { label: "Powermenu Keybind", keywords: "logout shutdown shortcut super escape", section: 5, subSection: "", subLabel: "Binds > Ambxst", icon: Icons.keyboard, isIcon: true },
@@ -80,7 +78,6 @@ QtObject {
         { label: "Prefixes", keywords: "shortcuts launcher quick actions", section: 6, subSection: "prefixes", subLabel: "System > Prefixes", icon: Icons.keyboard, isIcon: true },
         { label: "Clipboard Prefix", keywords: "cc copy paste launcher", section: 6, subSection: "prefixes", subLabel: "System > Prefixes", icon: Icons.keyboard, isIcon: true },
         { label: "Emoji Prefix", keywords: "ee picker launcher", section: 6, subSection: "prefixes", subLabel: "System > Prefixes", icon: Icons.keyboard, isIcon: true },
-        { label: "Wallpapers Prefix", keywords: "ww background launcher", section: 6, subSection: "prefixes", subLabel: "System > Prefixes", icon: Icons.keyboard, isIcon: true },
         { label: "Notes Prefix", keywords: "nn note launcher", section: 6, subSection: "prefixes", subLabel: "System > Prefixes", icon: Icons.keyboard, isIcon: true },
         
         // System > Weather
@@ -190,7 +187,7 @@ QtObject {
         { label: "Lockscreen", keywords: "lock screen password login", section: 8, subSection: "lockscreen", subLabel: "Ambxst > Lockscreen", icon: Icons.lock, isIcon: true },
         
         // Ambxst > Desktop
-        { label: "Desktop", keywords: "icons wallpaper home", section: 8, subSection: "desktop", subLabel: "Ambxst > Desktop", icon: Icons.layout, isIcon: true },
+        { label: "Desktop", keywords: "icons files home", section: 8, subSection: "desktop", subLabel: "Ambxst > Desktop", icon: Icons.layout, isIcon: true },
         { label: "Desktop Enabled", keywords: "show hide icons toggle", section: 8, subSection: "desktop", subLabel: "Ambxst > Desktop", icon: Icons.layout, isIcon: true },
         { label: "Desktop Icon Size", keywords: "width height pixels", section: 8, subSection: "desktop", subLabel: "Ambxst > Desktop", icon: Icons.layout, isIcon: true },
         { label: "Desktop Vertical Spacing", keywords: "gap margin", section: 8, subSection: "desktop", subLabel: "Ambxst > Desktop", icon: Icons.layout, isIcon: true },

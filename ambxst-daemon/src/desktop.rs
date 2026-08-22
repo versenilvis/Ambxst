@@ -1,8 +1,7 @@
-use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use serde::Serialize;
 use notify::{Watcher, RecursiveMode, EventKind};
 

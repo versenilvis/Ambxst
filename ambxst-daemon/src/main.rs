@@ -6,12 +6,11 @@ mod watchdog;
 mod clipboard;
 mod app_search;
 mod link_preview;
-mod thumbgen;
 mod tools;
 mod network;
 
 use std::sync::{Arc, Mutex};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use tokio::net::{UnixListener, UnixStream};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::mpsc;
@@ -20,8 +19,6 @@ use serde::{Deserialize, Serialize};
 #[derive(Deserialize, Debug)]
 #[serde(tag = "type")]
 enum ClientCommand {
-    #[serde(rename = "generate_thumbnails")]
-    GenerateThumbnails { config_path: String, cache_base_path: String, fallback_path: Option<String> },
     #[serde(rename = "fetch_link_preview")]
     FetchLinkPreview { url: String },
     #[serde(rename = "update_weather")]
@@ -39,7 +36,12 @@ enum ClientCommand {
     #[serde(rename = "get_resources")]
     GetResources,
     #[serde(rename = "init_clipboard")]
-    InitClipboard { db_path: String, data_dir: String },
+    InitClipboard {
+        #[serde(default)]
+        _db_path: Option<String>,
+        #[serde(default)]
+        _data_dir: Option<String>,
+    },
     #[serde(rename = "list_clipboard")]
     ListClipboard { limit: i64, offset: i64 },
     #[serde(rename = "delete_clipboard")]
@@ -316,19 +318,6 @@ async fn handle_client(
     while let Ok(Some(line)) = lines.next_line().await {
         if let Ok(cmd) = serde_json::from_str::<ClientCommand>(&line) {
             match cmd {
-                ClientCommand::GenerateThumbnails { config_path, cache_base_path, fallback_path } => {
-                    let client_tx = client_tx.clone();
-                    tokio::spawn(async move {
-                        let success = thumbgen::generate_thumbnails(&config_path, &cache_base_path, fallback_path).await;
-                        let event = ServerEvent {
-                            r#type: "thumbnails_generated".to_string(),
-                            data: serde_json::json!({ "success": success }),
-                        };
-                        if let Ok(msg) = serde_json::to_string(&event) {
-                            let _ = client_tx.send(format!("{}\n", msg));
-                        }
-                    });
-                }
                 ClientCommand::FetchLinkPreview { url } => {
                     let client_tx = client_tx.clone();
                     tokio::spawn(async move {
@@ -432,18 +421,6 @@ async fn handle_client(
                 }
                 ClientCommand::InitClipboard { .. } => {
                     init_clipboard_if_needed(&state, None, None);
-                    let s = state.lock().unwrap();
-                    if let Some(ref mgr) = s.clipboard_mgr {
-                        if let Ok(items) = mgr.list(50, 0) {
-                            let event = ServerEvent {
-                                r#type: "clipboard".to_string(),
-                                data: items,
-                            };
-                            if let Ok(msg) = serde_json::to_string(&event) {
-                                let _ = client_tx.send(format!("{}\n", msg));
-                            }
-                        }
-                    }
                 }
                 ClientCommand::ListClipboard { limit, offset } => {
                     init_clipboard_if_needed(&state, None, None);

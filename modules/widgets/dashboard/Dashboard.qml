@@ -9,7 +9,6 @@ import qs.modules.services
 import qs.modules.notch
 import qs.modules.widgets.dashboard.widgets
 import qs.modules.widgets.dashboard.controls
-import qs.modules.widgets.dashboard.wallpapers
 import qs.modules.widgets.dashboard.clipboard
 import qs.modules.widgets.dashboard.emoji
 import qs.modules.widgets.dashboard.metrics
@@ -25,7 +24,7 @@ NotchAnimationBehavior {
         property int currentTab: GlobalStates.dashboardCurrentTab
     }
 
-    readonly property var tabModel: [Icons.widgets, Icons.wallpapers, Icons.heartbeat]
+    readonly property var tabModel: [Icons.widgets, Icons.heartbeat]
     readonly property int tabCount: tabModel.length + 1  // +1 for controls tab at bottom
     readonly property int tabSpacing: 8
 
@@ -138,10 +137,10 @@ NotchAnimationBehavior {
 
                 // Calcular posición Y para un índice dado
                 function getYForIndex(idx) {
-                    if (idx <= 2) {
+                    if (idx < root.tabModel.length) {
                         return idx * (width + root.tabSpacing);
                     } else {
-                        // Tab 3 (controls) está en la parte inferior
+                        // Controls tab está en la parte inferior
                         return controlsButtonContainer.y;
                     }
                 }
@@ -237,7 +236,7 @@ NotchAnimationBehavior {
                 variant: controlsButton.hovered ? "focus" : "common"
                 z: -1
 
-                opacity: root.state.currentTab === 3 ? 0 : 1
+                opacity: root.state.currentTab === 2 ? 0 : 1
 
                 Behavior on opacity {
                     enabled: Config.animDuration > 0
@@ -267,7 +266,7 @@ NotchAnimationBehavior {
                     font.family: Icons.font
                     font.pixelSize: 20
                     font.weight: Font.Medium
-                    color: root.state.currentTab === 3 ? Styling.srItem("primary") : Colors.overBackground
+                    color: root.state.currentTab === 2 ? Styling.srItem("primary") : Colors.overBackground
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
 
@@ -280,7 +279,7 @@ NotchAnimationBehavior {
                     }
                 }
 
-                onClicked: stack.navigateToTab(3)
+                onClicked: stack.navigateToTab(2)
             }
         }
 
@@ -306,11 +305,10 @@ NotchAnimationBehavior {
                 anchors.fill: parent
 
                 WidgetsTab { id: widgetsTabItem; leftPanelWidth: root.leftPanelWidth; visible: false }
-                WallpapersTab { id: wallpapersTabItem; visible: false }
                 MetricsTab { id: metricsTabItem; visible: false }
                 SettingsTab { id: settingsTabItem; visible: false }
 
-                readonly property var components: [widgetsTabItem, wallpapersTabItem, metricsTabItem, settingsTabItem]
+                readonly property var components: [widgetsTabItem, metricsTabItem, settingsTabItem]
                 initialItem: components[GlobalStates.dashboardCurrentTab]
 
                 onCurrentItemChanged: {
@@ -525,4 +523,3 @@ NotchAnimationBehavior {
     }
 
 }
-

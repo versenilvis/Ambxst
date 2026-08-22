@@ -13,7 +13,6 @@ import qs.modules.bar.systray
 import qs.modules.widgets.overview
 import qs.modules.widgets.dashboard
 import qs.modules.widgets.powermenu
-import qs.modules.widgets.presets
 import qs.modules.corners
 import qs.modules.components
 import qs.modules.services
@@ -484,12 +483,6 @@ PanelWindow {
                     visible: !(panel.orientation === "horizontal" && integratedDockEnabled)
                 }
 
-                Loader {
-                    active: Config.enablePresets
-                    visible: active
-                    sourceComponent: PresetsButton {}
-                }
-
                 ToolsButton {
                     id: toolsButton
                 }
@@ -542,12 +535,6 @@ PanelWindow {
 
                 ToolsButton {
                     id: toolsButtonVert
-                }
-
-                Loader {
-                    active: Config.enablePresets
-                    visible: active
-                    sourceComponent: PresetsButton {}
                 }
 
                 // Center Group Container

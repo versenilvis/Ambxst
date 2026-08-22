@@ -241,38 +241,6 @@ Item {
                             border.color: hoveredWhileDragging ? hoveredBorderColor : "transparent"
                             clip: true
 
-                            // Wallpaper background for each workspace
-                            Image {
-                                id: workspaceWallpaper
-                                anchors.fill: parent
-                                fillMode: Image.PreserveAspectCrop
-                                asynchronous: true
-                                smooth: true
-
-                                property string lockscreenFramePath: {
-                                    if (!GlobalStates.wallpaperManager)
-                                        return "";
-                                    return GlobalStates.wallpaperManager.getLockscreenFramePath(GlobalStates.wallpaperManager.currentWallpaper);
-                                }
-
-                                source: lockscreenFramePath ? "file://" + lockscreenFramePath : ""
-
-                                // Rounded corners mask
-                                layer.enabled: true
-                                layer.effect: MultiEffect {
-                                    maskEnabled: true
-                                    maskThresholdMin: 0.5
-                                    maskSpreadAtMin: 1.0
-                                    maskSource: ShaderEffectSource {
-                                        sourceItem: Rectangle {
-                                            width: workspaceWallpaper.width
-                                            height: workspaceWallpaper.height
-                                            radius: Styling.radius(2)
-                                        }
-                                    }
-                                }
-                            }
-
                             MouseArea {
                                 anchors.fill: parent
                                 acceptedButtons: Qt.LeftButton

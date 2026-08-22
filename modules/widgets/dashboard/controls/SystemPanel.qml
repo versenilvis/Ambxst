@@ -190,16 +190,6 @@ Item {
                         }
 
 
-                        // Wallpapers prefix
-                        PrefixRow {
-                            Layout.fillWidth: true
-                            label: "Wallpapers"
-                            prefixValue: Config.prefix.wallpapers
-                            onPrefixEdited: newValue => {
-                                Config.prefix.wallpapers = newValue;
-                            }
-                        }
-
                         // Notes prefix
                         PrefixRow {
                             Layout.fillWidth: true

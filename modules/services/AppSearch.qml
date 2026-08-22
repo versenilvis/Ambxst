@@ -137,13 +137,29 @@ Singleton {
         .sort((a, b) => a.name.localeCompare(b.name))
 
     property var searchResults: []
+    property string _pendingQuery: ""
+
+    property Timer searchTimer: Timer {
+        id: searchTimer
+        interval: 120
+        repeat: false
+        onTriggered: DaemonClient.searchApps(root._pendingQuery)
+    }
     
     function searchApps(query) {
         if (!DaemonClient.daemonConnected) {
             console.warn("Cannot search apps: daemon disconnected");
             return;
         }
-        DaemonClient.searchApps(query || "");
+
+        root._pendingQuery = query || "";
+        if (root._pendingQuery.length === 0) {
+            searchTimer.stop();
+            DaemonClient.searchApps("");
+            return;
+        }
+
+        searchTimer.restart();
     }
     
     function getAllApps() {

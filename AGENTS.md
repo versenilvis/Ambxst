@@ -14,7 +14,7 @@
 - **Signals/handlers**: prefer verbNoun naming (`togglePlay`), keep handlers concise and without side effects
 - **Error handling**: protect service calls, emit `console.warn` with context, degrade gracefully when data missing
 - **State management**: centralize shared state in `globals/GlobalStates.qml`; avoid duplicating timers or models
-- **Assets**: keep wallpapers under `assets/wallpapers_example/`; sync palette JSON with `Config` expectations
+- **Assets**: sync palette JSON with `Config` expectations
 - **Comments**: English only, short notes before non-obvious logic; favor self-explanatory code otherwise
 - **Version control**: never revert user work; review `git status` before staging and keep commits scoped
 - **Manual validation**: after QML edits reload shell, check bar/dashboard animations, and verify notifications
