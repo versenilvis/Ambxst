@@ -80,10 +80,6 @@ QtObject {
         { label: "Emoji Prefix", keywords: "ee picker launcher", section: 6, subSection: "prefixes", subLabel: "System > Prefixes", icon: Icons.keyboard, isIcon: true },
         { label: "Notes Prefix", keywords: "nn note launcher", section: 6, subSection: "prefixes", subLabel: "System > Prefixes", icon: Icons.keyboard, isIcon: true },
         
-        // System > Weather
-        { label: "Weather Location", keywords: "city country place gps", section: 6, subSection: "weather", subLabel: "System > Weather", icon: Icons.mapPin, isIcon: true },
-        { label: "Temperature Unit", keywords: "celsius fahrenheit scale", section: 6, subSection: "weather", subLabel: "System > Weather", icon: Icons.thermometer, isIcon: true },
-
         // System > Performance
         { label: "Blur Transition", keywords: "animation speed performance effect", section: 6, subSection: "performance", subLabel: "System > Performance", icon: Icons.lightning, isIcon: true },
         { label: "Window Preview", keywords: "thumbnail overview alt-tab", section: 6, subSection: "performance", subLabel: "System > Performance", icon: Icons.windowsLogo, isIcon: true },

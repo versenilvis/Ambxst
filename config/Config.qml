@@ -13,7 +13,6 @@ import "defaults/overview.js" as OverviewDefaults
 import "defaults/notch.js" as NotchDefaults
 import "defaults/hyprland.js" as HyprlandDefaults
 import "defaults/performance.js" as PerformanceDefaults
-import "defaults/weather.js" as WeatherDefaults
 import "defaults/desktop.js" as DesktopDefaults
 import "defaults/lockscreen.js" as LockscreenDefaults
 import "defaults/prefix.js" as PrefixDefaults
@@ -37,7 +36,6 @@ Singleton {
     property bool notchReady: false
     property bool hyprlandReady: false
     property bool performanceReady: false
-    property bool weatherReady: false
     property bool desktopReady: false
     property bool lockscreenReady: false
     property bool prefixReady: false
@@ -45,7 +43,7 @@ Singleton {
     property bool dockReady: false
     property bool keybindsInitialLoadComplete: false
 
-    property bool initialLoadComplete: themeReady && barReady && workspacesReady && overviewReady && notchReady && hyprlandReady && performanceReady && weatherReady && desktopReady && lockscreenReady && prefixReady && systemReady && dockReady
+    property bool initialLoadComplete: themeReady && barReady && workspacesReady && overviewReady && notchReady && hyprlandReady && performanceReady && desktopReady && lockscreenReady && prefixReady && systemReady && dockReady
 
     // Aliases for backward compatibility
     property alias loader: themeLoader
@@ -69,7 +67,6 @@ Singleton {
             [ ! -f notch.json ] && MISSING="$MISSING notch"
             [ ! -f hyprland.json ] && MISSING="$MISSING hyprland"
             [ ! -f performance.json ] && MISSING="$MISSING performance"
-            [ ! -f weather.json ] && MISSING="$MISSING weather"
             [ ! -f desktop.json ] && MISSING="$MISSING desktop"
             [ ! -f lockscreen.json ] && MISSING="$MISSING lockscreen"
             [ ! -f prefix.json ] && MISSING="$MISSING prefix"
@@ -115,11 +112,6 @@ Singleton {
                     console.log("performance.json missing, creating default...");
                     performanceRawLoader.setText(JSON.stringify(PerformanceDefaults.data, null, 4));
                     root.performanceReady = true;
-                }
-                if (missing.includes("weather")) {
-                    console.log("weather.json missing, creating default...");
-                    weatherRawLoader.setText(JSON.stringify(WeatherDefaults.data, null, 4));
-                    root.weatherReady = true;
                 }
                 if (missing.includes("desktop")) {
                     console.log("desktop.json missing, creating default...");
@@ -826,44 +818,6 @@ Singleton {
             property bool blurTransition: true
             property bool windowPreview: true
             property bool wavyLine: true
-        }
-    }
-
-    // ============================================
-    // WEATHER MODULE
-    // ============================================
-    FileView {
-        id: weatherRawLoader
-        path: root.configDir + "/weather.json"
-        onLoaded: {
-            if (!root.weatherReady) {
-                validateModule("weather", weatherRawLoader, WeatherDefaults.data, () => {
-                    root.weatherReady = true;
-                });
-            }
-        }
-    }
-
-    FileView {
-        id: weatherLoader
-        path: root.configDir + "/weather.json"
-        atomicWrites: true
-        watchChanges: true
-        onFileChanged: {
-            root.pauseAutoSave = true;
-            reload();
-            root.pauseAutoSave = false;
-        }
-        onPathChanged: reload()
-        onAdapterUpdated: {
-            if (root.weatherReady && !root.pauseAutoSave) {
-                weatherLoader.writeAdapter();
-            }
-        }
-
-        adapter: JsonAdapter {
-            property string location: ""
-            property string unit: "C"
         }
     }
 
@@ -3277,9 +3231,6 @@ Singleton {
     property QtObject performance: performanceLoader.adapter
     property bool blurTransition: performance.blurTransition
 
-    // Weather configuration
-    property QtObject weather: weatherLoader.adapter
-
     // Desktop configuration
     property QtObject desktop: desktopLoader.adapter
 
@@ -3316,9 +3267,6 @@ Singleton {
     }
     function savePerformance() {
         performanceLoader.writeAdapter();
-    }
-    function saveWeather() {
-        weatherLoader.writeAdapter();
     }
     function saveDesktop() {
         desktopLoader.writeAdapter();

@@ -102,7 +102,7 @@ Item {
         anchors.fill: root
         anchors.margins: 8
         spacing: 4
-        layer.enabled: true
+        layer.enabled: false
         layer.effect: Shadow {}
 
         Item {

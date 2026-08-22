@@ -42,11 +42,13 @@ pub struct SystemStats {
 
 pub struct SysMonitor {
     sys: System,
+    disks: Disks,
     cpu_model: String,
     cpu_temp_path: Option<(std::path::PathBuf, i32)>,
     gpu_vendor: String,
     gpu_count: usize,
-    amd_cards: Vec<String>,
+    gpu_busy_paths: Vec<std::path::PathBuf>,
+    gpu_temp_paths: Vec<Option<std::path::PathBuf>>,
     gpu_names: Vec<String>,
 }
 
@@ -54,6 +56,7 @@ impl SysMonitor {
     pub fn new() -> Self {
         let mut sys = System::new_all();
         sys.refresh_all();
+        let disks = Disks::new_with_refreshed_list();
 
         let cpu_model = sys
             .cpus()
@@ -68,23 +71,18 @@ impl SysMonitor {
 
         // check for nvidia
         if Command::new("nvidia-smi").stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).status().is_ok() {
-            gpu_vendor = "nvidia".to_string();
-            if let Ok(out) = Command::new("nvidia-smi")
-                .args(["--query-gpu=count", "--format=csv,noheader,nounits"])
-                .output()
-            {
-                if let Ok(s) = std::str::from_utf8(&out.stdout) {
-                    if let Ok(val) = s.trim().parse::<usize>() {
-                        gpu_count = val;
-                    }
-                }
-            }
-            if let Ok(out) = Command::new("nvidia-smi")
+            if let Ok(output) = Command::new("nvidia-smi")
                 .args(["--query-gpu=name", "--format=csv,noheader"])
                 .output()
             {
-                if let Ok(s) = std::str::from_utf8(&out.stdout) {
-                    gpu_names = s.trim().lines().map(|l| l.trim().to_string()).collect();
+                if output.status.success() {
+                    let text = String::from_utf8_lossy(&output.stdout);
+                    let lines: Vec<&str> = text.lines().map(|l| l.trim()).filter(|l| !l.is_empty()).collect();
+                    if !lines.is_empty() {
+                        gpu_vendor = "nvidia".to_string();
+                        gpu_count = lines.len();
+                        gpu_names = lines.iter().map(|s| s.to_string()).collect();
+                    }
                 }
             }
         } else {
@@ -112,13 +110,34 @@ impl SysMonitor {
             }
         }
 
+        let mut gpu_busy_paths = Vec::new();
+        let mut gpu_temp_paths = Vec::new();
+        if gpu_vendor == "amd" {
+            for card in &amd_cards {
+                gpu_busy_paths.push(std::path::PathBuf::from(format!("/sys/class/drm/{}/device/gpu_busy_percent", card)));
+                let hwmon_base = format!("/sys/class/drm/{}/device/hwmon", card);
+                let mut temp_p = None;
+                if let Ok(entries) = fs::read_dir(hwmon_base) {
+                    if let Some(Ok(entry)) = entries.into_iter().next() {
+                        let t_path = entry.path().join("temp1_input");
+                        if t_path.exists() {
+                            temp_p = Some(t_path);
+                        }
+                    }
+                }
+                gpu_temp_paths.push(temp_p);
+            }
+        }
+
         Self {
             sys,
+            disks,
             cpu_model,
             cpu_temp_path: None,
             gpu_vendor,
             gpu_count,
-            amd_cards,
+            gpu_busy_paths,
+            gpu_temp_paths,
             gpu_names,
         }
     }
@@ -235,26 +254,19 @@ impl SysMonitor {
                 }
             }
         } else if self.gpu_vendor == "amd" && self.gpu_count > 0 {
-            for (i, card) in self.amd_cards.iter().enumerate() {
+            for (i, p) in self.gpu_busy_paths.iter().enumerate() {
                 if i >= self.gpu_count {
                     break;
                 }
-                // usage
-                let p = format!("/sys/class/drm/{}/device/gpu_busy_percent", card);
-                if let Ok(s) = fs::read_to_string(&p) {
+                if let Ok(s) = fs::read_to_string(p) {
                     if let Ok(u) = s.trim().parse::<f32>() {
                         usages[i] = u;
                     }
                 }
-                // temp
-                let hwmon_base = format!("/sys/class/drm/{}/device/hwmon", card);
-                if let Ok(entries) = fs::read_dir(hwmon_base) {
-                    if let Some(Ok(entry)) = entries.into_iter().next() {
-                        let t_path = entry.path().join("temp1_input");
-                        if let Ok(s) = fs::read_to_string(t_path) {
-                            if let Ok(t) = s.trim().parse::<i32>() {
-                                temps[i] = t / 1000;
-                            }
+                if let Some(Some(t_path)) = self.gpu_temp_paths.get(i) {
+                    if let Ok(s) = fs::read_to_string(t_path) {
+                        if let Ok(t) = s.trim().parse::<i32>() {
+                            temps[i] = t / 1000;
                         }
                     }
                 }
@@ -284,8 +296,8 @@ impl SysMonitor {
         let mut disk_used_map = std::collections::HashMap::new();
         let mut disk_total_map = std::collections::HashMap::new();
         let mut disk_type_map = std::collections::HashMap::new();
-        let disks = Disks::new_with_refreshed_list();
-        for disk in disks.list() {
+        self.disks.refresh();
+        for disk in self.disks.list() {
             let mount = disk.mount_point().to_string_lossy().into_owned();
             if disks_to_monitor.is_empty() || disks_to_monitor.contains(&mount) {
                 let total = disk.total_space();

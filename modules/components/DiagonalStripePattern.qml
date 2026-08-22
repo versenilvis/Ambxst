@@ -10,7 +10,7 @@ ClippingRectangle {
     property int stripeWidth: 8
     property int stripeSpacing: 20
     property int animationDuration: 1000
-    property bool animationRunning: true
+    property bool animationRunning: root.visible && root.opacity > 0
 
     color: Colors.shadow
 

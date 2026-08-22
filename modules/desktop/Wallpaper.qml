@@ -49,6 +49,6 @@ PanelWindow {
         fillMode: Image.PreserveAspectCrop
         asynchronous: true
         smooth: true
-        cache: false
+        cache: true
     }
 }

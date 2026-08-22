@@ -60,7 +60,7 @@ ClippingRectangle {
             color: root.urgency == NotificationUrgency.Critical ? Colors.criticalText : Styling.srItem("overprimary")
 
             SequentialAnimation on opacity {
-                running: root.urgency == NotificationUrgency.Critical
+                running: root.urgency == NotificationUrgency.Critical && root.visible && root.opacity > 0
                 loops: Animation.Infinite
                 NumberAnimation {
                     from: 1.0

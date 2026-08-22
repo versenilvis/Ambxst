@@ -13,7 +13,6 @@ Singleton {
 
     // incoming event signals
     signal systemResourcesReceived(var data)
-    signal weatherReceived(var data)
     signal desktopReceived(var data)
     signal topAppsReceived(var data)
     signal clipboardReceived(var data)
@@ -80,9 +79,6 @@ Singleton {
                 switch (event.type) {
                     case "system_resources":
                         root.systemResourcesReceived(event.data);
-                        break;
-                    case "weather":
-                        root.weatherReceived(event.data);
                         break;
                     case "desktop":
                         root.desktopReceived(event.data);

@@ -48,14 +48,7 @@ Item {
 
             smooth: true
             antialiasing: true
-            blending: true  // Habilitar blending para mejor antialiasing
-
-            // Layer con MSAA y tamaño completo
-            layer.enabled: true
-            layer.smooth: true
-            layer.samples: 4  // Multisampling antialiasing optimizado
-            layer.textureSize: Qt.size(width, height)
-            layer.mipmap: true
+            blending: true
 
             Component.onCompleted: {
                 animationTimer.start();

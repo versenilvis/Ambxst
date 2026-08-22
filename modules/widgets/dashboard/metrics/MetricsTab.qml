@@ -141,11 +141,14 @@ Rectangle {
         }
     }
 
-    // Watch for history changes to repaint chart
+    // Watch for history changes to repaint chart only when visible
     Connections {
         target: SystemResources
+        ignoreUnknownSignals: true
         function onCpuHistoryChanged() {
-            chartCanvas.requestPaint();
+            if (root.visible) {
+                chartCanvas.requestPaint();
+            }
         }
     }
 

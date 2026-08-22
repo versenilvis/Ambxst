@@ -1,5 +1,4 @@
 mod sys_resources;
-mod weather;
 mod desktop;
 mod usage;
 mod watchdog;
@@ -21,8 +20,6 @@ use serde::{Deserialize, Serialize};
 enum ClientCommand {
     #[serde(rename = "fetch_link_preview")]
     FetchLinkPreview { url: String },
-    #[serde(rename = "update_weather")]
-    UpdateWeather { location: String },
     #[serde(rename = "record_usage")]
     RecordUsage { app_id: String },
     #[serde(rename = "get_top_apps")]
@@ -325,19 +322,6 @@ async fn handle_client(
                         let event = ServerEvent {
                             r#type: "link_preview".to_string(),
                             data: serde_json::to_value(&data).unwrap_or(serde_json::Value::Null),
-                        };
-                        if let Ok(msg) = serde_json::to_string(&event) {
-                            let _ = client_tx.send(format!("{}\n", msg));
-                        }
-                    });
-                }
-                ClientCommand::UpdateWeather { location } => {
-                    let client_tx = client_tx.clone();
-                    tokio::spawn(async move {
-                        let data = weather::fetch_weather(&location).await;
-                        let event = ServerEvent {
-                            r#type: "weather".to_string(),
-                            data,
                         };
                         if let Ok(msg) = serde_json::to_string(&event) {
                             let _ = client_tx.send(format!("{}\n", msg));
