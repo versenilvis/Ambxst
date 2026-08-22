@@ -124,26 +124,6 @@ QtObject {
         hasPreviousBinds = true;
     }
 
-    property bool isLuaParser: false
-
-    onIsLuaParserChanged: {
-        console.log("HyprlandKeybinds: isLuaParser changed to " + isLuaParser + ", reapplying keybinds...");
-        applyKeybinds();
-    }
-
-    property Process checkParserProcess: Process {
-        command: ["sh", "-c", "hyprctl keyword _check_parser_ 1 2>&1 | grep -q 'non-legacy' && echo lua || echo legacy"]
-        stdout: SplitParser {
-            onRead: (data) => {
-                if (data && data.trim() === "lua") {
-                    root.isLuaParser = true;
-                } else {
-                    root.isLuaParser = false;
-                }
-            }
-        }
-    }
-
     function applyKeybindsInternal() {
         if (!Config.keybindsLoader.loaded) {
             console.log("HyprlandKeybinds: Esperando que se cargue el adapter...");
@@ -154,6 +134,8 @@ QtObject {
             console.log("HyprlandKeybinds: Esperando que se detecte el layout de Hyprland...");
             return;
         }
+
+        const isLuaParser = GlobalStates.isLuaParser;
 
         console.log("HyprlandKeybinds: Aplicando keybindings (layout: " + GlobalStates.hyprlandLayout + ", isLua: " + isLuaParser + ")...");
 
@@ -218,13 +200,44 @@ QtObject {
             return `hl.unbind(${JSON.stringify(bindStr)})`;
         }
 
+        // Action Resolver for new binds.json format
+        function resolveAction(keybind) {
+            let dispatcher = keybind.dispatcher;
+            let argument = keybind.argument || "";
+            
+            if (!dispatcher && keybind.action && keybind.action.id) {
+                dispatcher = "exec";
+                const id = keybind.action.id;
+                if (id === "ambxst.reload") argument = "ambxst reload";
+                else if (id === "ambxst.quit") argument = "ambxst quit";
+                else if (id === "system.lock") argument = "loginctl lock-session";
+                else if (id === "ambxst.overview") argument = "ambxst run overview";
+                else if (id === "ambxst.powermenu") argument = "ambxst run powermenu";
+                else if (id === "ambxst.config") argument = "ambxst run config";
+                else if (id === "ambxst.launcher") argument = "ambxst run launcher";
+                else if (id === "ambxst.dashboard") argument = "ambxst run dashboard";
+                else if (id === "ambxst.tools") argument = "ambxst run tools";
+                else if (id === "ambxst.screenshot") argument = "ambxst run screenshot";
+                else if (id === "ambxst.screenrecord") argument = "ambxst run screenrecord";
+                else if (id === "ambxst.lens") argument = "ambxst run lens";
+                else if (id === "ambxst.clipboard") argument = "ambxst run dashboard-clipboard";
+                else if (id === "ambxst.emoji") argument = "ambxst run dashboard-emoji";
+                else if (id === "ambxst.notes") argument = "ambxst run dashboard-notes";
+                else if (id === "ambxst.tmux") argument = "ghostty";
+                else if (id === "ambxst.wallpapers") argument = "ambxst run dashboard-wallpapers";
+                else argument = "ambxst run " + id.replace("ambxst.", "");
+            }
+            return { dispatcher: dispatcher || "", argument: argument };
+        }
+
         function createBindCommandLua(keybind, flags) {
             if (!keybind) return "";
             const mods = keybind.modifiers && keybind.modifiers.length > 0 ? keybind.modifiers.join(" + ") : "";
             const key = keybind.key || "";
             const bindStr = mods ? `${mods} + ${key}` : key;
-            const dispatcher = keybind.dispatcher || "";
-            const argument = keybind.argument || "";
+            const resolved = resolveAction(keybind);
+            const dispatcher = resolved.dispatcher;
+            const argument = resolved.argument;
 
             let dspExpr = "";
             if (dispatcher === "exec") {
@@ -239,16 +252,13 @@ QtObject {
             if (flags) {
                 if (flags.includes("l")) opts.push("locked = true");
                 if (flags.includes("r")) opts.push("release = true");
-                if (flags.includes("e")) opts.push("repeat = true");
+                if (flags.includes("e")) opts.push("repeating = true");
                 if (flags.includes("m")) opts.push("mouse = true");
                 if (flags.includes("n")) opts.push("non_consuming = true");
             }
 
-            if (opts.length > 0) {
-                return `hl.bind(${JSON.stringify(bindStr)}, ${dspExpr}, { ${opts.join(", ")} })`;
-            } else {
-                return `hl.bind(${JSON.stringify(bindStr)}, ${dspExpr})`;
-            }
+            const bindArgs = opts.length > 0 ? `${JSON.stringify(bindStr)}, dsp, { ${opts.join(", ")} }` : `${JSON.stringify(bindStr)}, dsp`;
+            return `_G.ambxst_dsp = _G.ambxst_dsp or {}; local dsp = ${dspExpr}; _G.ambxst_dsp[${JSON.stringify(bindStr)}] = dsp; hl.bind(${bindArgs})`;
         }
 
         function createBindFromKeyActionLua(keyObj, action) {
@@ -256,8 +266,9 @@ QtObject {
             const mods = keyObj.modifiers && keyObj.modifiers.length > 0 ? keyObj.modifiers.join(" + ") : "";
             const key = keyObj.key || "";
             const bindStr = mods ? `${mods} + ${key}` : key;
-            const dispatcher = action.dispatcher || "";
-            const argument = action.argument || "";
+            const resolved = resolveAction(action);
+            const dispatcher = resolved.dispatcher;
+            const argument = resolved.argument;
             const flags = action.flags || "";
 
             let dspExpr = "";
@@ -273,16 +284,13 @@ QtObject {
             if (flags) {
                 if (flags.includes("l")) opts.push("locked = true");
                 if (flags.includes("r")) opts.push("release = true");
-                if (flags.includes("e")) opts.push("repeat = true");
+                if (flags.includes("e")) opts.push("repeating = true");
                 if (flags.includes("m")) opts.push("mouse = true");
                 if (flags.includes("n")) opts.push("non_consuming = true");
             }
 
-            if (opts.length > 0) {
-                return `hl.bind(${JSON.stringify(bindStr)}, ${dspExpr}, { ${opts.join(", ")} })`;
-            } else {
-                return `hl.bind(${JSON.stringify(bindStr)}, ${dspExpr})`;
-            }
+            const bindArgs = opts.length > 0 ? `${JSON.stringify(bindStr)}, dsp, { ${opts.join(", ")} }` : `${JSON.stringify(bindStr)}, dsp`;
+            return `_G.ambxst_dsp = _G.ambxst_dsp or {}; local dsp = ${dspExpr}; _G.ambxst_dsp[${JSON.stringify(bindStr)}] = dsp; hl.bind(${bindArgs})`;
         }
 
         let unbindCommands = [];
@@ -465,7 +473,7 @@ QtObject {
 
         lastApplyTime = Date.now();
 
-        if (root.isLuaParser) {
+        if (isLuaParser) {
             const allLuaCode = unbindCommandsLua.concat(batchCommandsLua).filter(c => c !== "");
             console.log("HyprlandKeybinds: Applying keybindings via hyprctl eval (Lua parser)");
             hyprctlProcess.command = ["hyprctl", "eval", allLuaCode.join(";\n")];
@@ -515,14 +523,18 @@ QtObject {
                 startupReapplyTimer.start();
             }
         }
+        function onIsLuaParserChanged() {
+            console.log("HyprlandKeybinds: isLuaParser changed, reapplying keybindings...");
+            applyKeybinds();
+        }
     }
 
     property Connections hyprlandConnections: Connections {
         target: Hyprland
         function onRawEvent(event) {
             if (event.name === "configreloaded") {
-                // ignore configreloaded events triggered by our own hyprctl calls
-                if (Date.now() - lastApplyTime < 1000) {
+                // ignore configreloaded events triggered by our own hyprctl calls (use 5s window)
+                if (Date.now() - lastApplyTime < 5000) {
                     return;
                 }
                 console.log("HyprlandKeybinds: Detectado configreloaded, reaplicando keybindings...");

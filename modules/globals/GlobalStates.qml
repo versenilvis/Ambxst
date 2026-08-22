@@ -70,6 +70,23 @@ Singleton {
     }
 
     // ═══════════════════════════════════════════════════════════════
+    // HYPRLAND PARSER STATE
+    // ═══════════════════════════════════════════════════════════════
+    property bool isLuaParser: false
+
+    Process {
+        id: checkParserProcess
+        command: ["sh", "-c", "[ -f ~/.config/hypr/hyprland.lua ] && echo lua || (hyprctl keyword _check_parser_ 1 2>&1 | grep -q 'non-legacy' && echo lua || echo legacy)"]
+        running: true
+        stdout: SplitParser {
+            onRead: (data) => {
+                root.isLuaParser = (data && data.trim() === "lua");
+                console.log("GlobalStates: Hyprland parser detected:", root.isLuaParser ? "Lua" : "Legacy");
+            }
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
     // HYPRLAND LAYOUT STATE (dynamic, not persisted)
     // ═══════════════════════════════════════════════════════════════
     property string hyprlandLayout: "dwindle"

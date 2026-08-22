@@ -57,26 +57,6 @@ QtObject {
         applyTimer.restart();
     }
 
-    property bool isLuaParser: false
-
-    onIsLuaParserChanged: {
-        console.log("HyprlandConfig: isLuaParser changed to " + isLuaParser + ", reapplying config...");
-        applyHyprlandConfig();
-    }
-
-    property Process checkParserProcess: Process {
-        command: ["sh", "-c", "hyprctl keyword _check_parser_ 1 2>&1 | grep -q 'non-legacy' && echo lua || echo legacy"]
-        stdout: SplitParser {
-            onRead: (data) => {
-                if (data && data.trim() === "lua") {
-                    root.isLuaParser = true;
-                } else {
-                    root.isLuaParser = false;
-                }
-            }
-        }
-    }
-
     function applyHyprlandConfigInternal() {
         // Verificar que los adapters estén cargados antes de aplicar configuración
         if (!Config.loader.loaded) {
@@ -89,6 +69,8 @@ QtObject {
             console.log("HyprlandConfig: Esperando que se detecte el layout de Hyprland...");
             return;
         }
+
+        const isLuaParser = GlobalStates.isLuaParser;
 
         // Colores para sombras
         const shadowColor = getColorValue(Config.hyprlandShadowColor);
@@ -354,14 +336,17 @@ QtObject {
                 applyHyprlandConfig();
             }
         }
+        function onIsLuaParserChanged() {
+            applyHyprlandConfig();
+        }
     }
 
     property Connections hyprlandConnections: Connections {
         target: Hyprland
         function onRawEvent(event) {
             if (event.name === "configreloaded") {
-                // ignore configreloaded events triggered by our own hyprctl calls
-                if (Date.now() - lastApplyTime < 1000) {
+                // ignore configreloaded events triggered by our own hyprctl calls (use 5s window)
+                if (Date.now() - lastApplyTime < 5000) {
                     return;
                 }
                 console.log("HyprlandConfig: Detectado configreloaded, reaplicando configuración...");
@@ -371,7 +356,6 @@ QtObject {
     }
 
     Component.onCompleted: {
-        checkParserProcess.running = true;
         // Si Config loader ya está cargado, aplicar inmediatamente
         if (Config.loader.loaded) {
             applyHyprlandConfig();
