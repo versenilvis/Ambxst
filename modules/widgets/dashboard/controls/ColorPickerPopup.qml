@@ -115,6 +115,7 @@ Popup {
                     Keys.onEnterPressed: Keys.onReturnPressed(event)
 
                     Connections {
+        ignoreUnknownSignals: true
                         target: root
                         function onCurrentHexChanged() {
                             if (!hexInput.activeFocus) {

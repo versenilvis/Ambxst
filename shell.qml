@@ -221,8 +221,9 @@ ShellRoot {
         
         Connections {
             target: GlobalStates
+            ignoreUnknownSignals: true
             function onScreenRecordToolVisibleChanged() {
-                if (screenRecordLoader.status === Loader.Ready) {
+                if (screenRecordLoader.status === Loader.Ready && screenRecordLoader.item) {
                     if (GlobalStates.screenRecordToolVisible) {
                         screenRecordLoader.item.open();
                     } else {
@@ -244,6 +245,7 @@ ShellRoot {
     // Initialize clipboard service at startup to ensure clipboard watching starts immediately
     Connections {
         target: ClipboardService
+        ignoreUnknownSignals: true
         function onListCompleted() {
             // Service initialized and ready
         }
@@ -269,6 +271,7 @@ ShellRoot {
 
     Connections {
         target: Notifications
+        ignoreUnknownSignals: true
         function onNotify(notification) {
             if (!Notifications.popupInhibited) {
                 // play sound for incoming notifications

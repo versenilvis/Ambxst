@@ -77,6 +77,7 @@ Item {
     }
 
     Connections {
+        ignoreUnknownSignals: true
         target: Notifications
         function onPopupListChanged() {
             if (Notifications.popupList.length > previousNotifCount) {

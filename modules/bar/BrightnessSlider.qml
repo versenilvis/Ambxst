@@ -162,6 +162,7 @@ Item {
             }
 
             Connections {
+        ignoreUnknownSignals: true
                 target: brightnessSlider
                 function onIconHovered(hovered) {
                 // No hacer nada aquí, el HoverHandler principal maneja todo

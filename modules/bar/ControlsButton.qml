@@ -115,6 +115,7 @@ Item {
                 }
 
                 Connections {
+        ignoreUnknownSignals: true
                     target: Audio
                     function onVolumeChanged() {
                         volumeRow.sliderValue = Audio.volume;
@@ -145,6 +146,7 @@ Item {
                 }
 
                 Connections {
+        ignoreUnknownSignals: true
                     target: Audio
                     function onMicVolumeChanged() {
                         micRow.sliderValue = Audio.micVolume;

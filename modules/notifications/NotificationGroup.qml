@@ -90,6 +90,7 @@ Item {
 
     // Escuchar cuando las notificaciones van a hacer timeout
     Connections {
+        ignoreUnknownSignals: true
         target: Notifications
         function onTimeoutWithAnimation(id) {
             // Verificar si la notificación que va a hacer timeout pertenece a este grupo

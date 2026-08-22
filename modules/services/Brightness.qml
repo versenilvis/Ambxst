@@ -54,6 +54,7 @@ Singleton {
     }
 
     Connections {
+        ignoreUnknownSignals: true
         target: StateService
         function onStateLoaded() {
             root.syncBrightness = StateService.get("syncBrightness", false);

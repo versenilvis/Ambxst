@@ -706,6 +706,7 @@ Item {
             ctx.stroke();
         }
         Connections {
+        ignoreUnknownSignals: true
             target: Colors
             function onPrimaryChanged() {
                 outlineCanvas.requestPaint();
@@ -718,6 +719,7 @@ Item {
             }
         }
         Connections {
+        ignoreUnknownSignals: true
             target: notchRect
             function onBottomLeftRadiusChanged() {
                 outlineCanvas.requestPaint();
@@ -733,6 +735,7 @@ Item {
             }
         }
         Connections {
+        ignoreUnknownSignals: true
             target: notchContainer
             function onImplicitWidthChanged() {
                 outlineCanvas.requestPaint();
@@ -742,18 +745,21 @@ Item {
             }
         }
         Connections {
+        ignoreUnknownSignals: true
             target: Config
             function onNotchThemeChanged() {
                 outlineCanvas.requestPaint();
             }
         }
         Connections {
+        ignoreUnknownSignals: true
             target: leftCornerMaskPart
             function onWidthChanged() {
                 outlineCanvas.requestPaint();
             }
         }
         Connections {
+        ignoreUnknownSignals: true
             target: rightCornerMaskPart
             function onWidthChanged() {
                 outlineCanvas.requestPaint();

@@ -54,6 +54,7 @@ PanelWindow {
 
     // Listen for the saved signal from Screenshot service
     Connections {
+        ignoreUnknownSignals: true
         target: Screenshot
         function onImageSaved(path) {
             // Check if the screenshot happened on this monitor

@@ -96,6 +96,7 @@ Singleton {
 
 
     Connections {
+        ignoreUnknownSignals: true
         target: DaemonClient
         function onDesktopReceived(itemsList) {
             tempItems = [];

@@ -183,6 +183,7 @@ Singleton {
     }
 
     Connections {
+        ignoreUnknownSignals: true
         target: DaemonClient
         function onNetworkChanged() {
             root.update();

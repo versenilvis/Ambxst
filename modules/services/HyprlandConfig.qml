@@ -160,6 +160,7 @@ QtObject {
     }
 
     property Connections configConnections: Connections {
+        ignoreUnknownSignals: true
         target: Config.loader
         function onFileChanged() {
             applyHyprlandConfig();
@@ -170,6 +171,7 @@ QtObject {
     }
 
     property Connections hyprlandConfigConnections: Connections {
+        ignoreUnknownSignals: true
         target: Config.hyprland
         function onBorderSizeChanged() {
             applyHyprlandConfig();
@@ -297,6 +299,7 @@ QtObject {
     }
 
     property Connections colorsConnections: Connections {
+        ignoreUnknownSignals: true
         target: Colors
         function onFileChanged() {
             applyHyprlandConfig();
@@ -327,6 +330,7 @@ QtObject {
     }
 
     property Connections globalStatesConnections: Connections {
+        ignoreUnknownSignals: true
         target: GlobalStates
         function onHyprlandLayoutChanged() {
             applyHyprlandConfig();
@@ -342,6 +346,7 @@ QtObject {
     }
 
     property Connections hyprlandConnections: Connections {
+        ignoreUnknownSignals: true
         target: Hyprland
         function onRawEvent(event) {
             if (event.name === "configreloaded") {

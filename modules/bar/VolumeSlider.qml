@@ -137,6 +137,7 @@ Item {
             }
 
             Connections {
+        ignoreUnknownSignals: true
                 target: Audio
                 function onVolumeChanged() {
                     volumeSlider.value = Audio.volume;
@@ -146,6 +147,7 @@ Item {
             }
 
             Connections {
+        ignoreUnknownSignals: true
                 target: volumeSlider
                 function onIconHovered(hovered) {
                 // No hacer nada aquí, el HoverHandler principal maneja todo

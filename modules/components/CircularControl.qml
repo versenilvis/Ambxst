@@ -169,6 +169,7 @@ StyledRect {
             }
 
             Connections {
+        ignoreUnknownSignals: true
                 target: progressCanvas
                 function onAngleChanged() {
                     canvas.requestPaint();
@@ -176,6 +177,7 @@ StyledRect {
             }
 
             Connections {
+        ignoreUnknownSignals: true
                 target: root
                 function onAccentColorChanged() {
                     canvas.requestPaint();

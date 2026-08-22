@@ -120,6 +120,7 @@ Item {
     Component.onCompleted: updateTimer.restart()
 
     Connections {
+        ignoreUnknownSignals: true
         target: Hyprland.workspaces
         function onValuesChanged() {
             updateTimer.restart();
@@ -141,6 +142,7 @@ Item {
     }
 
     Connections {
+        ignoreUnknownSignals: true
         target: HyprlandData
         function onWindowListChanged() {
             updateTimer.restart();

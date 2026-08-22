@@ -13,6 +13,7 @@ Singleton {
     signal usageDataReady()
 
     Connections {
+        ignoreUnknownSignals: true
         target: DaemonClient
         function onTopAppsReceived(apps) {
             root.topAppsList = apps;

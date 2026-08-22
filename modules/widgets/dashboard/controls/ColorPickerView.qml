@@ -161,6 +161,7 @@ Item {
                     }
 
                     Connections {
+        ignoreUnknownSignals: true
                         target: root
                         function onCurrentHexChanged() {
                             if (!hexInput.activeFocus) {

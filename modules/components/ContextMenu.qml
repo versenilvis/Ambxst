@@ -279,6 +279,7 @@ PanelWindow {
     }
 
     Connections {
+        ignoreUnknownSignals: true
         target: menu
         function onClosed() {
             contextWindow.close();

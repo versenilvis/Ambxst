@@ -151,6 +151,7 @@ Rectangle {
             }
 
             Connections {
+        ignoreUnknownSignals: true
                 target: AppSearch
                 function onSearchResultsChanged() {
                     appLauncher.filteredApps = AppSearch.searchResults;

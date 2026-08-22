@@ -113,16 +113,18 @@ Singleton {
             }
 
             Component.onDestruction: {
-                if (root.trackedPlayer == null || !root.trackedPlayer.isPlaying) {
-                    for (const player of root.filteredPlayers) {
-                        if (player.playbackState.isPlaying) {
-                            root.trackedPlayer = player;
-                            break;
+                if (root.trackedPlayer == null || !root.trackedPlayer?.isPlaying) {
+                    if (root.filteredPlayers) {
+                        for (const player of root.filteredPlayers) {
+                            if (player?.playbackState?.isPlaying || player?.isPlaying) {
+                                root.trackedPlayer = player;
+                                break;
+                            }
                         }
-                    }
 
-                    if (root.trackedPlayer == null && root.filteredPlayers.length != 0) {
-                        root.trackedPlayer = root.filteredPlayers[0];
+                        if (root.trackedPlayer == null && root.filteredPlayers.length > 0) {
+                            root.trackedPlayer = root.filteredPlayers[0];
+                        }
                     }
                 }
             }

@@ -868,6 +868,7 @@ Scope {
 
                         // Signal connections for repainting
                         Connections {
+        ignoreUnknownSignals: true
                             target: Colors
                             function onPrimaryChanged() {
                                 outlineCanvas.requestPaint();
@@ -880,48 +881,56 @@ Scope {
                             }
                         }
                         Connections {
+        ignoreUnknownSignals: true
                             target: dockBackground
                             function onBottomLeftRadiusChanged() {
                                 outlineCanvas.requestPaint();
                             }
                         }
                         Connections {
+        ignoreUnknownSignals: true
                             target: dockBackground
                             function onBottomRightRadiusChanged() {
                                 outlineCanvas.requestPaint();
                             }
                         }
                         Connections {
+        ignoreUnknownSignals: true
                             target: dockBackground
                             function onTopLeftRadiusChanged() {
                                 outlineCanvas.requestPaint();
                             }
                         }
                         Connections {
+        ignoreUnknownSignals: true
                             target: dockBackground
                             function onTopRightRadiusChanged() {
                                 outlineCanvas.requestPaint();
                             }
                         }
                         Connections {
+        ignoreUnknownSignals: true
                             target: dockContainer
                             function onWidthChanged() {
                                 outlineCanvas.requestPaint();
                             }
                         }
                         Connections {
+        ignoreUnknownSignals: true
                             target: dockContainer
                             function onHeightChanged() {
                                 outlineCanvas.requestPaint();
                             }
                         }
                         Connections {
+        ignoreUnknownSignals: true
                             target: root
                             function onIsDefaultChanged() {
                                 outlineCanvas.requestPaint();
                             }
                         }
                         Connections {
+        ignoreUnknownSignals: true
                             target: root
                             function onPositionChanged() {
                                 outlineCanvas.requestPaint();

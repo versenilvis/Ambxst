@@ -177,6 +177,7 @@ Singleton {
     }
 
     Connections {
+        ignoreUnknownSignals: true
         target: DaemonClient
         
         function onDaemonConnectedChanged() {

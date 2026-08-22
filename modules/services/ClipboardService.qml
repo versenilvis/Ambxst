@@ -25,6 +25,7 @@ QtObject {
     signal linkPreviewFetched(string url, var metadata, string requestItemId)
 
     property Connections daemonConnections: Connections {
+        ignoreUnknownSignals: true
         target: DaemonClient
         
         function onDaemonConnectedChanged() {

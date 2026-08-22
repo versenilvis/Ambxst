@@ -600,6 +600,7 @@ Item {
 
     // Conexiones al servicio
     Connections {
+        ignoreUnknownSignals: true
         target: ClipboardService
         function onListCompleted() {
             updateFilteredItems();
@@ -608,6 +609,7 @@ Item {
 
     // Conexión para cargar imágenes cuando cambia la selección
     Connections {
+        ignoreUnknownSignals: true
         target: root
         function onSelectedIndexChanged() {
             // Reset content state when selection changes
@@ -628,6 +630,7 @@ Item {
 
     // Conexión para recibir el contenido completo
     Connections {
+        ignoreUnknownSignals: true
         target: ClipboardService
         function onFullContentRetrieved(itemId, content) {
             // Only update if this is for the currently selected item
