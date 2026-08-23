@@ -96,13 +96,21 @@ Singleton {
     }
 
     function jsonToNotif(json) {
+        let img = json.image || "";
+        if (img.startsWith("image://qsimage/") || img.startsWith("/tmp/") || img.startsWith("file:///tmp/")) {
+            img = "";
+        }
+        let appIcon = json.appIcon || "";
+        if (appIcon.startsWith("/tmp/") || appIcon.startsWith("file:///tmp/")) {
+            appIcon = "";
+        }
         return {
             "id": json.id,
             "actions": json.actions || [],
-            "appIcon": json.appIcon || "",
+            "appIcon": appIcon,
             "appName": json.appName,
             "body": json.body,
-            "image": json.image || "",
+            "image": img,
             "summary": json.summary,
             "time": json.time,
             "urgency": json.urgency,

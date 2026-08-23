@@ -78,66 +78,44 @@ ClippingRectangle {
         }
     }
 
-    Loader {
-        id: appIconLoader
-        active: root.image == "" && root.appIcon != ""
+    // Main Image or App Icon
+    Image {
+        id: mainImage
         anchors.fill: parent
-        sourceComponent: Image {
-            id: appIconImage
+        visible: source != ""
+        fillMode: Image.PreserveAspectCrop
+        smooth: true
+        source: {
+            if (root.image && !root.usingAppIconFallback) {
+                return root.image;
+            }
+            if (root.appIcon) {
+                return root.getIconSource(root.appIcon);
+            }
+            return "";
+        }
+        onStatusChanged: {
+            if (status === Image.Error && root.image && !root.usingAppIconFallback && root.appIcon) {
+                root.usingAppIconFallback = true;
+            }
+        }
+    }
+
+    // App icon overlay badge when showing notification image
+    ClippingRectangle {
+        id: overlayBadge
+        visible: root.image != "" && !root.usingAppIconFallback && root.appIcon != ""
+        anchors.bottom: parent.bottom
+        anchors.right: parent.right
+        width: root.smallAppIconSize
+        height: root.smallAppIconSize
+        radius: root.radius * root.smallAppIconScale
+
+        Image {
             anchors.fill: parent
             source: root.getIconSource(root.appIcon)
             fillMode: Image.PreserveAspectCrop
             smooth: true
-        }
-    }
-
-    // Mostrar imagen de notificación si existe
-    Loader {
-        id: notifImageLoader
-        active: root.image != ""
-        anchors.fill: parent
-        sourceComponent: Item {
-            anchors.fill: parent
-            clip: true
-
-            Rectangle {
-                anchors.fill: parent
-                radius: root.radius
-                color: "transparent"
-
-                Image {
-                    id: notifImage
-                    anchors.fill: parent
-                    source: root.image
-                    fillMode: Image.PreserveAspectCrop
-                    smooth: true
-                    onStatusChanged: {
-                        if (status === Image.Error && root.appIcon && !usingAppIconFallback) {
-                            usingAppIconFallback = true;
-                            source = root.getIconSource(root.appIcon);
-                        }
-                    }
-                }
-            }
-
-            // App icon pequeño superpuesto si hay imagen
-            Loader {
-                id: notifImageAppIconLoader
-                active: root.appIcon != "" && !usingAppIconFallback
-                anchors.bottom: parent.bottom
-                anchors.right: parent.right
-                width: root.smallAppIconSize
-                height: root.smallAppIconSize
-                sourceComponent: ClippingRectangle {
-                    radius: root.radius * root.smallAppIconScale
-                    Image {
-                        anchors.fill: parent
-                        source: root.getIconSource(root.appIcon)
-                        fillMode: Image.PreserveAspectCrop
-                        smooth: true
-                    }
-                }
-            }
         }
     }
 }
