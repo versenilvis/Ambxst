@@ -74,6 +74,7 @@ NotchAnimationBehavior {
     // Escuchar cambios en dashboardCurrentTab para navegar automáticamente
     Connections {
         ignoreUnknownSignals: true
+        enabled: GlobalStates != null
         target: GlobalStates
         function onDashboardCurrentTabChanged() {
             if (GlobalStates.dashboardCurrentTab !== root.state.currentTab) {

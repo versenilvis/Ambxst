@@ -413,6 +413,7 @@ Rectangle {
 
             Connections {
         ignoreUnknownSignals: true
+        enabled: root != null
                 target: root
                 function onCurrentSectionChanged() {
                     contentArea.previousSection = root.currentSection;

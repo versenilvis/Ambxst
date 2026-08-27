@@ -68,6 +68,7 @@ Singleton {
     // Unified System Monitor Process
     Connections {
         ignoreUnknownSignals: true
+        enabled: DaemonClient != null
         target: DaemonClient
         function onSystemResourcesReceived(stats) {
             root.cpuUsage = stats.cpu.usage;

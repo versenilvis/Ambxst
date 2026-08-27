@@ -163,6 +163,7 @@ Singleton {
     // Monitor focus changes
     Connections {
         ignoreUnknownSignals: true
+        enabled: Hyprland != null
         target: Hyprland
         function onFocusedMonitorChanged() {
             moveActiveModuleToFocusedScreen();

@@ -23,6 +23,7 @@ Singleton {
 
     Connections {
         ignoreUnknownSignals: true
+        enabled: StateService != null
         target: StateService
         function onStateLoaded() {
             root.inhibit = StateService.get("caffeine", false);

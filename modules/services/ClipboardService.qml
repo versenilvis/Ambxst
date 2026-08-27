@@ -26,6 +26,7 @@ QtObject {
 
     property Connections daemonConnections: Connections {
         ignoreUnknownSignals: true
+        enabled: DaemonClient != null
         target: DaemonClient
         
         function onDaemonConnectedChanged() {

@@ -18,6 +18,7 @@ Singleton {
     // Update window list when Hyprland layout becomes ready
     Connections {
         ignoreUnknownSignals: true
+        enabled: GlobalStates != null
         target: GlobalStates
 
         function onHyprlandLayoutReadyChanged() {
@@ -60,6 +61,7 @@ Singleton {
 
     Connections {
         ignoreUnknownSignals: true
+        enabled: Hyprland != null
         target: Hyprland
 
         function onRawEvent(event) {

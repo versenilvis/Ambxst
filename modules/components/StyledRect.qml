@@ -91,6 +91,7 @@ ClippingRectangle {
         Connections {
             target: Colors
             ignoreUnknownSignals: true
+        enabled: Colors != null
             function onLoaded() { linearGradientCanvas.requestPaint(); }
         }
         Component.onCompleted: requestPaint()

@@ -120,6 +120,7 @@ Item {
 
                 Connections {
         ignoreUnknownSignals: true
+        enabled: progressCanvas != null
                     target: progressCanvas
                     function onAngleChanged() {
                         canvas.requestPaint();
@@ -128,6 +129,7 @@ Item {
 
                 Connections {
         ignoreUnknownSignals: true
+        enabled: Battery != null
                     target: Battery
                     function onPercentageChanged() {
                         canvas.requestPaint();
@@ -162,6 +164,7 @@ Item {
 
             Connections {
         ignoreUnknownSignals: true
+        enabled: Battery != null
                 target: Battery
                 function onIsPluggedInChanged() {
                     batteryIcon.text = Battery.available ? (Battery.isPluggedIn ? Icons.lightning : Battery.getBatteryIcon()) : PowerProfile.getProfileIcon(PowerProfile.currentProfile);
@@ -245,7 +248,8 @@ Item {
                                 ctx.stroke();
                             }
                             Connections {
-        ignoreUnknownSignals: true 
+        ignoreUnknownSignals: true
+        enabled: Battery != null 
                                 target: Battery
                                 function onPercentageChanged() { batteryPopupCanvas.requestPaint(); } 
                             }

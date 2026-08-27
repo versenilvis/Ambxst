@@ -480,6 +480,7 @@ QtObject {
 
     property Connections configConnections: Connections {
         ignoreUnknownSignals: true
+        enabled: Config.keybindsLoader != null
         target: Config.keybindsLoader
         function onFileChanged() {
             applyKeybinds();
@@ -506,6 +507,7 @@ QtObject {
     // Re-apply keybinds when layout changes
     property Connections globalStatesConnections: Connections {
         ignoreUnknownSignals: true
+        enabled: GlobalStates != null
         target: GlobalStates
         function onHyprlandLayoutChanged() {
             console.log("HyprlandKeybinds: Layout changed to " + GlobalStates.hyprlandLayout + ", reapplying keybindings...");
@@ -525,6 +527,7 @@ QtObject {
 
     property Connections hyprlandConnections: Connections {
         ignoreUnknownSignals: true
+        enabled: Hyprland != null
         target: Hyprland
         function onRawEvent(event) {
             if (event.name === "configreloaded") {

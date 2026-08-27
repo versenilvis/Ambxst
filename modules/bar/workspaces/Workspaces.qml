@@ -121,6 +121,7 @@ Item {
 
     Connections {
         ignoreUnknownSignals: true
+        enabled: Hyprland.workspaces != null
         target: Hyprland.workspaces
         function onValuesChanged() {
             updateTimer.restart();
@@ -143,6 +144,7 @@ Item {
 
     Connections {
         ignoreUnknownSignals: true
+        enabled: HyprlandData != null
         target: HyprlandData
         function onWindowListChanged() {
             updateTimer.restart();

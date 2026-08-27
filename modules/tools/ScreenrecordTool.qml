@@ -133,6 +133,7 @@ PanelWindow {
 
     Connections {
         ignoreUnknownSignals: true
+        enabled: Screenshot != null
         target: Screenshot
         function onWindowListReady(windows) {
             screenrecordPopup.activeWindows = windows;

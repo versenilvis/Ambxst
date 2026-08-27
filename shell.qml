@@ -222,6 +222,7 @@ ShellRoot {
         Connections {
             target: GlobalStates
             ignoreUnknownSignals: true
+        enabled: GlobalStates != null
             function onScreenRecordToolVisibleChanged() {
                 if (screenRecordLoader.status === Loader.Ready && screenRecordLoader.item) {
                     if (GlobalStates.screenRecordToolVisible) {
@@ -246,6 +247,7 @@ ShellRoot {
     Connections {
         target: ClipboardService
         ignoreUnknownSignals: true
+        enabled: ClipboardService != null
         function onListCompleted() {
             // Service initialized and ready
         }
@@ -272,6 +274,7 @@ ShellRoot {
     Connections {
         target: Notifications
         ignoreUnknownSignals: true
+        enabled: Notifications != null
         function onNotify(notification) {
             if (!Notifications.popupInhibited) {
                 // play sound for incoming notifications

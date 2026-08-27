@@ -156,6 +156,7 @@ Item {
             Connections {
                 target: Brightness
                 ignoreUnknownSignals: true
+        enabled: Brightness != null
                 function onBrightnessChanged() {
                     root.updateSliderFromMonitor(true);
                 }
@@ -163,6 +164,7 @@ Item {
 
             Connections {
         ignoreUnknownSignals: true
+        enabled: brightnessSlider != null
                 target: brightnessSlider
                 function onIconHovered(hovered) {
                 // No hacer nada aquí, el HoverHandler principal maneja todo

@@ -75,6 +75,7 @@ Singleton {
 
     Connections {
         ignoreUnknownSignals: true
+        enabled: StateService != null
         target: StateService
         function onStateLoaded() {
             root.active = StateService.get("nightLight", false);

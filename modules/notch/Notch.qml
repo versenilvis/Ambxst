@@ -707,6 +707,7 @@ Item {
         }
         Connections {
         ignoreUnknownSignals: true
+        enabled: Colors != null
             target: Colors
             function onPrimaryChanged() {
                 outlineCanvas.requestPaint();
@@ -720,6 +721,7 @@ Item {
         }
         Connections {
         ignoreUnknownSignals: true
+        enabled: notchRect != null
             target: notchRect
             function onBottomLeftRadiusChanged() {
                 outlineCanvas.requestPaint();
@@ -736,6 +738,7 @@ Item {
         }
         Connections {
         ignoreUnknownSignals: true
+        enabled: notchContainer != null
             target: notchContainer
             function onImplicitWidthChanged() {
                 outlineCanvas.requestPaint();
@@ -746,6 +749,7 @@ Item {
         }
         Connections {
         ignoreUnknownSignals: true
+        enabled: Config != null
             target: Config
             function onNotchThemeChanged() {
                 outlineCanvas.requestPaint();
@@ -753,6 +757,7 @@ Item {
         }
         Connections {
         ignoreUnknownSignals: true
+        enabled: leftCornerMaskPart != null
             target: leftCornerMaskPart
             function onWidthChanged() {
                 outlineCanvas.requestPaint();
@@ -760,6 +765,7 @@ Item {
         }
         Connections {
         ignoreUnknownSignals: true
+        enabled: rightCornerMaskPart != null
             target: rightCornerMaskPart
             function onWidthChanged() {
                 outlineCanvas.requestPaint();

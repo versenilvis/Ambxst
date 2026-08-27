@@ -125,6 +125,7 @@ Item {
 
             Connections {
         ignoreUnknownSignals: true
+        enabled: Audio != null
                 target: Audio
                 function onMicVolumeChanged() {
                     micSlider.value = Audio.micVolume;
@@ -135,6 +136,7 @@ Item {
 
             Connections {
         ignoreUnknownSignals: true
+        enabled: micSlider != null
                 target: micSlider
                 function onIconHovered(hovered) {
                 // No hacer nada aquí, el HoverHandler principal maneja todo

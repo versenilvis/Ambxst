@@ -67,6 +67,7 @@ PanelWindow {
     // Listen for global changes - MUST be outside any property binding loop
     Connections {
         ignoreUnknownSignals: true
+        enabled: GlobalStates != null
         target: GlobalStates
         function onScreenshotCaptureModeChanged() {
             if (screenshotPopup.currentMode !== GlobalStates.screenshotCaptureMode) {
@@ -128,6 +129,7 @@ PanelWindow {
 
     Connections {
         ignoreUnknownSignals: true
+        enabled: Screenshot != null
         target: Screenshot
         // New signal for per-monitor readiness
         function onMonitorScreenshotReady(monitorName, path) {

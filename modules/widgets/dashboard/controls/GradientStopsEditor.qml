@@ -214,6 +214,7 @@ Item {
 
                         Connections {
         ignoreUnknownSignals: true
+        enabled: root != null
                             target: root
                             function onStopsChanged() {
                                 gradientPreviewCanvas.requestPaint();
@@ -221,6 +222,7 @@ Item {
                         }
                         Connections {
         ignoreUnknownSignals: true
+        enabled: Colors != null
                             target: Colors
                             function onLoaded() {
                                 gradientPreviewCanvas.requestPaint();

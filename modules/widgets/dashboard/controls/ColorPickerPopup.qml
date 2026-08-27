@@ -116,6 +116,7 @@ Popup {
 
                     Connections {
         ignoreUnknownSignals: true
+        enabled: root != null
                         target: root
                         function onCurrentHexChanged() {
                             if (!hexInput.activeFocus) {

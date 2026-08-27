@@ -116,6 +116,7 @@ Item {
 
                 Connections {
         ignoreUnknownSignals: true
+        enabled: Audio != null
                     target: Audio
                     function onVolumeChanged() {
                         volumeRow.sliderValue = Audio.volume;
@@ -147,6 +148,7 @@ Item {
 
                 Connections {
         ignoreUnknownSignals: true
+        enabled: Audio != null
                     target: Audio
                     function onMicVolumeChanged() {
                         micRow.sliderValue = Audio.micVolume;
@@ -196,6 +198,7 @@ Item {
                 Connections {
                     target: Brightness
                     ignoreUnknownSignals: true
+        enabled: Brightness != null
                     function onBrightnessChanged() {
                         if (brightnessRow.currentMonitor) {
                             brightnessRow.sliderValue = brightnessRow.currentMonitor.brightness;

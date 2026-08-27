@@ -32,6 +32,7 @@ Singleton {
     // Load protection state when StateService is ready
     Connections {
         ignoreUnknownSignals: true
+        enabled: StateService != null
         target: StateService
         function onStateLoaded() {
             root.protectionEnabled = StateService.get("volumeProtectionEnabled", true);

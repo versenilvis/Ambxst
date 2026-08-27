@@ -145,6 +145,7 @@ Rectangle {
     Connections {
         target: SystemResources
         ignoreUnknownSignals: true
+        enabled: SystemResources != null
         function onCpuHistoryChanged() {
             if (root.visible) {
                 chartCanvas.requestPaint();

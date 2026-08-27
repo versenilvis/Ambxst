@@ -14,6 +14,7 @@ Singleton {
 
     Connections {
         ignoreUnknownSignals: true
+        enabled: DaemonClient != null
         target: DaemonClient
         function onTopAppsReceived(apps) {
             root.topAppsList = apps;

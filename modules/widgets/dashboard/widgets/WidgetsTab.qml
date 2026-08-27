@@ -152,6 +152,7 @@ Rectangle {
 
             Connections {
         ignoreUnknownSignals: true
+        enabled: AppSearch != null
                 target: AppSearch
                 function onSearchResultsChanged() {
                     appLauncher.filteredApps = AppSearch.searchResults;
@@ -1519,6 +1520,7 @@ Rectangle {
                         Connections {
                             target: Brightness
                             ignoreUnknownSignals: true
+        enabled: Brightness != null
                             function onBrightnessChanged() {
                                 if (brightnessSlider.currentMonitor && brightnessSlider.currentMonitor.ready && !brightnessSlider.isDragging) {
                                     brightnessSlider.brightnessValue = brightnessSlider.currentMonitor.brightness;

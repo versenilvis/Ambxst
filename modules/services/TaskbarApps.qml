@@ -61,6 +61,7 @@ Singleton {
     // Trigger update when toplevels change
     Connections {
         ignoreUnknownSignals: true
+        enabled: ToplevelManager.toplevels != null
         target: ToplevelManager.toplevels
         function onObjectInsertedPost() {
             updateTimer.restart();
