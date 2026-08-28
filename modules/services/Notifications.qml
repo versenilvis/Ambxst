@@ -12,13 +12,21 @@ Singleton {
     readonly property int maxStoredNotifications: 50
 
     function notifToJSON(notif) {
+        let img = notif.image || "";
+        if (img.includes("/tmp/") || img.includes("qsimage/")) {
+            img = "";
+        }
+        let appIcon = notif.appIcon || "";
+        if (appIcon.includes("/tmp/") || appIcon.includes("qsimage/")) {
+            appIcon = "";
+        }
         return {
             "id": notif.id,
             "actions": notif.actions,
-            "appIcon": notif.appIcon,
+            "appIcon": appIcon,
             "appName": notif.appName,
             "body": notif.body,
-            "image": notif.image,
+            "image": img,
             "summary": notif.summary,
             "time": notif.time,
             "urgency": notif.urgency,
@@ -97,11 +105,11 @@ Singleton {
 
     function jsonToNotif(json) {
         let img = json.image || "";
-        if (img.startsWith("image://qsimage/") || img.startsWith("/tmp/") || img.startsWith("file:///tmp/")) {
+        if (img.includes("/tmp/") || img.includes("qsimage/")) {
             img = "";
         }
         let appIcon = json.appIcon || "";
-        if (appIcon.startsWith("/tmp/") || appIcon.startsWith("file:///tmp/")) {
+        if (appIcon.includes("/tmp/") || appIcon.includes("qsimage/")) {
             appIcon = "";
         }
         return {

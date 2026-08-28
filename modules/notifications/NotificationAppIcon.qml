@@ -29,6 +29,7 @@ ClippingRectangle {
 
     function getIconSource(iconName) {
         if (!iconName) return "";
+        if (iconName.includes("/tmp/") || iconName.includes("qsimage/")) return "";
         
         // Strip any query parameters like ?fallback=... which break Quickshell icon resolution
         let cleanIcon = iconName;
