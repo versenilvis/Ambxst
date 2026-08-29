@@ -16,15 +16,10 @@ Singleton {
     property var monitors: []
 
     // Update window list when Hyprland layout becomes ready
-    Connections {
-        ignoreUnknownSignals: true
-        enabled: GlobalStates != null
-        target: GlobalStates
-
-        function onHyprlandLayoutReadyChanged() {
-            if (GlobalStates.hyprlandLayoutReady) {
-                root.updateWindowList()
-            }
+    property bool globalStatesLayoutReady: GlobalStates.hyprlandLayoutReady
+    onGlobalStatesLayoutReadyChanged: {
+        if (GlobalStates.hyprlandLayoutReady) {
+            root.updateWindowList()
         }
     }
 

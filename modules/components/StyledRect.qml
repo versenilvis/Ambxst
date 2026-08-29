@@ -88,12 +88,8 @@ ClippingRectangle {
             ctx.fillRect(0, 0, width, height);
         }
         
-        Connections {
-            target: Colors
-            ignoreUnknownSignals: true
-        enabled: Colors != null
-            function onLoaded() { linearGradientCanvas.requestPaint(); }
-        }
+        property bool colorsLoaded: Colors.loaded
+        onColorsLoadedChanged: linearGradientCanvas.requestPaint()
         Component.onCompleted: requestPaint()
     }
 

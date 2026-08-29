@@ -14,7 +14,7 @@ import "media_detector.js" as MediaDetector
 Item {
     id: notchMediaView
 
-    property MprisPlayer player: MprisController.activePlayer
+    property var player: MprisController.activePlayer
     property bool expandedState: false
 
     property bool isPlaying: player?.playbackState === MprisPlaybackState.Playing

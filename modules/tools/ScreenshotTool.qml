@@ -64,15 +64,10 @@ PanelWindow {
         }
     }
     
-    // Listen for global changes - MUST be outside any property binding loop
-    Connections {
-        ignoreUnknownSignals: true
-        enabled: GlobalStates != null
-        target: GlobalStates
-        function onScreenshotCaptureModeChanged() {
-            if (screenshotPopup.currentMode !== GlobalStates.screenshotCaptureMode) {
-                screenshotPopup.currentMode = GlobalStates.screenshotCaptureMode
-            }
+    property string globalCaptureMode: GlobalStates.screenshotCaptureMode
+    onGlobalCaptureModeChanged: {
+        if (currentMode !== globalCaptureMode) {
+            currentMode = globalCaptureMode;
         }
     }
 

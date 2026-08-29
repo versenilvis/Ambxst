@@ -10,18 +10,18 @@ import qs.config
 
 Singleton {
     id: root
-    property MprisPlayer trackedPlayer: null
+    property var trackedPlayer: null
     property var filteredPlayers: {
         const filtered = Mpris.players.values.filter(player => {
             const dbusName = (player.dbusName || "").toLowerCase();
-            if (!Config.bar.enableFirefoxPlayer && dbusName.includes("firefox")) {
+            if (!Config.bar?.enableFirefoxPlayer && dbusName.includes("firefox")) {
                 return false;
             }
             return true;
         });
         return filtered;
     }
-    property MprisPlayer activePlayer: trackedPlayer ?? filteredPlayers[0] ?? null
+    property var activePlayer: trackedPlayer ?? filteredPlayers[0] ?? null
 
     property string cacheFilePath: Quickshell.dataPath("lastPlayer.json")
     property bool isInitializing: true

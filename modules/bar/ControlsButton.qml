@@ -114,13 +114,9 @@ Item {
                     Audio.toggleMute();
                 }
 
-                Connections {
-        ignoreUnknownSignals: true
-        enabled: Audio != null
-                    target: Audio
-                    function onVolumeChanged() {
-                        volumeRow.sliderValue = Audio.volume;
-                    }
+                property real audioVol: Audio.volume
+                onAudioVolChanged: {
+                    volumeRow.sliderValue = Audio.volume;
                 }
             }
 
@@ -146,13 +142,9 @@ Item {
                     Audio.toggleMicMute();
                 }
 
-                Connections {
-        ignoreUnknownSignals: true
-        enabled: Audio != null
-                    target: Audio
-                    function onMicVolumeChanged() {
-                        micRow.sliderValue = Audio.micVolume;
-                    }
+                property real audioMicVol: Audio.micVolume
+                onAudioMicVolChanged: {
+                    micRow.sliderValue = Audio.micVolume;
                 }
             }
 
@@ -195,14 +187,10 @@ Item {
                     }
                 }
 
-                Connections {
-                    target: Brightness
-                    ignoreUnknownSignals: true
-        enabled: Brightness != null
-                    function onBrightnessChanged() {
-                        if (brightnessRow.currentMonitor) {
-                            brightnessRow.sliderValue = brightnessRow.currentMonitor.brightness;
-                        }
+                property real brightnessGlobal: Brightness.brightness
+                onBrightnessGlobalChanged: {
+                    if (brightnessRow.currentMonitor) {
+                        brightnessRow.sliderValue = brightnessRow.currentMonitor.brightness;
                     }
                 }
             }

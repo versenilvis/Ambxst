@@ -866,15 +866,7 @@ Scope {
                             ctx.stroke();
                         }
 
-                        // Signal connections for repainting
-                        Connections {
-        ignoreUnknownSignals: true
-        enabled: Colors != null
-                            target: Colors
-                            function onPrimaryChanged() {
-                                outlineCanvas.requestPaint();
-                            }
-                        }
+
                         property var configThemeSrBgBorder: Config.theme?.srBg?.border ?? null
                         onConfigThemeSrBgBorderChanged: {
                             if (Config.initialLoadComplete && Config.theme) {

@@ -215,12 +215,8 @@ Item {
                                 ctx.arc(centerX, centerY, 16, -Math.PI/2, (-Math.PI/2) + (Battery.percentage/100 * 2*Math.PI)); 
                                 ctx.stroke();
                             }
-                            Connections {
-        ignoreUnknownSignals: true
-        enabled: Battery != null 
-                                target: Battery
-                                function onPercentageChanged() { batteryPopupCanvas.requestPaint(); } 
-                            }
+                            property real batteryPercentage: Battery.percentage
+                            onBatteryPercentageChanged: batteryPopupCanvas.requestPaint()
                         }
                         
                         Text {

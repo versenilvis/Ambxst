@@ -226,71 +226,67 @@ Item {
 
                     // update when notifications list changes
                     // only active when component is visible to avoid duplicate work
-                    Connections {
-                        target: Notifications
-                        ignoreUnknownSignals: true
-                        enabled: root.visible
-                        function onPopupListChanged() {
-                            if (Notifications.popupList.length === 0) {
-                                notificationStack.clear();
-                                root.currentIndex = 0;
-                                root.lastNotificationCount = 0;
-                                return;
-                            }
-
-                            // Si no hay items en el stack, añadir la primera notificación
-                            if (notificationStack.depth === 0) {
-                                notificationStack.push(notificationComponent, {
-                                    "notification": Notifications.popupList[0]
-                                });
-                                root.currentIndex = 0;
-                                root.lastNotificationCount = Notifications.popupList.length;
-                                return;
-                            }
-
-                            // Detectar nueva notificación: si la lista creció, ir a la más reciente (última)
-                            // Solo si no hay hover para no interrumpir la interacción del usuario
-                            if (Notifications.popupList.length > root.lastNotificationCount && !root.hovered) {
-                                const newIndex = Notifications.popupList.length - 1;
-                                root.currentIndex = newIndex;
-                                notificationStack.navigateToNotification(newIndex, StackView.PushTransition);
-                                root.lastNotificationCount = Notifications.popupList.length;
-                                return;
-                            }
-
-                            // Actualizar el contador
-                            root.lastNotificationCount = Notifications.popupList.length;
-
-                            // Manejar eliminación de notificaciones
-                            // Obtener la notificación actual antes del ajuste
-                            const currentNotificationId = notificationStack.currentItem?.notification?.id;
-                            const oldIndex = root.currentIndex;
-
-                            // Ajustar el índice si es necesario
-                            if (root.currentIndex >= Notifications.popupList.length) {
-                                root.currentIndex = Math.max(0, Notifications.popupList.length - 1);
-                            }
-
-                            // Determinar si una notificación fue eliminada y calcular la dirección apropiada
-                            const newNotification = Notifications.popupList[root.currentIndex];
-                            let forceDirection = null;
-
-                            // Si la notificación actual cambió, significa que se eliminó una
-                            if (currentNotificationId && newNotification && currentNotificationId !== newNotification.id) {
-                                // Si estábamos viendo una notificación posterior y ahora vemos una anterior,
-                                // significa que se eliminó una notificación antes de la actual -> transición hacia abajo
-                                if (oldIndex > 0 && root.currentIndex < oldIndex) {
-                                    forceDirection = StackView.PopTransition; // Aparece desde arriba (hacia abajo)
-                                } else
-                                // Si se eliminó la notificación actual y vamos a la siguiente
-                                if (root.currentIndex === oldIndex) {
-                                    forceDirection = StackView.PushTransition; // Aparece desde abajo (hacia arriba)
-                                }
-                            }
-
-                            // Navegar a la notificación actual con la dirección calculada
-                            notificationStack.navigateToNotification(root.currentIndex, forceDirection);
+                    property var notifPopupList: root.visible ? Notifications.popupList : []
+                    onNotifPopupListChanged: {
+                        if (Notifications.popupList.length === 0) {
+                            notificationStack.clear();
+                            root.currentIndex = 0;
+                            root.lastNotificationCount = 0;
+                            return;
                         }
+
+                        // Si no hay items en el stack, añadir la primera notificación
+                        if (notificationStack.depth === 0) {
+                            notificationStack.push(notificationComponent, {
+                                "notification": Notifications.popupList[0]
+                            });
+                            root.currentIndex = 0;
+                            root.lastNotificationCount = Notifications.popupList.length;
+                            return;
+                        }
+
+                        // Detectar nueva notificación: si la lista creció, ir a la más reciente (última)
+                        // Solo si no hay hover para no interrumpir la interacción del usuario
+                        if (Notifications.popupList.length > root.lastNotificationCount && !root.hovered) {
+                            const newIndex = Notifications.popupList.length - 1;
+                            root.currentIndex = newIndex;
+                            notificationStack.navigateToNotification(newIndex, StackView.PushTransition);
+                            root.lastNotificationCount = Notifications.popupList.length;
+                            return;
+                        }
+
+                        // Actualizar el contador
+                        root.lastNotificationCount = Notifications.popupList.length;
+
+                        // Manejar eliminación de notificaciones
+                        // Obtener la notificación actual antes del ajuste
+                        const currentNotificationId = notificationStack.currentItem?.notification?.id;
+                        const oldIndex = root.currentIndex;
+
+                        // Ajustar el índice si es necesario
+                        if (root.currentIndex >= Notifications.popupList.length) {
+                            root.currentIndex = Math.max(0, Notifications.popupList.length - 1);
+                        }
+
+                        // Determinar si una notificación fue eliminada y calcular la dirección apropiada
+                        const newNotification = Notifications.popupList[root.currentIndex];
+                        let forceDirection = null;
+
+                        // Si la notificación actual cambió, significa que se eliminó una
+                        if (currentNotificationId && newNotification && currentNotificationId !== newNotification.id) {
+                            // Si estábamos viendo una notificación posterior y now vemos una anterior,
+                            // significa que se eliminó una notificación antes de la actual -> transición hacia abajo
+                            if (oldIndex > 0 && root.currentIndex < oldIndex) {
+                                forceDirection = StackView.PopTransition; // Aparece desde arriba (hacia abajo)
+                            } else
+                            // Si se eliminó la notificación actual y vamos a la siguiente
+                            if (root.currentIndex === oldIndex) {
+                                forceDirection = StackView.PushTransition; // Aparece desde abajo (hacia arriba)
+                            }
+                        }
+
+                        // Navegar a la notificación actual con la dirección calculada
+                        notificationStack.navigateToNotification(root.currentIndex, forceDirection);
                     }
 
                     // Transiciones verticales - igual que el launcher

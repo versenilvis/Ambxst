@@ -219,21 +219,16 @@ ShellRoot {
         active: true
         source: "modules/tools/ScreenrecordTool.qml"
         
-        Connections {
-            target: GlobalStates
-            ignoreUnknownSignals: true
-        enabled: GlobalStates != null
-            function onScreenRecordToolVisibleChanged() {
-                if (screenRecordLoader.status === Loader.Ready && screenRecordLoader.item) {
-                    if (GlobalStates.screenRecordToolVisible) {
-                        screenRecordLoader.item.open();
-                    } else {
-                        screenRecordLoader.item.close();
-                    }
+        property bool screenRecordVisible: GlobalStates.screenRecordToolVisible
+        onScreenRecordVisibleChanged: {
+            if (screenRecordLoader.status === Loader.Ready && screenRecordLoader.item) {
+                if (GlobalStates.screenRecordToolVisible) {
+                    screenRecordLoader.item.open();
+                } else {
+                    screenRecordLoader.item.close();
                 }
             }
         }
-
     }
 
     // Mirror Tool
@@ -241,16 +236,6 @@ ShellRoot {
         id: mirrorLoader
         active: true
         source: "modules/tools/MirrorWindow.qml"
-    }
-
-    // Initialize clipboard service at startup to ensure clipboard watching starts immediately
-    Connections {
-        target: ClipboardService
-        ignoreUnknownSignals: true
-        enabled: ClipboardService != null
-        function onListCompleted() {
-            // Service initialized and ready
-        }
     }
 
     // Force initialization of control services at startup
@@ -264,6 +249,7 @@ ShellRoot {
             _ = GameModeService.toggled
             _ = CaffeineService.inhibit
             _ = IdleService.lockCmd // Force init
+            _ = ClipboardService.cachedList
         }
     }
 

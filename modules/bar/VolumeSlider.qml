@@ -136,15 +136,11 @@ Item {
                 Audio.toggleMute();
             }
 
-            Connections {
-                ignoreUnknownSignals: true
-                enabled: Audio != null
-                target: Audio
-                function onVolumeChanged() {
-                    volumeSlider.value = Audio.volume;
-                    root.externalVolumeChange = true;
-                    externalChangeTimer.restart();
-                }
+            property real audioVol: Audio.volume
+            onAudioVolChanged: {
+                volumeSlider.value = Audio.volume;
+                root.externalVolumeChange = true;
+                externalChangeTimer.restart();
             }
 
             Timer {

@@ -150,13 +150,9 @@ Rectangle {
                 }
             }
 
-            Connections {
-        ignoreUnknownSignals: true
-        enabled: AppSearch != null
-                target: AppSearch
-                function onSearchResultsChanged() {
-                    appLauncher.filteredApps = AppSearch.searchResults;
-                }
+            property var searchResultsList: AppSearch.searchResults
+            onSearchResultsListChanged: {
+                appLauncher.filteredApps = AppSearch.searchResults;
             }
 
             onFilteredAppsChanged: {
@@ -1517,14 +1513,10 @@ Rectangle {
                             brightnessContainer.parent.circularControlDragging = isDragging;
                         }
 
-                        Connections {
-                            target: Brightness
-                            ignoreUnknownSignals: true
-        enabled: Brightness != null
-                            function onBrightnessChanged() {
-                                if (brightnessSlider.currentMonitor && brightnessSlider.currentMonitor.ready && !brightnessSlider.isDragging) {
-                                    brightnessSlider.brightnessValue = brightnessSlider.currentMonitor.brightness;
-                                }
+                        property real brightnessGlobal: Brightness.brightness
+                        onBrightnessGlobalChanged: {
+                            if (brightnessSlider.currentMonitor && brightnessSlider.currentMonitor.ready && !brightnessSlider.isDragging) {
+                                brightnessSlider.brightnessValue = brightnessSlider.currentMonitor.brightness;
                             }
                         }
                     }

@@ -123,15 +123,11 @@ Item {
                 Audio.toggleMicMute();
             }
 
-            Connections {
-        ignoreUnknownSignals: true
-        enabled: Audio != null
-                target: Audio
-                function onMicVolumeChanged() {
-                    micSlider.value = Audio.micVolume;
-                    root.externalVolumeChange = true;
-                    externalChangeTimer.restart();
-                }
+            property real audioMicVol: Audio.micVolume
+            onAudioMicVolChanged: {
+                micSlider.value = Audio.micVolume;
+                root.externalVolumeChange = true;
+                externalChangeTimer.restart();
             }
         }
 

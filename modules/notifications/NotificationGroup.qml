@@ -88,17 +88,23 @@ Item {
         }
     }
 
-    // Escuchar cuando las notificaciones van a hacer timeout
-    Connections {
-        ignoreUnknownSignals: true
-        enabled: Notifications != null
-        target: Notifications
-        function onTimeoutWithAnimation(id) {
-            // Verificar si la notificación que va a hacer timeout pertenece a este grupo
-            const notifExists = root.notifications.some(notif => notif.id === id);
-            if (notifExists && root.popup) {
-                root.destroyWithAnimation();
-            }
+    function handleTimeoutWithAnimation(id) {
+        // Verificar si la notificación que va a hacer timeout pertenece a este grupo
+        const notifExists = root.notifications.some(notif => notif.id === id);
+        if (notifExists && root.popup) {
+            root.destroyWithAnimation();
+        }
+    }
+
+    Component.onCompleted: {
+        if (Notifications?.timeoutWithAnimation) {
+            Notifications.timeoutWithAnimation.connect(handleTimeoutWithAnimation);
+        }
+    }
+
+    Component.onDestruction: {
+        if (Notifications?.timeoutWithAnimation) {
+            Notifications.timeoutWithAnimation.disconnect(handleTimeoutWithAnimation);
         }
     }
 

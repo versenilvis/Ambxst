@@ -153,13 +153,9 @@ Item {
 
             onIconClicked: {}
 
-            Connections {
-                target: Brightness
-                ignoreUnknownSignals: true
-                enabled: Brightness != null
-                function onBrightnessChanged() {
-                    root.updateSliderFromMonitor(true);
-                }
+            property real brightnessGlobal: Brightness.brightness
+            onBrightnessGlobalChanged: {
+                root.updateSliderFromMonitor(true);
             }
         }
 

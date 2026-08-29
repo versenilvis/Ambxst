@@ -72,21 +72,18 @@ NotchAnimationBehavior {
     }
 
     // Escuchar cambios en dashboardCurrentTab para navegar automáticamente
-    Connections {
-        ignoreUnknownSignals: true
-        enabled: GlobalStates != null
-        target: GlobalStates
-        function onDashboardCurrentTabChanged() {
-            if (GlobalStates.dashboardCurrentTab !== root.state.currentTab) {
-                stack.navigateToTab(GlobalStates.dashboardCurrentTab);
-            }
+    property int globalDashboardTab: GlobalStates.dashboardCurrentTab
+    onGlobalDashboardTabChanged: {
+        if (GlobalStates.dashboardCurrentTab !== root.state.currentTab) {
+            stack.navigateToTab(GlobalStates.dashboardCurrentTab);
         }
+    }
 
-        // Focus cuando cambia el texto del launcher (por shortcuts con prefix)
-        function onLauncherSearchTextChanged() {
-            if (isVisible && GlobalStates.dashboardCurrentTab === 0) {
-                focusUnifiedLauncherTimer.restart();
-            }
+    // Focus cuando cambia el texto del launcher (por shortcuts con prefix)
+    property string globalLauncherSearchText: GlobalStates.launcherSearchText
+    onGlobalLauncherSearchTextChanged: {
+        if (isVisible && GlobalStates.dashboardCurrentTab === 0) {
+            focusUnifiedLauncherTimer.restart();
         }
     }
 

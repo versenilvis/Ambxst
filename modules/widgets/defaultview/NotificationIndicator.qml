@@ -76,16 +76,12 @@ Item {
         }
     }
 
-    Connections {
-        ignoreUnknownSignals: true
-        enabled: Notifications != null
-        target: Notifications
-        function onPopupListChanged() {
-            if (Notifications.popupList.length > previousNotifCount) {
-                shakeAnimation.restart();
-            }
-            previousNotifCount = Notifications.popupList.length;
+    property int popupListLength: Notifications.popupList.length
+    onPopupListLengthChanged: {
+        if (popupListLength > previousNotifCount) {
+            shakeAnimation.restart();
         }
+        previousNotifCount = popupListLength;
     }
 
     Component.onCompleted: {

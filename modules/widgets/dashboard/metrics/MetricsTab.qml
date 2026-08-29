@@ -142,14 +142,10 @@ Rectangle {
     }
 
     // Watch for history changes to repaint chart only when visible
-    Connections {
-        target: SystemResources
-        ignoreUnknownSignals: true
-        enabled: SystemResources != null
-        function onCpuHistoryChanged() {
-            if (root.visible) {
-                chartCanvas.requestPaint();
-            }
+    property var cpuHistory: SystemResources.cpuHistory
+    onCpuHistoryChanged: {
+        if (root.visible) {
+            chartCanvas.requestPaint();
         }
     }
 

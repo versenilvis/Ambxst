@@ -18,7 +18,7 @@ Item {
 
     // State
     readonly property bool hasActiveNotifications: Notifications.popupList.length > 0
-    readonly property MprisPlayer activePlayer: MprisController.activePlayer
+    readonly property var activePlayer: MprisController.activePlayer
     property bool notchHovered: false
     property bool isNavigating: false
 

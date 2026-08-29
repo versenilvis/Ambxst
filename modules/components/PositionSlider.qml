@@ -10,7 +10,7 @@ Item {
 
     Layout.fillHeight: true
 
-    required property MprisPlayer player
+    property var player: null
 
     property bool isPlaying: player?.playbackState === MprisPlaybackState.Playing
     property real position: player?.position ?? 0.0
