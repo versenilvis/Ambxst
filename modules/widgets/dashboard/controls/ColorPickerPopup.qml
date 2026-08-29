@@ -14,6 +14,7 @@ Popup {
     property string dialogTitle: "Select Color"
 
     signal colorSelected(string color)
+    onCurrentHexChanged: if (!hexInput.activeFocus) hexInput.text = currentHex
 
     width: 280
     height: 290
@@ -114,16 +115,6 @@ Popup {
                     }
                     Keys.onEnterPressed: Keys.onReturnPressed(event)
 
-                    Connections {
-        ignoreUnknownSignals: true
-        enabled: root != null
-                        target: root
-                        function onCurrentHexChanged() {
-                            if (!hexInput.activeFocus) {
-                                hexInput.text = root.currentHex;
-                            }
-                        }
-                    }
                 }
 
                 Text {

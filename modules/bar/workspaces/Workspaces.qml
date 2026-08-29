@@ -119,14 +119,8 @@ Item {
     // Initial update
     Component.onCompleted: updateTimer.restart()
 
-    Connections {
-        ignoreUnknownSignals: true
-        enabled: Hyprland.workspaces != null
-        target: Hyprland.workspaces
-        function onValuesChanged() {
-            updateTimer.restart();
-        }
-    }
+    property var hyprlandWorkspacesValues: Hyprland.workspaces?.values ?? []
+    onHyprlandWorkspacesValuesChanged: updateTimer.restart()
 
     property var monitorActiveWorkspace: monitor?.activeWorkspace ?? null
     onMonitorActiveWorkspaceChanged: {
@@ -142,14 +136,8 @@ Item {
         }
     }
 
-    Connections {
-        ignoreUnknownSignals: true
-        enabled: HyprlandData != null
-        target: HyprlandData
-        function onWindowListChanged() {
-            updateTimer.restart();
-        }
-    }
+    property var hyprlandDataWindowList: HyprlandData?.windowList ?? []
+    onHyprlandDataWindowListChanged: updateTimer.restart()
 
     onWorkspaceGroupChanged: {
         updateTimer.restart();

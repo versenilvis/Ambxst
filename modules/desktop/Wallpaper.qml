@@ -33,7 +33,7 @@ PanelWindow {
     }
 
     readonly property string wallpaperSource: {
-        const customWall = wallpaperConfig.adapter.currentWall;
+        const customWall = wallpaperConfig.adapter?.currentWall;
         if (customWall && customWall.length > 0) {
             return customWall;
         }

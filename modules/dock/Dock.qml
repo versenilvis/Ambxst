@@ -881,70 +881,18 @@ Scope {
                                 outlineCanvas.requestPaint();
                             }
                         }
-                        Connections {
-        ignoreUnknownSignals: true
-        enabled: dockBackground != null
-                            target: dockBackground
-                            function onBottomLeftRadiusChanged() {
-                                outlineCanvas.requestPaint();
-                            }
-                        }
-                        Connections {
-        ignoreUnknownSignals: true
-        enabled: dockBackground != null
-                            target: dockBackground
-                            function onBottomRightRadiusChanged() {
-                                outlineCanvas.requestPaint();
-                            }
-                        }
-                        Connections {
-        ignoreUnknownSignals: true
-        enabled: dockBackground != null
-                            target: dockBackground
-                            function onTopLeftRadiusChanged() {
-                                outlineCanvas.requestPaint();
-                            }
-                        }
-                        Connections {
-        ignoreUnknownSignals: true
-        enabled: dockBackground != null
-                            target: dockBackground
-                            function onTopRightRadiusChanged() {
-                                outlineCanvas.requestPaint();
-                            }
-                        }
-                        Connections {
-        ignoreUnknownSignals: true
-        enabled: dockContainer != null
-                            target: dockContainer
-                            function onWidthChanged() {
-                                outlineCanvas.requestPaint();
-                            }
-                        }
-                        Connections {
-        ignoreUnknownSignals: true
-        enabled: dockContainer != null
-                            target: dockContainer
-                            function onHeightChanged() {
-                                outlineCanvas.requestPaint();
-                            }
-                        }
-                        Connections {
-        ignoreUnknownSignals: true
-        enabled: root != null
-                            target: root
-                            function onIsDefaultChanged() {
-                                outlineCanvas.requestPaint();
-                            }
-                        }
-                        Connections {
-        ignoreUnknownSignals: true
-        enabled: root != null
-                            target: root
-                            function onPositionChanged() {
-                                outlineCanvas.requestPaint();
-                            }
-                        }
+                        property var _repaintTriggers: [
+                            dockBackground?.bottomLeftRadius,
+                            dockBackground?.bottomRightRadius,
+                            dockBackground?.topLeftRadius,
+                            dockBackground?.topRightRadius,
+                            dockContainer?.width,
+                            dockContainer?.height,
+                            root.isDefault,
+                            root.position,
+                            Colors.primary
+                        ]
+                        on_RepaintTriggersChanged: outlineCanvas.requestPaint()
                     }
                 }
             }

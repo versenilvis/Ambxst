@@ -212,22 +212,8 @@ Item {
                             ctx.fillRect(0, 0, width, height);
                         }
 
-                        Connections {
-        ignoreUnknownSignals: true
-        enabled: root != null
-                            target: root
-                            function onStopsChanged() {
-                                gradientPreviewCanvas.requestPaint();
-                            }
-                        }
-                        Connections {
-        ignoreUnknownSignals: true
-        enabled: Colors != null
-                            target: Colors
-                            function onLoaded() {
-                                gradientPreviewCanvas.requestPaint();
-                            }
-                        }
+                        property var _repaintTriggers: [root.stops, Colors.primary]
+                        on_RepaintTriggersChanged: gradientPreviewCanvas.requestPaint()
 
                         // Repaint when size changes
                         onWidthChanged: requestPaint()

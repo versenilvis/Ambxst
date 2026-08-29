@@ -265,6 +265,19 @@ Item {
             selectedOptionIndex = 0;
             keyboardNavigation = false;
         }
+
+        // Reset content state when selection changes
+        root.currentItemId = "";
+        root.currentFullContent = "";
+        root.loadingLinkPreview = false;
+
+        if (root.selectedIndex >= 0 && root.selectedIndex < root.allItems.length) {
+            let item = root.allItems[root.selectedIndex];
+            if (!item.isImage) {
+                // Obtener contenido completo para texto
+                ClipboardService.getFullContent(item.id);
+            }
+        }
     }
 
     onSearchTextChanged: {
@@ -608,27 +621,7 @@ Item {
         }
     }
 
-    // Conexión para cargar imágenes cuando cambia la selección
-    Connections {
-        ignoreUnknownSignals: true
-        enabled: root != null
-        target: root
-        function onSelectedIndexChanged() {
-            // Reset content state when selection changes
-            // Setting currentItemId to "" ensures linkPreviewData won't use stale content
-            root.currentItemId = "";
-            root.currentFullContent = "";
-            root.loadingLinkPreview = false;
 
-            if (root.selectedIndex >= 0 && root.selectedIndex < root.allItems.length) {
-                let item = root.allItems[root.selectedIndex];
-                if (!item.isImage) {
-                    // Obtener contenido completo para texto
-                    ClipboardService.getFullContent(item.id);
-                }
-            }
-        }
-    }
 
     // Conexión para recibir el contenido completo
     Connections {

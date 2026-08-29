@@ -3197,17 +3197,17 @@ Singleton {
 
     // Theme configuration
     property QtObject theme: themeLoader.adapter
-    property bool oledMode: lightMode ? false : theme.oledMode
-    property bool lightMode: theme.lightMode
+    property bool oledMode: lightMode ? false : (theme?.oledMode ?? false)
+    property bool lightMode: theme?.lightMode ?? false
 
-    property int roundness: theme.roundness
-    property string defaultFont: theme.font
-    property int animDuration: Services.GameModeService.toggled ? 0 : theme.animDuration
-    property bool tintIcons: theme.tintIcons
+    property int roundness: theme?.roundness ?? 16
+    property string defaultFont: theme?.font ?? "Roboto Condensed"
+    property int animDuration: Services.GameModeService.toggled ? 0 : (theme?.animDuration ?? 300)
+    property bool tintIcons: theme?.tintIcons ?? false
 
     // Bar configuration
     property QtObject bar: barLoader.adapter
-    property bool showBackground: theme.srBarBg.opacity > 0
+    property bool showBackground: (theme?.srBarBg?.opacity ?? 0) > 0
 
     // Workspace configuration
     property QtObject workspaces: workspacesLoader.adapter
@@ -3217,19 +3217,19 @@ Singleton {
 
     // Notch configuration
     property QtObject notch: notchLoader.adapter
-    property string notchTheme: notch.theme
+    property string notchTheme: notch?.theme ?? "default"
 
     // Hyprland configuration
     property QtObject hyprland: hyprlandLoader.adapter
-    property int hyprlandRounding: hyprland.syncRoundness ? roundness : hyprland.rounding
-    property int hyprlandBorderSize: hyprland.syncBorderWidth ? (theme.srBg.border[1] || 0) : hyprland.borderSize
-    property string hyprlandBorderColor: hyprland.syncBorderColor ? (theme.srBg.border[0] || "primary") : (hyprland.activeBorderColor.length > 0 ? hyprland.activeBorderColor[0] : "primary")
-    property real hyprlandShadowOpacity: hyprland.syncShadowOpacity ? theme.shadowOpacity : hyprland.shadowOpacity
-    property string hyprlandShadowColor: hyprland.syncShadowColor ? theme.shadowColor : hyprland.shadowColor
+    property int hyprlandRounding: hyprland?.syncRoundness ? roundness : (hyprland?.rounding ?? 16)
+    property int hyprlandBorderSize: hyprland?.syncBorderWidth ? (theme?.srBg?.border?.[1] || 0) : (hyprland?.borderSize ?? 2)
+    property string hyprlandBorderColor: hyprland?.syncBorderColor ? (theme?.srBg?.border?.[0] || "primary") : ((hyprland?.activeBorderColor && hyprland.activeBorderColor.length > 0) ? hyprland.activeBorderColor[0] : "primary")
+    property real hyprlandShadowOpacity: hyprland?.syncShadowOpacity ? (theme?.shadowOpacity ?? 0.5) : (hyprland?.shadowOpacity ?? 0.5)
+    property string hyprlandShadowColor: hyprland?.syncShadowColor ? (theme?.shadowColor ?? "shadow") : (hyprland?.shadowColor ?? "shadow")
 
     // Performance configuration
     property QtObject performance: performanceLoader.adapter
-    property bool blurTransition: performance.blurTransition
+    property bool blurTransition: performance?.blurTransition ?? false
 
     // Desktop configuration
     property QtObject desktop: desktopLoader.adapter

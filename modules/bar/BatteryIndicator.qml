@@ -118,23 +118,8 @@ Item {
                     }
                 }
 
-                Connections {
-        ignoreUnknownSignals: true
-        enabled: progressCanvas != null
-                    target: progressCanvas
-                    function onAngleChanged() {
-                        canvas.requestPaint();
-                    }
-                }
-
-                Connections {
-        ignoreUnknownSignals: true
-        enabled: Battery != null
-                    target: Battery
-                    function onPercentageChanged() {
-                        canvas.requestPaint();
-                    }
-                }
+                property var _repaintTriggers: [progressCanvas.angle, Battery.percentage]
+                on_RepaintTriggersChanged: canvas.requestPaint()
             }
 
             Behavior on angle {
@@ -159,23 +144,6 @@ Item {
                 enabled: Config.animDuration > 0
                 ColorAnimation {
                     duration: Config.animDuration / 2
-                }
-            }
-
-            Connections {
-        ignoreUnknownSignals: true
-        enabled: Battery != null
-                target: Battery
-                function onIsPluggedInChanged() {
-                    batteryIcon.text = Battery.available ? (Battery.isPluggedIn ? Icons.lightning : Battery.getBatteryIcon()) : PowerProfile.getProfileIcon(PowerProfile.currentProfile);
-                }
-                function onPercentageChanged() {
-                    if (!Battery.isPluggedIn) {
-                        batteryIcon.text = Battery.available ? Battery.getBatteryIcon() : PowerProfile.getProfileIcon(PowerProfile.currentProfile);
-                    }
-                }
-                function onAvailableChanged() {
-                    batteryIcon.text = Battery.available ? (Battery.isPluggedIn ? Icons.lightning : Battery.getBatteryIcon()) : PowerProfile.getProfileIcon(PowerProfile.currentProfile);
                 }
             }
         }

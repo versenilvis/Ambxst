@@ -50,7 +50,7 @@ ShellRoot {
 
         Loader {
             id: desktopLoader
-            active: Config.desktop.enabled
+            active: Config.desktop?.enabled ?? false
             required property ShellScreen modelData
             sourceComponent: Desktop {
                 screen: desktopLoader.modelData

@@ -159,158 +159,14 @@ QtObject {
         }
     }
 
-    property Connections configConnections: Connections {
-        ignoreUnknownSignals: true
-        enabled: Config.loader != null
-        target: Config.loader
-        function onFileChanged() {
-            applyHyprlandConfig();
-        }
-        function onLoaded() {
-            applyHyprlandConfig();
-        }
-    }
+    property var configLoaderLoaded: Config.loader?.loaded
+    onConfigLoaderLoadedChanged: applyHyprlandConfig()
 
-    property Connections hyprlandConfigConnections: Connections {
-        ignoreUnknownSignals: true
-        enabled: Config.hyprland != null
-        target: Config.hyprland
-        function onBorderSizeChanged() {
-            applyHyprlandConfig();
-        }
-        function onRoundingChanged() {
-            applyHyprlandConfig();
-        }
-        function onGapsInChanged() {
-            applyHyprlandConfig();
-        }
-        function onGapsOutChanged() {
-            applyHyprlandConfig();
-        }
-        function onActiveBorderColorChanged() {
-            applyHyprlandConfig();
-        }
-        function onInactiveBorderColorChanged() {
-            applyHyprlandConfig();
-        }
-        function onBorderAngleChanged() {
-            applyHyprlandConfig();
-        }
-        function onInactiveBorderAngleChanged() {
-            applyHyprlandConfig();
-        }
-        function onSyncRoundnessChanged() {
-            applyHyprlandConfig();
-        }
-        function onSyncBorderWidthChanged() {
-            applyHyprlandConfig();
-        }
-        function onSyncBorderColorChanged() {
-            applyHyprlandConfig();
-        }
-        function onSyncShadowOpacityChanged() {
-            applyHyprlandConfig();
-        }
-        function onSyncShadowColorChanged() {
-            applyHyprlandConfig();
-        }
-        function onShadowEnabledChanged() {
-            applyHyprlandConfig();
-        }
-        function onShadowRangeChanged() {
-            applyHyprlandConfig();
-        }
-        function onShadowRenderPowerChanged() {
-            applyHyprlandConfig();
-        }
-        function onShadowSharpChanged() {
-            applyHyprlandConfig();
-        }
-        function onShadowIgnoreWindowChanged() {
-            applyHyprlandConfig();
-        }
-        function onShadowColorChanged() {
-            applyHyprlandConfig();
-        }
-        function onShadowColorInactiveChanged() {
-            applyHyprlandConfig();
-        }
-        function onShadowOpacityChanged() {
-            applyHyprlandConfig();
-        }
-        function onShadowOffsetChanged() {
-            applyHyprlandConfig();
-        }
-        function onShadowScaleChanged() {
-            applyHyprlandConfig();
-        }
-        function onBlurEnabledChanged() {
-            applyHyprlandConfig();
-        }
-        function onBlurSizeChanged() {
-            applyHyprlandConfig();
-        }
-        function onBlurPassesChanged() {
-            applyHyprlandConfig();
-        }
-        function onBlurIgnoreOpacityChanged() {
-            applyHyprlandConfig();
-        }
-        function onBlurExplicitIgnoreAlphaChanged() {
-            applyHyprlandConfig();
-        }
-        function onBlurIgnoreAlphaValueChanged() {
-            applyHyprlandConfig();
-        }
-        function onBlurNewOptimizationsChanged() {
-            applyHyprlandConfig();
-        }
-        function onBlurXrayChanged() {
-            applyHyprlandConfig();
-        }
-        function onBlurNoiseChanged() {
-            applyHyprlandConfig();
-        }
-        function onBlurContrastChanged() {
-            applyHyprlandConfig();
-        }
-        function onBlurBrightnessChanged() {
-            applyHyprlandConfig();
-        }
-        function onBlurVibrancyChanged() {
-            applyHyprlandConfig();
-        }
-        function onBlurVibrancyDarknessChanged() {
-            applyHyprlandConfig();
-        }
-        function onBlurSpecialChanged() {
-            applyHyprlandConfig();
-        }
-        function onBlurPopupsChanged() {
-            applyHyprlandConfig();
-        }
-        function onBlurPopupsIgnorealphaChanged() {
-            applyHyprlandConfig();
-        }
-        function onBlurInputMethodsChanged() {
-            applyHyprlandConfig();
-        }
-        function onBlurInputMethodsIgnorealphaChanged() {
-            applyHyprlandConfig();
-        }
-    }
+    property var hyprlandConfigAdapter: Config.hyprland
+    onHyprlandConfigAdapterChanged: applyHyprlandConfig()
 
-    property Connections colorsConnections: Connections {
-        ignoreUnknownSignals: true
-        enabled: Colors != null
-        target: Colors
-        function onFileChanged() {
-            applyHyprlandConfig();
-        }
-        function onLoaded() {
-            applyHyprlandConfig();
-        }
-    }
+    property var colorsLoaded: Colors.loaded
+    onColorsLoadedChanged: applyHyprlandConfig()
 
     property string configBarPosition: Config.bar?.position ?? "top"
     property var configThemeSrBgOpacity: Config.theme?.srBg?.opacity ?? null
@@ -332,22 +188,17 @@ QtObject {
         }
     }
 
-    property Connections globalStatesConnections: Connections {
-        ignoreUnknownSignals: true
-        enabled: GlobalStates != null
-        target: GlobalStates
-        function onHyprlandLayoutChanged() {
-            applyHyprlandConfig();
-        }
-        function onHyprlandLayoutReadyChanged() {
-            if (GlobalStates.hyprlandLayoutReady) {
-                applyHyprlandConfig();
-            }
-        }
-        function onIsLuaParserChanged() {
+    property var globalStatesLayout: GlobalStates.hyprlandLayout
+    property var globalStatesLayoutReady: GlobalStates.hyprlandLayoutReady
+    property var globalStatesIsLuaParser: GlobalStates.isLuaParser
+
+    onGlobalStatesLayoutChanged: applyHyprlandConfig()
+    onGlobalStatesLayoutReadyChanged: {
+        if (GlobalStates.hyprlandLayoutReady) {
             applyHyprlandConfig();
         }
     }
+    onGlobalStatesIsLuaParserChanged: applyHyprlandConfig()
 
     property Connections hyprlandConnections: Connections {
         ignoreUnknownSignals: true
@@ -367,9 +218,8 @@ QtObject {
 
     Component.onCompleted: {
         // Si Config loader ya está cargado, aplicar inmediatamente
-        if (Config.loader.loaded) {
+        if (Config.loader?.loaded) {
             applyHyprlandConfig();
         }
-        // Si no, las conexiones onLoaded se encargarán
     }
 }

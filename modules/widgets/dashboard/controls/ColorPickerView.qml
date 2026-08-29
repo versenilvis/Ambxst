@@ -17,6 +17,7 @@ Item {
 
     signal colorSelected(string color)
     signal closed
+    onCurrentHexChanged: if (typeof hexInput !== "undefined" && hexInput && !hexInput.activeFocus) hexInput.text = currentHex
 
     // Handle Escape key to close (without closing notch)
     Keys.onEscapePressed: event => {
@@ -158,17 +159,6 @@ Item {
                     Keys.onEscapePressed: event => {
                         root.closed();
                         event.accepted = true;
-                    }
-
-                    Connections {
-        ignoreUnknownSignals: true
-        enabled: root != null
-                        target: root
-                        function onCurrentHexChanged() {
-                            if (!hexInput.activeFocus) {
-                                hexInput.text = root.currentHex;
-                            }
-                        }
                     }
                 }
 

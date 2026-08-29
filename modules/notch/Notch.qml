@@ -705,71 +705,26 @@ Item {
             }
             ctx.stroke();
         }
-        Connections {
-        ignoreUnknownSignals: true
-        enabled: Colors != null
-            target: Colors
-            function onPrimaryChanged() {
-                outlineCanvas.requestPaint();
-            }
-        }
+
         property var configThemeSrBgBorder: Config.theme?.srBg?.border ?? null
         onConfigThemeSrBgBorderChanged: {
             if (Config.initialLoadComplete && Config.theme) {
                 outlineCanvas.requestPaint();
             }
         }
-        Connections {
-        ignoreUnknownSignals: true
-        enabled: notchRect != null
-            target: notchRect
-            function onBottomLeftRadiusChanged() {
-                outlineCanvas.requestPaint();
-            }
-            function onBottomRightRadiusChanged() {
-                outlineCanvas.requestPaint();
-            }
-            function onWidthChanged() {
-                outlineCanvas.requestPaint();
-            }
-            function onHeightChanged() {
-                outlineCanvas.requestPaint();
-            }
-        }
-        Connections {
-        ignoreUnknownSignals: true
-        enabled: notchContainer != null
-            target: notchContainer
-            function onImplicitWidthChanged() {
-                outlineCanvas.requestPaint();
-            }
-            function onImplicitHeightChanged() {
-                outlineCanvas.requestPaint();
-            }
-        }
-        Connections {
-        ignoreUnknownSignals: true
-        enabled: Config != null
-            target: Config
-            function onNotchThemeChanged() {
-                outlineCanvas.requestPaint();
-            }
-        }
-        Connections {
-        ignoreUnknownSignals: true
-        enabled: leftCornerMaskPart != null
-            target: leftCornerMaskPart
-            function onWidthChanged() {
-                outlineCanvas.requestPaint();
-            }
-        }
-        Connections {
-        ignoreUnknownSignals: true
-        enabled: rightCornerMaskPart != null
-            target: rightCornerMaskPart
-            function onWidthChanged() {
-                outlineCanvas.requestPaint();
-            }
-        }
+
+        property var _repaintTriggers: [
+            Colors?.primary,
+            notchRect?.bottomLeftRadius,
+            notchRect?.bottomRightRadius,
+            notchRect?.width,
+            notchRect?.height,
+            notchContainer?.implicitWidth,
+            notchContainer?.implicitHeight,
+            Config?.notchTheme,
+            leftCornerMaskPart?.width,
+            rightCornerMaskPart?.width
+        ]
+        on_RepaintTriggersChanged: outlineCanvas.requestPaint()
     }
 }

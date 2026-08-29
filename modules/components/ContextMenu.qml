@@ -73,6 +73,7 @@ PanelWindow {
 
         OptionsMenu {
             id: menu
+            onClosed: contextWindow.close()
 
             menuWidth: contextWindow.menuWidth
             itemHeight: contextWindow.itemHeight
@@ -278,12 +279,4 @@ PanelWindow {
         }
     }
 
-    Connections {
-        ignoreUnknownSignals: true
-        enabled: menu != null
-        target: menu
-        function onClosed() {
-            contextWindow.close();
-        }
-    }
 }

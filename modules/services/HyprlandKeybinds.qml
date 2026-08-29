@@ -478,20 +478,8 @@ QtObject {
         }
     }
 
-    property Connections configConnections: Connections {
-        ignoreUnknownSignals: true
-        enabled: Config.keybindsLoader != null
-        target: Config.keybindsLoader
-        function onFileChanged() {
-            applyKeybinds();
-        }
-        function onLoaded() {
-            applyKeybinds();
-        }
-        function onAdapterUpdated() {
-            applyKeybinds();
-        }
-    }
+    property var keybindsLoaderLoaded: Config.keybindsLoader?.loaded
+    onKeybindsLoaderLoadedChanged: applyKeybinds()
 
     // Re-apply keybindings after a delay to prevent startup overwrites
     property Timer startupReapplyTimer: Timer {
@@ -505,24 +493,23 @@ QtObject {
     }
 
     // Re-apply keybinds when layout changes
-    property Connections globalStatesConnections: Connections {
-        ignoreUnknownSignals: true
-        enabled: GlobalStates != null
-        target: GlobalStates
-        function onHyprlandLayoutChanged() {
-            console.log("HyprlandKeybinds: Layout changed to " + GlobalStates.hyprlandLayout + ", reapplying keybindings...");
+    property var globalStatesLayout: GlobalStates.hyprlandLayout
+    property var globalStatesLayoutReady: GlobalStates.hyprlandLayoutReady
+    property var globalStatesIsLuaParser: GlobalStates.isLuaParser
+
+    onGlobalStatesLayoutChanged: {
+        console.log("HyprlandKeybinds: Layout changed to " + GlobalStates.hyprlandLayout + ", reapplying keybindings...");
+        applyKeybinds();
+    }
+    onGlobalStatesLayoutReadyChanged: {
+        if (GlobalStates.hyprlandLayoutReady) {
             applyKeybinds();
+            startupReapplyTimer.start();
         }
-        function onHyprlandLayoutReadyChanged() {
-            if (GlobalStates.hyprlandLayoutReady) {
-                applyKeybinds();
-                startupReapplyTimer.start();
-            }
-        }
-        function onIsLuaParserChanged() {
-            console.log("HyprlandKeybinds: isLuaParser changed, reapplying keybindings...");
-            applyKeybinds();
-        }
+    }
+    onGlobalStatesIsLuaParserChanged: {
+        console.log("HyprlandKeybinds: isLuaParser changed, reapplying keybindings...");
+        applyKeybinds();
     }
 
     property Connections hyprlandConnections: Connections {
@@ -543,7 +530,7 @@ QtObject {
 
     Component.onCompleted: {
         // Si el loader ya está cargado, aplicar inmediatamente
-        if (Config.keybindsLoader.loaded) {
+        if (Config.keybindsLoader?.loaded) {
             applyKeybinds();
         }
     }

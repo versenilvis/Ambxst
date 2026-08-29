@@ -21,6 +21,7 @@ Rectangle {
     property string searchQuery: ""
 
     onFilteredSectionsChanged: selectedIndex = 0
+    onCurrentSectionChanged: contentArea.previousSection = currentSection
 
     // Timer to restore focus after panel transitions
     Timer {
@@ -407,15 +408,6 @@ Rectangle {
             // Track section changes for animation direction
             onVisibleChanged: {
                 if (visible) {
-                    contentArea.previousSection = root.currentSection;
-                }
-            }
-
-            Connections {
-        ignoreUnknownSignals: true
-        enabled: root != null
-                target: root
-                function onCurrentSectionChanged() {
                     contentArea.previousSection = root.currentSection;
                 }
             }

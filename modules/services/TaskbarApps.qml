@@ -59,17 +59,8 @@ Singleton {
     }
 
     // Trigger update when toplevels change
-    Connections {
-        ignoreUnknownSignals: true
-        enabled: ToplevelManager.toplevels != null
-        target: ToplevelManager.toplevels
-        function onObjectInsertedPost() {
-            updateTimer.restart();
-        }
-        function onObjectRemovedPost() {
-            updateTimer.restart();
-        }
-    }
+    property var toplevelsValues: ToplevelManager.toplevels?.values ?? []
+    onToplevelsValuesChanged: updateTimer.restart()
 
     // update on config changes
     property var configPinnedApps: Config.pinnedApps?.apps ?? []

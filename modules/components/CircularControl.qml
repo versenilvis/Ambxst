@@ -168,23 +168,8 @@ StyledRect {
                 }
             }
 
-            Connections {
-        ignoreUnknownSignals: true
-        enabled: progressCanvas != null
-                target: progressCanvas
-                function onAngleChanged() {
-                    canvas.requestPaint();
-                }
-            }
-
-            Connections {
-        ignoreUnknownSignals: true
-        enabled: root != null
-                target: root
-                function onAccentColorChanged() {
-                    canvas.requestPaint();
-                }
-            }
+            property var _repaintTriggers: [progressCanvas.angle, root.accentColor]
+            on_RepaintTriggersChanged: canvas.requestPaint()
         }
 
         Behavior on angle {

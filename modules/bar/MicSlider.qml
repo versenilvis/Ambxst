@@ -133,15 +133,6 @@ Item {
                     externalChangeTimer.restart();
                 }
             }
-
-            Connections {
-        ignoreUnknownSignals: true
-        enabled: micSlider != null
-                target: micSlider
-                function onIconHovered(hovered) {
-                // No hacer nada aquí, el HoverHandler principal maneja todo
-                }
-            }
         }
 
         Timer {
