@@ -162,7 +162,10 @@ Item {
         variant: "transparent"
         popupPadding: 0
         horizontalAlignment: "right"
-        horizontalOffset: 24
+        // The popup window is clamped at the screen edge, and shadowMargin is padding
+        // INSIDE it, so the card ends up inset by exactly that much. 8 lines the card
+        // up with the bar's own right margin while leaving the shadow some room.
+        shadowMargin: 8
 
         contentWidth: calendarCard.width
         contentHeight: calendarCard.height

@@ -40,6 +40,8 @@ StyledRect {
     property real gapAngle: 45
     // Read-only rings (no drag) want the plain arc without the value handle
     property bool showHandle: true
+    property bool startFromTop: false
+    property color trackColor: Colors.outlineVariant
 
     radius: Styling.radius(4)
     width: 48
@@ -132,8 +134,29 @@ StyledRect {
 
                 ctx.lineCap = "round";
 
-                let baseStartAngle = (Math.PI / 2) + (root.gapAngle * Math.PI / 180);
+                let baseStartAngle = root.startFromTop ? (-Math.PI / 2) : ((Math.PI / 2) + (root.gapAngle * Math.PI / 180));
+                let totalAngle = (360 - 2 * root.gapAngle) * Math.PI / 180;
                 let progressAngleRad = progressCanvas.angle * Math.PI / 180;
+
+                if (!root.showHandle) {
+                    // Full stationary background track (always stays still)
+                    ctx.strokeStyle = root.trackColor;
+                    ctx.lineWidth = lineWidth;
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY, radius, baseStartAngle, baseStartAngle + totalAngle, false);
+                    ctx.stroke();
+
+                    // Dynamic progress fill arc (only this part sweeps clockwise as value changes)
+                    if (progressAngleRad > 0.001) {
+                        ctx.strokeStyle = root.effectiveAccentColor;
+                        ctx.lineWidth = lineWidth;
+                        ctx.beginPath();
+                        ctx.arc(centerX, centerY, radius, baseStartAngle, baseStartAngle + progressAngleRad, false);
+                        ctx.stroke();
+                    }
+                    return;
+                }
+
                 let handleGapRad = root.handleSpacing * (360 / (2 * Math.PI * radius)) * Math.PI / 180;
                 let handleSizeRad = root.handleSize * (360 / (2 * Math.PI * radius)) * Math.PI / 180;
 
@@ -148,7 +171,7 @@ StyledRect {
                 }
 
                 // Dibujar handle (línea radial sobresaliente en la posición actual)
-                if (root.showHandle && progressCanvas.angle >= 0) {
+                if (progressCanvas.angle >= 0) {
                     let handleAngle = baseStartAngle + progressAngleRad;
                     let innerRadius = radius - 2;
                     let outerRadius = radius + 4;
@@ -168,7 +191,6 @@ StyledRect {
 
                 // Dibujar resto (desde valor actual + gap hasta el final)
                 let remainingStart = baseStartAngle + progressAngleRad + handleGapRad;
-                let totalAngle = (360 - 2 * root.gapAngle) * Math.PI / 180;
                 let remainingEnd = baseStartAngle + totalAngle;
 
                 if (remainingStart < remainingEnd) {
@@ -180,7 +202,7 @@ StyledRect {
                 }
             }
 
-            property var _repaintTriggers: [progressCanvas.angle, root.effectiveAccentColor]
+            property var _repaintTriggers: [progressCanvas.angle, root.effectiveAccentColor, root.trackColor]
             on_RepaintTriggersChanged: canvas.requestPaint()
         }
 

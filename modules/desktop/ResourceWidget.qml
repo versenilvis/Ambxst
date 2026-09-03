@@ -271,8 +271,10 @@ PanelWindow {
                         isToggled: false
                         showBackground: false
                         showHandle: false
+                        startFromTop: true
                         gapAngle: 0
                         lineWidth: 3
+                        trackColor: Qt.rgba(1, 1, 1, 0.15)
 
                         MouseArea {
                             anchors.fill: parent
