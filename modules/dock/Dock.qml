@@ -14,8 +14,6 @@ import qs.modules.corners
 import qs.modules.globals
 import qs.config
 import qs.modules.bar.workspaces
-import Quickshell.Widgets
-import "../notifications/notification_utils.js" as NotificationUtils
 
 Scope {
     id: root
