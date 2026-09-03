@@ -515,6 +515,12 @@ PanelWindow {
                     layerEnabled: Config.showBackground
                 }
 
+                Bar.NotifButton {
+                    id: notifButton
+                    bar: panel
+                    layerEnabled: Config.showBackground
+                }
+
 
                 // PowerButton {
                 //     id: powerButton
@@ -676,6 +682,12 @@ PanelWindow {
 
                 Clock {
                     id: clockComponentVert
+                    bar: panel
+                    layerEnabled: Config.showBackground
+                }
+
+                Bar.NotifButton {
+                    id: notifButtonVert
                     bar: panel
                     layerEnabled: Config.showBackground
                 }
