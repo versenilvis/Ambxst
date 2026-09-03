@@ -65,6 +65,10 @@ Item {
             // Bar
             case "toggle-bar": toggleBarPinned(); break;
             case "update-windows": HyprlandData.updateWindowList(); break;
+            case "notifications":
+            case "notification-center":
+                GlobalStates.toggleNotifications();
+                break;
                 
             default: console.warn("Unknown IPC command:", command);
         }

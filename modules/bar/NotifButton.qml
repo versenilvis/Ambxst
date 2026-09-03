@@ -18,6 +18,13 @@ Item {
 
     property bool popupOpen: notifPopup.isOpen
 
+    Connections {
+        target: GlobalStates
+        function onToggleNotifications() {
+            notifPopup.toggle();
+        }
+    }
+
     readonly property int notifCount: Notifications.list.length
     readonly property string badgeText: notifCount >= 99 ? "99" : notifCount.toString()
 

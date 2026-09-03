@@ -235,6 +235,9 @@ Singleton {
     // Ambxst Settings state
     property bool settingsVisible: false
 
+    // Notification Center state toggle
+    signal toggleNotifications()
+
     // Screenshot Tool state
     property bool screenshotToolVisible: false
     // property string screenshotToolMode: "normal" // DEPRECATED

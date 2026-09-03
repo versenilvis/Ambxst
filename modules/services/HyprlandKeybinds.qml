@@ -96,7 +96,8 @@ QtObject {
                 lens: cloneKeybind(ambxst.system.lens),
                 reload: ambxst.system.reload ? cloneKeybind(ambxst.system.reload) : null,
                 quit: ambxst.system.quit ? cloneKeybind(ambxst.system.quit) : null,
-                toggleBar: ambxst.system.toggleBar ? cloneKeybind(ambxst.system.toggleBar) : null
+                toggleBar: ambxst.system.toggleBar ? cloneKeybind(ambxst.system.toggleBar) : null,
+                notifications: ambxst.system.notifications ? cloneKeybind(ambxst.system.notifications) : null
             }
         };
 
@@ -398,6 +399,7 @@ QtObject {
         if (system.reload) unbindCommands.push(createUnbindCommand(system.reload));
         if (system.quit) unbindCommands.push(createUnbindCommand(system.quit));
         if (system.toggleBar) unbindCommands.push(createUnbindCommand(system.toggleBar));
+        if (system.notifications) unbindCommands.push(createUnbindCommand(system.notifications));
 
         unbindCommandsLua.push(createUnbindCommandLua(system.overview));
         unbindCommandsLua.push(createUnbindCommandLua(system.powermenu));
@@ -410,6 +412,7 @@ QtObject {
         if (system.reload) unbindCommandsLua.push(createUnbindCommandLua(system.reload));
         if (system.quit) unbindCommandsLua.push(createUnbindCommandLua(system.quit));
         if (system.toggleBar) unbindCommandsLua.push(createUnbindCommandLua(system.toggleBar));
+        if (system.notifications) unbindCommandsLua.push(createUnbindCommandLua(system.notifications));
 
         batchCommands.push(createBindCommand(system.overview, system.overview.flags || ""));
         batchCommands.push(createBindCommand(system.powermenu, system.powermenu.flags || ""));
@@ -422,6 +425,7 @@ QtObject {
         if (system.reload) batchCommands.push(createBindCommand(system.reload, system.reload.flags || ""));
         if (system.quit) batchCommands.push(createBindCommand(system.quit, system.quit.flags || ""));
         if (system.toggleBar) batchCommands.push(createBindCommand(system.toggleBar, system.toggleBar.flags || ""));
+        if (system.notifications) batchCommands.push(createBindCommand(system.notifications, system.notifications.flags || ""));
 
         batchCommandsLua.push(createBindCommandLua(system.overview, system.overview.flags || ""));
         batchCommandsLua.push(createBindCommandLua(system.powermenu, system.powermenu.flags || ""));
@@ -434,6 +438,7 @@ QtObject {
         if (system.reload) batchCommandsLua.push(createBindCommandLua(system.reload, system.reload.flags || ""));
         if (system.quit) batchCommandsLua.push(createBindCommandLua(system.quit, system.quit.flags || ""));
         if (system.toggleBar) batchCommandsLua.push(createBindCommandLua(system.toggleBar, system.toggleBar.flags || ""));
+        if (system.notifications) batchCommandsLua.push(createBindCommandLua(system.notifications, system.notifications.flags || ""));
 
         const customBinds = Config.keybindsLoader.adapter.custom;
         if (customBinds && customBinds.length > 0) {
