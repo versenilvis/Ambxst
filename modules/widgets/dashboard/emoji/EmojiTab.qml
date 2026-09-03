@@ -25,6 +25,16 @@ Rectangle {
     // The command palette supplies one shared search field; when it does,
     // this tab hides its own so there is only ever one place to type.
     property bool showSearch: true
+
+    // The palette owns the visible search field, so it forwards navigation keys
+    // here; re-emit them on the (hidden) internal input that already has all the
+    // list-navigation wiring attached.
+    function navUp() { searchInput.upPressed(); }
+    function navDown() { searchInput.downPressed(); }
+    function navLeft() { searchInput.leftPressed(); }
+    function navRight() { searchInput.rightPressed(); }
+    function navAccept() { searchInput.accepted(); }
+
     property bool showResults: searchText.length > 0
     property int selectedIndex: -1
     property int selectedRecentIndex: -1

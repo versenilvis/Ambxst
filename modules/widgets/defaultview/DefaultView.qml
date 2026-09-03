@@ -40,11 +40,13 @@ Item {
     }
 
     // Computed dimensions
-    readonly property real mainRowContentWidth: expandedState
-        ? (statusPillRow.implicitWidth + mainRowMargin)
+    // The notch grows for an EVENT (charger, low battery, device connected...),
+    // not for hover. Hover keeps showing the normal media row.
+    readonly property real mainRowContentWidth: notchEvents.active
+        ? (notchEvents.implicitWidth + mainRowMargin)
         : notchMedia.implicitWidth
-    readonly property real mainRowHeight: expandedState
-        ? statusPillRow.implicitHeight
+    readonly property real mainRowHeight: notchEvents.active
+        ? notchEvents.implicitHeight
         : notchMedia.implicitHeight
     readonly property real notificationMinWidth: expandedState ? 450 : 380
     readonly property real notificationContainerHeight: notificationView.implicitHeight + notificationPaddingTop + notificationPaddingBottom
@@ -118,7 +120,7 @@ Item {
                 id: notchMedia
                 expandedState: false
                 anchors.centerIn: parent
-                opacity: root.expandedState ? 0 : 1
+                opacity: notchEvents.active ? 0 : 1
                 visible: opacity > 0
 
                 Behavior on opacity {
@@ -130,11 +132,10 @@ Item {
                 }
             }
 
-            StatusPillRow {
-                id: statusPillRow
-                expandedState: root.expandedState
+            NotchEvents {
+                id: notchEvents
                 anchors.centerIn: parent
-                opacity: root.expandedState ? 1 : 0
+                opacity: notchEvents.active ? 1 : 0
                 visible: opacity > 0
 
                 Behavior on opacity {

@@ -7,6 +7,7 @@ mod app_search;
 mod link_preview;
 mod tools;
 mod network;
+mod file_search;
 
 use std::sync::{Arc, Mutex};
 use std::path::Path;
@@ -59,6 +60,8 @@ enum ClientCommand {
     SearchClipboard { query: String },
     #[serde(rename = "search_apps")]
     SearchApps { query: String },
+    #[serde(rename = "search_files")]
+    SearchFiles { query: String },
     #[serde(rename = "colorpicker")]
     Colorpicker,
     #[serde(rename = "ocr")]
@@ -80,6 +83,7 @@ struct AppState {
     clients: Vec<mpsc::UnboundedSender<String>>,
     clipboard_mgr: Option<Arc<clipboard::ClipboardManager>>,
     app_searcher: app_search::AppSearcher,
+    file_searcher: file_search::FileSearcher,
 }
 
 type SharedState = Arc<Mutex<AppState>>;
@@ -184,6 +188,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         clients: Vec::new(),
         clipboard_mgr: None,
         app_searcher: app_search::AppSearcher::new(),
+        file_searcher: file_search::FileSearcher::new(),
     }));
 
     init_clipboard_if_needed(&state, None, None);
@@ -361,6 +366,19 @@ async fn handle_client(
                     };
                     let event = ServerEvent {
                         r#type: "app_search_results".to_string(),
+                        data: results,
+                    };
+                    if let Ok(msg) = serde_json::to_string(&event) {
+                        let _ = client_tx.send(format!("{}\n", msg));
+                    }
+                }
+                ClientCommand::SearchFiles { query } => {
+                    let results = {
+                        let s = state.lock().unwrap();
+                        s.file_searcher.search(&query, 50)
+                    };
+                    let event = ServerEvent {
+                        r#type: "file_search_results".to_string(),
                         data: results,
                     };
                     if let Ok(msg) = serde_json::to_string(&event) {

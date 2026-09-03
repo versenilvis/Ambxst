@@ -20,6 +20,16 @@ Rectangle {
     // See ClipboardTab: the palette owns the search field when this is false.
     property bool showSearch: true
 
+    // The palette owns the visible search field, so it forwards navigation keys
+    // here; re-emit them on the (hidden) internal input that already has all the
+    // list-navigation wiring attached.
+    function navUp() { searchInput.upPressed(); }
+    function navDown() { searchInput.downPressed(); }
+    function navLeft() { searchInput.leftPressed(); }
+    function navRight() { searchInput.rightPressed(); }
+    function navAccept() { searchInput.accepted(); }
+
+
     function focusAppSearch() {
         Qt.callLater(() => {
             appLauncher.focusSearchInput();
@@ -495,14 +505,27 @@ Rectangle {
                             }
                             return baseHeight;
                         }
-                        color: index === appLauncher.selectedIndex ? Colors.surfaceContainer : "transparent"
-                        radius: Styling.radius(-4)
+                        color: "transparent"
 
-                        Behavior on color {
-                            enabled: Config.animDuration > 0
-                            ColorAnimation {
-                                duration: Config.animDuration / 3
-                                easing.type: Easing.OutQuart
+                        // Selection band, inset so it reads as a row rather than a
+                        // full-bleed stripe touching both edges.
+                        Rectangle {
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.top: parent.top
+                            anchors.leftMargin: 4
+                            anchors.rightMargin: 4
+                            height: 48
+                            radius: Styling.radius(-4)
+                            color: index === appLauncher.selectedIndex ? Colors.surfaceContainer : "transparent"
+                            z: -1
+
+                            Behavior on color {
+                                enabled: Config.animDuration > 0
+                                ColorAnimation {
+                                    duration: Config.animDuration / 3
+                                    easing.type: Easing.OutQuart
+                                }
                             }
                         }
 
@@ -612,8 +635,6 @@ Rectangle {
                                     color: {
                                         if (isExpanded) {
                                             return Styling.srItem("pane");
-                                        } else if (appLauncher.selectedIndex === index) {
-                                            return Styling.srItem("primary");
                                         } else {
                                             return Colors.overBackground;
                                         }
@@ -638,8 +659,6 @@ Rectangle {
                                     color: {
                                         if (isExpanded) {
                                             return Styling.srItem("pane");
-                                        } else if (appLauncher.selectedIndex === index) {
-                                            return Styling.srItem("primary");
                                         } else {
                                             return Colors.outline;
                                         }

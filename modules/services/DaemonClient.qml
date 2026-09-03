@@ -18,6 +18,7 @@ Singleton {
     signal clipboardReceived(var data)
     signal clipboardContentReceived(string itemId, string content)
     signal appSearchResultsReceived(var data)
+    signal fileSearchResultsReceived(var data)
     signal linkPreviewReceived(var data)
     signal networkChanged()
 
@@ -95,6 +96,9 @@ Singleton {
                     case "app_search_results":
                         root.appSearchResultsReceived(event.data);
                         break;
+                    case "file_search_results":
+                        root.fileSearchResultsReceived(event.data);
+                        break;
                     case "link_preview":
                         root.linkPreviewReceived(event.data);
                         break;
@@ -131,6 +135,13 @@ Singleton {
     function searchApps(query) {
         sendCommand({
             type: "search_apps",
+            query: query
+        });
+    }
+
+    function searchFiles(query) {
+        sendCommand({
+            type: "search_files",
             query: query
         });
     }
