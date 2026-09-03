@@ -310,7 +310,8 @@ Item {
     }
 
     Timer {
-        interval: 1000
+        id: timeTimer
+        interval: Math.max(100, (60 - new Date().getSeconds()) * 1000 - new Date().getMilliseconds() + 50)
         running: true
         repeat: true
         onTriggered: {
@@ -321,6 +322,7 @@ Item {
             root.currentHours = parts[0];
             root.currentMinutes = parts[1];
             // root.currentSeconds = parts[2];
+            timeTimer.interval = Math.max(100, (60 - now.getSeconds()) * 1000 - now.getMilliseconds() + 50);
         }
     }
 

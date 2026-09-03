@@ -35,7 +35,7 @@ Singleton {
 
     Timer {
         id: pollTimer
-        interval: 2000
+        interval: 30000
         repeat: true
         running: true
         onTriggered: {

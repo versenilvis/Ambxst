@@ -90,7 +90,7 @@ RowLayout {
                 verticalAlignment: Text.AlignVCenter
 
                 RotationAnimation on rotation {
-                    running: actionButton.isLoading
+                    running: actionButton.isLoading && actionButton.visible
                     from: 0
                     to: 360
                     duration: 1000

@@ -140,7 +140,7 @@ StyledRect {
                     height: 24
                     lineWidth: 2
                     fullLength: width
-                    visible: true
+                    visible: MprisController.activePlayer === null
                     opacity: 1.0
 
                     Behavior on color {
