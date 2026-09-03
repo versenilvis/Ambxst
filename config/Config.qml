@@ -818,6 +818,9 @@ Singleton {
             property bool blurTransition: true
             property bool windowPreview: true
             property bool wavyLine: true
+            // Unmap shell surfaces on fullscreen so the compositor can direct-scanout
+            // the fullscreen window. Costs hover-to-reveal while fullscreen.
+            property bool unmapOnFullscreen: true
         }
     }
 

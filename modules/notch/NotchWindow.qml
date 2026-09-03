@@ -25,6 +25,12 @@ PanelWindow {
         right: true
     }
 
+    // Unmap the layer surface on fullscreen so nothing sits above the fullscreen
+    // window and the compositor can direct-scanout it. Stays mapped while the notch
+    // is open so a dashboard/powermenu opened over a fullscreen window still shows.
+    readonly property bool unmapForFullscreen: activeWindowFullscreen && !screenNotchOpen && !(Config.bar?.availableOnFullscreen ?? false) && (Config.performance?.unmapOnFullscreen ?? true)
+    visible: !unmapForFullscreen
+
     color: "transparent"
 
     WlrLayershell.keyboardFocus: screenNotchOpen ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None

@@ -8,7 +8,18 @@ import qs.config
 PanelWindow {
     id: screenCorners
 
-    visible: Config.theme.enableCorners
+    // Fullscreen detection - check if active toplevel is fullscreen on this screen
+    readonly property bool activeWindowFullscreen: {
+        const toplevel = ToplevelManager.activeToplevel;
+        if (!toplevel || !toplevel.activated)
+            return false;
+        if (screen && toplevel.screens && toplevel.screens.length > 0 && !toplevel.screens.includes(screen))
+            return false;
+
+        return toplevel.fullscreen === true;
+    }
+
+    visible: Config.theme.enableCorners && !(activeWindowFullscreen && (Config.performance?.unmapOnFullscreen ?? true))
 
     color: "transparent"
     exclusionMode: ExclusionMode.Ignore

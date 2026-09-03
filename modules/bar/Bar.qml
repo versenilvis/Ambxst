@@ -107,6 +107,11 @@ PanelWindow {
         right: barPosition !== "left"
     }
 
+    // Unmap the layer surface on fullscreen instead of only sliding it away, so
+    // nothing sits above the fullscreen window and the compositor can direct-scanout it.
+    readonly property bool unmapForFullscreen: activeWindowFullscreen && !(Config.bar?.availableOnFullscreen ?? false) && (Config.performance?.unmapOnFullscreen ?? true)
+    visible: !unmapForFullscreen
+
     color: "transparent"
 
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None

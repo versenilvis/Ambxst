@@ -86,6 +86,11 @@ Scope {
             required property ShellScreen modelData
             screen: modelData
 
+            // Unmap the layer surface on fullscreen so nothing sits above the fullscreen
+            // window and the compositor can direct-scanout it.
+            readonly property bool unmapForFullscreen: activeWindowFullscreen && !(Config.dock?.availableOnFullscreen ?? false) && (Config.performance?.unmapOnFullscreen ?? true)
+            visible: !unmapForFullscreen
+
             // Reference to the bar panel on this screen to check its state
             readonly property var barPanelRef: screen ? Visibilities.barPanels[screen.name] : null
             // Only allow exclusive zone if the bar is also pinned (to prevent pushing the bar when it's floating)
