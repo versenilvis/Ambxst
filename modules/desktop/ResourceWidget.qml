@@ -67,42 +67,11 @@ PanelWindow {
         return (bytes / 1024 / 1024 / 1024).toFixed(1);
     }
 
-    readonly property var metrics: {
-        const m = [
-            {
-                icon: Icons.cpu,
-                value: SystemResources.cpuUsage,
-                title: "CPU",
-                detail: (SystemResources.cpuModel || "Processor") + (SystemResources.cpuTemp >= 0 ? `  ·  ${SystemResources.cpuTemp}°C` : "")
-            },
-            {
-                icon: Icons.ram,
-                value: SystemResources.ramUsage,
-                title: "RAM",
-                detail: `${root.gib(SystemResources.ramUsed)} / ${root.gib(SystemResources.ramTotal)} GiB`
-            }
-        ];
-        if (SystemResources.gpuDetected) {
-            m.push({
-                icon: Icons.cube,
-                value: SystemResources.gpuUsage,
-                title: "GPU",
-                detail: (SystemResources.gpuNames[0] || "Graphics") + (SystemResources.gpuTemp >= 0 ? `  ·  ${SystemResources.gpuTemp}°C` : "")
-            });
-        }
-        const mainDisk = (SystemResources.validDisks && SystemResources.validDisks.length > 0)
-            ? SystemResources.validDisks[0]
-            : "/";
-        const diskType = SystemResources.diskTypes[mainDisk] || "unknown";
-        const diskIcon = diskType === "ssd" ? Icons.ssd : (diskType === "hdd" ? Icons.hdd : Icons.disk);
-        const diskUsedB = SystemResources.diskUsed[mainDisk] || 0;
-        const diskTotalB = SystemResources.diskTotal[mainDisk] || 0;
-        m.push({
-            icon: diskIcon,
-            value: SystemResources.diskUsage[mainDisk] || 0,
-            title: "Disk",
-            detail: `${root.gib(diskUsedB)} / ${root.gib(diskTotalB)} GiB (${mainDisk})`
-        });
+    readonly property var metricTypes: {
+        const m = ["cpu", "ram"];
+        if (SystemResources.gpuDetected)
+            m.push("gpu");
+        m.push("disk");
         return m;
     }
 
@@ -137,7 +106,7 @@ PanelWindow {
     }
 
     property Item hoveredItem: null
-    readonly property var hoveredMetric: hoveredItem ? hoveredItem.modelData : null
+    readonly property var hoveredMetric: hoveredItem
 
     visible: (Config.desktop?.resourceWidget ?? true) && !root.activeWindowFullscreen && !root.covered
 
@@ -228,20 +197,76 @@ PanelWindow {
                 anchors.leftMargin: (panel.visibleWidth - width) / 2
 
             Repeater {
-                model: root.metrics
+                model: root.metricTypes
 
                 Column {
                     id: metric
 
-                    required property var modelData
+                    required property string modelData
+
+                    readonly property real value: {
+                        switch (modelData) {
+                            case "cpu": return SystemResources.cpuUsage;
+                            case "ram": return SystemResources.ramUsage;
+                            case "gpu": return SystemResources.gpuUsage;
+                            case "disk": {
+                                const d = (SystemResources.validDisks && SystemResources.validDisks.length > 0) ? SystemResources.validDisks[0] : "/";
+                                return SystemResources.diskUsage[d] || 0;
+                            }
+                            default: return 0;
+                        }
+                    }
+
+                    readonly property string title: {
+                        switch (modelData) {
+                            case "cpu": return "CPU";
+                            case "ram": return "RAM";
+                            case "gpu": return "GPU";
+                            case "disk": return "Disk";
+                            default: return "";
+                        }
+                    }
+
+                    readonly property string icon: {
+                        switch (modelData) {
+                            case "cpu": return Icons.cpu;
+                            case "ram": return Icons.ram;
+                            case "gpu": return Icons.cube;
+                            case "disk": {
+                                const d = (SystemResources.validDisks && SystemResources.validDisks.length > 0) ? SystemResources.validDisks[0] : "/";
+                                const t = SystemResources.diskTypes[d] || "unknown";
+                                return t === "ssd" ? Icons.ssd : (t === "hdd" ? Icons.hdd : Icons.disk);
+                            }
+                            default: return "";
+                        }
+                    }
+
+                    readonly property string detail: {
+                        switch (modelData) {
+                            case "cpu":
+                                return (SystemResources.cpuModel || "Processor") + (SystemResources.cpuTemp >= 0 ? `  ·  ${SystemResources.cpuTemp}°C` : "");
+                            case "ram":
+                                return `${root.gib(SystemResources.ramUsed)} / ${root.gib(SystemResources.ramTotal)} GiB`;
+                            case "gpu":
+                                return (SystemResources.gpuNames[0] || "Graphics") + (SystemResources.gpuTemp >= 0 ? `  ·  ${SystemResources.gpuTemp}°C` : "");
+                            case "disk": {
+                                const d = (SystemResources.validDisks && SystemResources.validDisks.length > 0) ? SystemResources.validDisks[0] : "/";
+                                const usedB = SystemResources.diskUsed[d] || 0;
+                                const totalB = SystemResources.diskTotal[d] || 0;
+                                return `${root.gib(usedB)} / ${root.gib(totalB)} GiB (${d})`;
+                            }
+                            default: return "";
+                        }
+                    }
+
                     spacing: 2
 
                     CircularControl {
                         id: ring
                         anchors.horizontalCenter: parent.horizontalCenter
-                        icon: metric.modelData.icon
-                        value: metric.modelData.value / 100
-                        accentColor: root.usageColor(metric.modelData.value)
+                        icon: metric.icon
+                        value: metric.value / 100
+                        accentColor: root.usageColor(metric.value)
                         isToggleable: false
                         isToggled: false
                         showBackground: false
@@ -262,7 +287,7 @@ PanelWindow {
 
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: `${Math.round(metric.modelData.value)}%`
+                        text: `${Math.round(metric.value)}%`
                         font.family: Config.theme.font
                         font.pixelSize: Styling.fontSize(0)
                         font.weight: Font.Bold

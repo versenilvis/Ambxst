@@ -166,7 +166,7 @@ Item {
         contentHeight: calendarCard.height
 
         // Align right edge with clock button and shift rightwards
-        anchor.rect.x: anchorItem.width - totalWidth + shadowMargin + 12
+        anchor.rect.x: anchorItem.width - totalWidth + shadowMargin + 28
 
         CalendarCard {
             id: calendarCard
