@@ -106,10 +106,40 @@ PanelWindow {
         return m;
     }
 
+    // Hide when a window actually overlaps the pill. The widget lives on
+    // WlrLayer.Top so it would otherwise draw over windows instead of yielding.
+    // Geometry comes from Hyprland: it reports window at/size in LOGICAL pixels but
+    // monitor width/height in PHYSICAL ones, so the monitor is divided by its scale
+    // to bring both into the same space.
+    readonly property var monitorInfo: {
+        const name = root.screen?.name ?? "";
+        return (HyprlandData.monitors ?? []).find(m => m.name === name) ?? null;
+    }
+
+    readonly property bool covered: {
+        const m = root.monitorInfo;
+        if (!m)
+            return false;
+
+        const scale = m.scale || 1;
+        const right = m.x + m.width / scale;
+        const left = right - pillContainer.visibleWidth;
+        const h = Math.max(pillContainer.height, 1);
+        const top = m.y + (m.height / scale - h) / 2;
+        const bottom = top + h;
+
+        return HyprlandData.windowList.some(w => {
+            if (w.workspace?.id !== root.activeWorkspaceId || w.hidden || !w.at || !w.size)
+                return false;
+            const x1 = w.at[0], y1 = w.at[1];
+            return x1 < right && x1 + w.size[0] > left && y1 < bottom && y1 + w.size[1] > top;
+        });
+    }
+
     property Item hoveredItem: null
     readonly property var hoveredMetric: hoveredItem ? hoveredItem.modelData : null
 
-    visible: (Config.desktop?.resourceWidget ?? true) && !root.activeWindowFullscreen
+    visible: (Config.desktop?.resourceWidget ?? true) && !root.activeWindowFullscreen && !root.covered
 
     color: "transparent"
     exclusionMode: ExclusionMode.Ignore

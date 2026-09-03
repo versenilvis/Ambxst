@@ -11,7 +11,6 @@ import qs.modules.widgets.dashboard.widgets
 import qs.modules.widgets.dashboard.controls
 import qs.modules.widgets.dashboard.clipboard
 import qs.modules.widgets.dashboard.emoji
-import qs.modules.widgets.dashboard.metrics
 import qs.config
 
 NotchAnimationBehavior {
@@ -24,7 +23,7 @@ NotchAnimationBehavior {
         property int currentTab: GlobalStates.dashboardCurrentTab
     }
 
-    readonly property var tabModel: [Icons.widgets, Icons.heartbeat]
+    readonly property var tabModel: [Icons.widgets]
     readonly property int tabCount: tabModel.length + 1  // +1 for controls tab at bottom
     readonly property int tabSpacing: 8
 
@@ -235,7 +234,7 @@ NotchAnimationBehavior {
                 variant: controlsButton.hovered ? "focus" : "common"
                 z: -1
 
-                opacity: root.state.currentTab === 2 ? 0 : 1
+                opacity: root.state.currentTab === 1 ? 0 : 1
 
                 Behavior on opacity {
                     enabled: Config.animDuration > 0
@@ -265,7 +264,7 @@ NotchAnimationBehavior {
                     font.family: Icons.font
                     font.pixelSize: 20
                     font.weight: Font.Medium
-                    color: root.state.currentTab === 2 ? Styling.srItem("primary") : Colors.overBackground
+                    color: root.state.currentTab === 1 ? Styling.srItem("primary") : Colors.overBackground
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
 
@@ -278,7 +277,7 @@ NotchAnimationBehavior {
                     }
                 }
 
-                onClicked: stack.navigateToTab(2)
+                onClicked: stack.navigateToTab(1)
             }
         }
 
@@ -304,10 +303,9 @@ NotchAnimationBehavior {
                 anchors.fill: parent
 
                 WidgetsTab { id: widgetsTabItem; leftPanelWidth: root.leftPanelWidth; visible: false }
-                MetricsTab { id: metricsTabItem; visible: false }
                 SettingsTab { id: settingsTabItem; visible: false }
 
-                readonly property var components: [widgetsTabItem, metricsTabItem, settingsTabItem]
+                readonly property var components: [widgetsTabItem, settingsTabItem]
                 initialItem: components[GlobalStates.dashboardCurrentTab]
 
                 onCurrentItemChanged: {

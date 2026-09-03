@@ -54,17 +54,6 @@ Singleton {
     // Update interval in milliseconds
     property int updateInterval: 2000
 
-    // History data for charts (max 50 points)
-    property var cpuHistory: []
-    property var ramHistory: []
-    property var gpuHistories: []       // Array of arrays - one history per GPU
-    property var cpuTempHistory: []     // CPU temperature history
-    property var gpuTempHistories: []   // Array of arrays - one temp history per GPU
-    property int maxHistoryPoints: 50
-    
-    // Total data points collected (continues incrementing forever)
-    property int totalDataPoints: 0
-
     // Unified System Monitor Process
     Connections {
         ignoreUnknownSignals: true
@@ -96,8 +85,6 @@ Singleton {
                 root.gpuTemps = stats.gpu.temps;
                 root.gpuNames = stats.gpu.names || [];
             }
-            
-            root.updateHistory();
         }
     }
 
@@ -153,70 +140,5 @@ Singleton {
         // Assign the new array to trigger onValidDisksChanged
         validDisks = newValidDisks;
     }
-
-    // Update history arrays with current values
-    function updateHistory() {
-        // Increment total data points counter
-        totalDataPoints++;
-        
-        // Add CPU history
-        let newCpuHistory = cpuHistory.slice();
-        newCpuHistory.push(cpuUsage / 100);
-        if (newCpuHistory.length > maxHistoryPoints) {
-            newCpuHistory.shift();
-        }
-        cpuHistory = newCpuHistory;
-
-        // Add CPU temperature history
-        let newCpuTempHistory = cpuTempHistory.slice();
-        newCpuTempHistory.push(cpuTemp);
-        if (newCpuTempHistory.length > maxHistoryPoints) {
-            newCpuTempHistory.shift();
-        }
-        cpuTempHistory = newCpuTempHistory;
-
-        // Add RAM history
-        let newRamHistory = ramHistory.slice();
-        newRamHistory.push(ramUsage / 100);
-        if (newRamHistory.length > maxHistoryPoints) {
-            newRamHistory.shift();
-        }
-        ramHistory = newRamHistory;
-
-        // Add GPU histories if detected
-        if (gpuDetected && gpuCount > 0) {
-            let newGpuHistories = gpuHistories.slice();
-            let newGpuTempHistories = gpuTempHistories.slice();
-            
-            // Initialize histories array if needed
-            while (newGpuHistories.length < gpuCount) {
-                newGpuHistories.push([]);
-            }
-            while (newGpuTempHistories.length < gpuCount) {
-                newGpuTempHistories.push([]);
-            }
-            
-            // Update each GPU's history
-            for (let i = 0; i < gpuCount; i++) {
-                let gpuHist = newGpuHistories[i].slice();
-                gpuHist.push((gpuUsages[i] || 0) / 100);
-                if (gpuHist.length > maxHistoryPoints) {
-                    gpuHist.shift();
-                }
-                newGpuHistories[i] = gpuHist;
-
-                let gpuTempHist = newGpuTempHistories[i].slice();
-                gpuTempHist.push(gpuTemps[i] !== undefined ? gpuTemps[i] : -1);
-                if (gpuTempHist.length > maxHistoryPoints) {
-                    gpuTempHist.shift();
-                }
-                newGpuTempHistories[i] = gpuTempHist;
-            }
-            
-            gpuHistories = newGpuHistories;
-            gpuTempHistories = newGpuTempHistories;
-        }
-    }
-
 
 }
