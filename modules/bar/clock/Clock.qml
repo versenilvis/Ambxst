@@ -161,12 +161,11 @@ Item {
         bar: root.bar
         variant: "transparent"
         popupPadding: 0
+        horizontalAlignment: "right"
+        horizontalOffset: 24
 
         contentWidth: calendarCard.width
         contentHeight: calendarCard.height
-
-        // Align right edge with clock button and shift rightwards
-        anchor.rect.x: anchorItem.width - totalWidth + shadowMargin + 28
 
         CalendarCard {
             id: calendarCard

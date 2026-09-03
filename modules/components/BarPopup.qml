@@ -27,6 +27,8 @@ PopupWindow {
     property int visualMargin: 8  // Distance from bar
     property int shadowMargin: 16  // Extra margin for shadow
     property string variant: "popup"  // StyledRect variant for background
+    property string horizontalAlignment: "center"  // "center", "left", "right"
+    property int horizontalOffset: 0
 
     // Behavior configuration
     property bool closeOnFocusLost: true
@@ -70,8 +72,14 @@ PopupWindow {
             // Right bar: popup appears to the left of the button
             return -totalWidth + shadowMargin - visualMargin;
         }
+        if (horizontalAlignment === "right") {
+            return anchorItem.width - totalWidth + shadowMargin + horizontalOffset;
+        }
+        if (horizontalAlignment === "left") {
+            return -shadowMargin + horizontalOffset;
+        }
         // Top/Bottom bar: center horizontally relative to button
-        return (anchorItem.width - totalWidth) / 2;
+        return (anchorItem.width - totalWidth) / 2 + horizontalOffset;
     }
     anchor.rect.y: {
         if (barVertical) {
