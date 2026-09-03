@@ -19,9 +19,9 @@ Item {
     // Popup visibility state
     property bool popupOpen: batteryPopup.isOpen
 
-    readonly property color boldRed: "#ef4444"
-    readonly property color boldYellow: "#f59e0b"
-    readonly property color boldGreen: "#22c55e"
+    readonly property color boldRed: "#f64108"
+    readonly property color boldYellow: "#effd14"
+    readonly property color boldGreen: "#10f78f"
 
     // Function to interpolate color between red, yellow, and green based on battery percentage
     function getBatteryColor() {

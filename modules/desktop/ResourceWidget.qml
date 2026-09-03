@@ -44,10 +44,10 @@ PanelWindow {
     // Same palette BatteryIndicator interpolates over.
     function usageColor(percent) {
         if (percent >= 80)
-            return "#ef4444";
+            return "#f64108";
         if (percent >= 50)
-            return "#f59e0b";
-        return "#22c55e";
+            return "#effd14";
+        return "#10f78f";
     }
 
     function gib(bytes) {

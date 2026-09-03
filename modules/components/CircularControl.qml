@@ -12,17 +12,22 @@ StyledRect {
     property bool showBackground: true
 
     required property string icon
+    readonly property color boldRed: "#f64108"
+    readonly property color boldGreen: "#10f78f"
+    readonly property color boldYellow: "#effd14"
+    readonly property color boldBlue: "#38bdf8"
+    readonly property color boldCyan: "#00f2fe"
     required property real value
     required property color accentColor
     required property bool isToggleable
     required property bool isToggled
 
     readonly property color effectiveAccentColor: {
-        if (accentColor === Colors.red) return "#ef4444";
-        if (accentColor === Colors.green) return "#22c55e";
-        if (accentColor === Colors.yellow) return "#f59e0b";
-        if (accentColor === Colors.blue) return "#3b82f6";
-        if (accentColor === Colors.cyan) return "#06b6d4";
+        if (accentColor === Colors.red) return boldRed;
+        if (accentColor === Colors.green) return boldGreen;
+        if (accentColor === Colors.yellow) return boldYellow;
+        if (accentColor === Colors.blue) return boldBlue;
+        if (accentColor === Colors.cyan) return boldCyan;
         return accentColor;
     }
 
