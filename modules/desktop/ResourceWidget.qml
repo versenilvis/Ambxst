@@ -57,9 +57,9 @@ PanelWindow {
     // Same palette BatteryIndicator interpolates over.
     function usageColor(percent) {
         if (percent >= 80)
-            return "#f64108";
+            return Colors.red;
         if (percent >= 50)
-            return "#effd14";
+            return Colors.yellow;
         return Colors.green;
     }
 
@@ -243,7 +243,7 @@ PanelWindow {
         }
     }
 
-    RoundCorner {
+        RoundCorner {
             id: bottomCorner
             size: pillContainer.cornerSize
             anchors.top: panel.bottom
@@ -251,64 +251,66 @@ PanelWindow {
             corner: RoundCorner.CornerEnum.TopRight
             color: "#000000"
         }
-    }
 
-    Rectangle {
-        id: card
+        Rectangle {
+            id: card
 
-        readonly property var metric: root.hoveredMetric
+            readonly property var metric: root.hoveredMetric
 
-        visible: root.reveal && root.hoveredItem !== null && opacity > 0
-        opacity: (root.reveal && root.hoveredItem !== null) ? 1 : 0
-        color: "#000000"
-        radius: Styling.radius(4)
+            visible: root.reveal && root.hoveredItem !== null && opacity > 0
+            opacity: (root.reveal && root.hoveredItem !== null) ? 1 : 0
+            color: "#000000"
+            radius: Styling.radius(4)
 
-        width: cardColumn.width + 28
-        height: cardColumn.height + 20
-        anchors.right: pillContainer.left
-        anchors.rightMargin: 10
+            width: cardColumn.width + 28
+            height: cardColumn.height + 20
+            anchors.right: parent.left
+            anchors.rightMargin: 10
 
-        property real targetY: (root.height - height) / 2
-        Binding on targetY {
-            when: root.hoveredItem !== null
-            value: root.hoveredItem ? root.hoveredItem.mapToItem(root, 0, root.hoveredItem.height / 2).y - card.height / 2 : (root.height - card.height) / 2
-        }
-        y: targetY
-
-        Behavior on y {
-            enabled: Config.animDuration > 0
-            NumberAnimation {
-                duration: 120
-                easing.type: Easing.OutCubic
+            property real targetY: (parent.height - height) / 2
+            Binding on targetY {
+                when: root.hoveredItem !== null
+                value: root.hoveredItem
+                    ? Math.round(root.hoveredItem.mapToItem(pillContainer, 0, root.hoveredItem.height / 2).y - card.height / 2)
+                    : card.targetY
             }
-        }
+            y: targetY
 
-        Behavior on opacity {
-            enabled: Config.animDuration > 0
-            NumberAnimation {
-                duration: Config.animDuration
-                easing.type: Easing.OutQuart
-            }
-        }
-
-        Column {
-            id: cardColumn
-            anchors.centerIn: parent
-            spacing: 3
-
-            Text {
-                text: card.metric ? `${card.metric.title}   ${Math.round(card.metric.value)}%` : ""
-                font.family: Config.theme.font
-                font.pixelSize: Styling.fontSize(0)
-                font.weight: Font.Bold
-                color: card.metric ? root.usageColor(card.metric.value) : Colors.overBackground
+            Behavior on y {
+                enabled: Config.animDuration > 0
+                NumberAnimation {
+                    duration: 160
+                    easing.type: Easing.OutCubic
+                }
             }
 
-            Text {
-                text: card.metric ? card.metric.detail : ""
-                font.family: Config.theme.font
-                font.pixelSize: Styling.fontSize(-2)
-                color: Colors.outline
+            Behavior on opacity {
+                enabled: Config.animDuration > 0
+                NumberAnimation {
+                    duration: Config.animDuration
+                    easing.type: Easing.OutQuart
+                }
+            }
+
+            Column {
+                id: cardColumn
+                anchors.centerIn: parent
+                spacing: 3
+
+                Text {
+                    text: card.metric ? `${card.metric.title}   ${Math.round(card.metric.value)}%` : ""
+                    font.family: Config.theme.font
+                    font.pixelSize: Styling.fontSize(0)
+                    font.weight: Font.Bold
+                    color: card.metric ? root.usageColor(card.metric.value) : Colors.overBackground
+                }
+
+                Text {
+                    text: card.metric ? card.metric.detail : ""
+                    font.family: Config.theme.font
+                    font.pixelSize: Styling.fontSize(-2)
+                    color: Colors.outline
+                }
             }
         }
     }
