@@ -74,6 +74,7 @@ Item {
         anchors.right: parent.right
         anchors.top: parent.top
         implicitHeight: mainLayout.implicitHeight + 20
+        height: implicitHeight
 
         radius: 14
         color: root.isHovered ? "#161616" : "#0d0d0d"
@@ -149,12 +150,13 @@ Item {
 
                 Item { Layout.fillWidth: true }
 
-                // single dismiss button, always visible with subtle opacity, pops on hover
+                // single dismiss button, only visible when hovered on this card
                 Rectangle {
                     width: 22
                     height: 22
                     radius: 11
-                    opacity: root.isHovered ? 1.0 : 0.4
+                    opacity: root.isHovered ? 1.0 : 0.0
+                    visible: opacity > 0
                     color: closeHover.containsMouse ? (closeHover.pressed ? Qt.rgba(1, 0, 0, 0.35) : Qt.rgba(1, 1, 1, 0.14)) : (root.isHovered ? Qt.rgba(1, 1, 1, 0.08) : "transparent")
 
                     Behavior on opacity {
@@ -168,7 +170,7 @@ Item {
                         font.family: Icons.font
                         font.pixelSize: 11
                         font.weight: Font.Bold
-                        color: closeHover.containsMouse ? Colors.red : (root.isHovered ? Colors.overBackground : Qt.rgba(Colors.overBackground.r, Colors.overBackground.g, Colors.overBackground.b, 0.6))
+                        color: closeHover.containsMouse ? Colors.red : Qt.rgba(Colors.overBackground.r, Colors.overBackground.g, Colors.overBackground.b, 0.7)
                     }
 
                     MouseArea {
