@@ -40,8 +40,12 @@ Item {
     }
 
     // Computed dimensions
-    readonly property real mainRowContentWidth: notchMedia.implicitWidth
-    readonly property real mainRowHeight: notchMedia.implicitHeight
+    readonly property real mainRowContentWidth: expandedState
+        ? (statusPillRow.implicitWidth + mainRowMargin)
+        : notchMedia.implicitWidth
+    readonly property real mainRowHeight: expandedState
+        ? statusPillRow.implicitHeight
+        : notchMedia.implicitHeight
     readonly property real notificationMinWidth: expandedState ? 450 : 380
     readonly property real notificationContainerHeight: notificationView.implicitHeight + notificationPaddingTop + notificationPaddingBottom
 
@@ -112,8 +116,34 @@ Item {
 
             NotchMediaView {
                 id: notchMedia
+                expandedState: false
+                anchors.centerIn: parent
+                opacity: root.expandedState ? 0 : 1
+                visible: opacity > 0
+
+                Behavior on opacity {
+                    enabled: Config.animDuration > 0
+                    NumberAnimation {
+                        duration: Config.animDuration
+                        easing.type: Easing.OutQuart
+                    }
+                }
+            }
+
+            StatusPillRow {
+                id: statusPillRow
                 expandedState: root.expandedState
                 anchors.centerIn: parent
+                opacity: root.expandedState ? 1 : 0
+                visible: opacity > 0
+
+                Behavior on opacity {
+                    enabled: Config.animDuration > 0
+                    NumberAnimation {
+                        duration: Config.animDuration
+                        easing.type: Easing.OutQuart
+                    }
+                }
             }
         }
 
