@@ -244,8 +244,8 @@ PanelWindow {
 
         readonly property var metric: root.hoveredMetric
 
-        visible: opacity > 0
-        opacity: root.hoveredItem ? 1 : 0
+        visible: root.reveal && root.hoveredItem !== null && opacity > 0
+        opacity: (root.reveal && root.hoveredItem !== null) ? 1 : 0
         color: "#000000"
         radius: Styling.radius(4)
 
@@ -253,7 +253,21 @@ PanelWindow {
         height: cardColumn.height + 20
         anchors.right: pillContainer.left
         anchors.rightMargin: 10
-        y: root.hoveredItem ? root.hoveredItem.mapToItem(null, 0, root.hoveredItem.height / 2).y - height / 2 : 0
+
+        property real targetY: (root.height - height) / 2
+        Binding on targetY {
+            when: root.hoveredItem !== null
+            value: root.hoveredItem ? root.hoveredItem.mapToItem(root, 0, root.hoveredItem.height / 2).y - card.height / 2 : (root.height - card.height) / 2
+        }
+        y: targetY
+
+        Behavior on y {
+            enabled: Config.animDuration > 0
+            NumberAnimation {
+                duration: 120
+                easing.type: Easing.OutCubic
+            }
+        }
 
         Behavior on opacity {
             enabled: Config.animDuration > 0
