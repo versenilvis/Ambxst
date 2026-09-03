@@ -150,6 +150,20 @@ ShellRoot {
         }
     }
 
+    // Resource rings pinned to the right edge, shown only on an empty workspace
+    Variants {
+        model: Quickshell.screens
+
+        Loader {
+            id: resourceWidgetLoader
+            active: Config.desktop?.resourceWidget ?? true
+            required property ShellScreen modelData
+            sourceComponent: ResourceWidget {
+                modelData: resourceWidgetLoader.modelData
+            }
+        }
+    }
+
     // Application Dock - only load when enabled and not integrated
     Loader {
         id: dockLoader

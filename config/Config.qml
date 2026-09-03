@@ -861,6 +861,9 @@ Singleton {
             property int iconSize: 40
             property int spacingVertical: 16
             property string textColor: "overBackground"
+            // Resource rings pinned to the right edge; independent of `enabled`,
+            // shown only while the active workspace has no windows on it
+            property bool resourceWidget: true
         }
     }
 

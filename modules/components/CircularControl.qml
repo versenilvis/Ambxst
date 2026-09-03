@@ -28,6 +28,8 @@ StyledRect {
     property real handleSize: 8
     property real lineWidth: 4
     property real gapAngle: 45
+    // Read-only rings (no drag) want the plain arc without the value handle
+    property bool showHandle: true
 
     radius: Styling.radius(4)
     width: 48
@@ -136,7 +138,7 @@ StyledRect {
                 }
 
                 // Dibujar handle (línea radial sobresaliente en la posición actual)
-                if (progressCanvas.angle >= 0) {
+                if (root.showHandle && progressCanvas.angle >= 0) {
                     let handleAngle = baseStartAngle + progressAngleRad;
                     let innerRadius = radius - 2;
                     let outerRadius = radius + 4;
