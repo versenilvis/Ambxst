@@ -47,7 +47,7 @@ PanelWindow {
             return "#f64108";
         if (percent >= 50)
             return "#effd14";
-        return "#10f78f";
+        return "#80EF80";
     }
 
     function gib(bytes) {
