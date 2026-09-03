@@ -28,7 +28,7 @@ Item {
             root.cancelAliasMode();
         } else {
             // Cerrar el dashboard
-            Visibilities.setActiveModule("");
+            GlobalStates.clipboardVisible = false;
         }
     }
 
@@ -701,7 +701,7 @@ Item {
                                 // Build options array dynamically
                                 let options = [function () {
                                         root.copyToClipboard(item.id);
-                                        Visibilities.setActiveModule("");
+                                        GlobalStates.clipboardVisible = false;
                                     }];
 
                                 // Add Open if applicable
@@ -732,7 +732,7 @@ Item {
                                 let selectedItem = root.allItems[root.selectedIndex];
                                 if (selectedItem && !root.deleteMode) {
                                     root.copyToClipboard(selectedItem.id);
-                                    Visibilities.setActiveModule("");
+                                    GlobalStates.clipboardVisible = false;
                                 }
                             }
                         }
@@ -800,7 +800,7 @@ Item {
                             root.selectedOptionIndex = 0;
                             root.keyboardNavigation = false;
                         } else if (!root.deleteMode) {
-                            Visibilities.setActiveModule("");
+                            GlobalStates.clipboardVisible = false;
                         }
                     }
 
@@ -1225,7 +1225,7 @@ Item {
 
                                     if (!root.deleteMode && !isExpanded) {
                                         root.copyToClipboard(modelData.id);
-                                        Visibilities.setActiveModule("");
+                                        GlobalStates.clipboardVisible = false;
                                     }
                                 } else if (mouse.button === Qt.RightButton) {
                                     if (root.deleteMode) {
@@ -1667,7 +1667,7 @@ Item {
                                 onTriggered: {
                                     if (!mouseArea.isDragging) {
                                         root.copyToClipboard(modelData.id);
-                                        Visibilities.setActiveModule("");
+                                        GlobalStates.clipboardVisible = false;
                                         mouseArea.longPressTriggered = true;
                                     }
                                 }
@@ -1733,7 +1733,7 @@ Item {
                                                 textColor: Styling.srItem("primary"),
                                                 action: function () {
                                                     root.copyToClipboard(modelData.id);
-                                                    Visibilities.setActiveModule("");
+                                                    GlobalStates.clipboardVisible = false;
                                                 }
                                             }
                                         ];

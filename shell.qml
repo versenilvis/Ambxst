@@ -11,6 +11,8 @@ import qs.modules.bar
 import qs.modules.bar.workspaces
 import qs.modules.notifications
 import qs.modules.widgets.settings
+import qs.modules.widgets.clipboard
+import qs.modules.widgets.emoji
 import qs.modules.notch
 import qs.modules.widgets.overview
 import qs.modules.services
@@ -196,6 +198,14 @@ ShellRoot {
     // Ambxst Settings floating window
     Settings {
         id: settingsWindow
+    }
+
+    ClipboardWindow {
+        id: clipboardWindow
+    }
+
+    EmojiWindow {
+        id: emojiWindow
     }
 
     // Screenshot Tool

@@ -336,7 +336,7 @@ Rectangle {
 
         root.addToRecent(emojiForRecent);
         ClipboardService.copyAndTypeEmoji(emojiToCopy);
-        Visibilities.setActiveModule("");
+        GlobalStates.emojiVisible = false;
     }
 
     function onDownPressed() {
@@ -576,7 +576,7 @@ Rectangle {
                                 root.selectedOptionIndex = 0;
                                 root.keyboardNavigation = false;
                             } else if (root.searchText.length === 0) {
-                                Visibilities.setActiveModule("");
+                                GlobalStates.emojiVisible = false;
                             } else {
                                 root.clearSearch();
                             }
@@ -1441,7 +1441,7 @@ Rectangle {
 
     Keys.onPressed: event => {
         if (event.key === Qt.Key_Escape) {
-            Visibilities.setActiveModule("");
+            GlobalStates.emojiVisible = false;
             event.accepted = true;
         }
     }
