@@ -19,20 +19,38 @@ Item {
     // Popup visibility state
     property bool popupOpen: batteryPopup.isOpen
 
-    // Function to interpolate color between green and red based on battery percentage
+    readonly property color boldRed: "#ef4444"
+    readonly property color boldYellow: "#f59e0b"
+    readonly property color boldGreen: "#22c55e"
+
+    // Function to interpolate color between red, yellow, and green based on battery percentage
     function getBatteryColor() {
         if (!Battery.available)
             return Colors.overBackground;
 
         const pct = Battery.percentage;
-        if (pct <= 15)
-            return Colors.red;
-        if (pct >= 85)
-            return Colors.green;
+        if (pct <= 20)
+            return boldRed;
+        if (pct >= 80)
+            return boldGreen;
 
-        // Linear interpolation between red (15%) and green (85%)
-        const ratio = (pct - 15) / (85 - 15);
-        return Qt.rgba(Colors.red.r + (Colors.green.r - Colors.red.r) * ratio, Colors.red.g + (Colors.green.g - Colors.red.g) * ratio, Colors.red.b + (Colors.green.b - Colors.red.b) * ratio, 1);
+        if (pct < 50) {
+            const ratio = (pct - 20) / (50 - 20);
+            return Qt.rgba(
+                boldRed.r + (boldYellow.r - boldRed.r) * ratio,
+                boldRed.g + (boldYellow.g - boldRed.g) * ratio,
+                boldRed.b + (boldYellow.b - boldRed.b) * ratio,
+                1
+            );
+        } else {
+            const ratio = (pct - 50) / (80 - 50);
+            return Qt.rgba(
+                boldYellow.r + (boldGreen.r - boldYellow.r) * ratio,
+                boldYellow.g + (boldGreen.g - boldYellow.g) * ratio,
+                boldYellow.b + (boldGreen.b - boldYellow.b) * ratio,
+                1
+            );
+        }
     }
 
     Layout.preferredWidth: 36
@@ -48,8 +66,17 @@ Item {
     StyledRect {
         id: buttonBg
         variant: root.popupOpen ? "primary" : "bg"
+        backgroundOpacity: root.popupOpen ? -1 : 0
         anchors.fill: parent
         enableShadow: root.layerEnabled
+
+        Rectangle {
+            anchors.fill: parent
+            color: "#000000"
+            radius: buttonBg.radius ?? 0
+            visible: !root.popupOpen
+            z: -1
+        }
 
         // Background highlight on hover
         Rectangle {

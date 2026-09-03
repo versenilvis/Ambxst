@@ -6,7 +6,7 @@ import qs.config
 StyledRect {
     id: root
     variant: "pane"
-    backgroundOpacity: showBackground ? -1 : 0
+    backgroundOpacity: showBackground ? 0 : 0
     enableBorder: showBackground
 
     property bool showBackground: true
@@ -16,6 +16,23 @@ StyledRect {
     required property color accentColor
     required property bool isToggleable
     required property bool isToggled
+
+    readonly property color effectiveAccentColor: {
+        if (accentColor === Colors.red) return "#ef4444";
+        if (accentColor === Colors.green) return "#22c55e";
+        if (accentColor === Colors.yellow) return "#f59e0b";
+        if (accentColor === Colors.blue) return "#3b82f6";
+        if (accentColor === Colors.cyan) return "#06b6d4";
+        return accentColor;
+    }
+
+    Rectangle {
+        anchors.fill: parent
+        color: "#000000"
+        radius: root.radius
+        visible: root.showBackground
+        z: -1
+    }
 
     signal controlValueChanged(real newValue)
     signal toggled
@@ -130,7 +147,7 @@ StyledRect {
                 // Dibujar progreso (desde inicio hasta valor actual - gap)
                 let progressEndAngle = baseStartAngle + progressAngleRad - handleGapRad;
                 if (progressCanvas.angle > 1 && progressEndAngle > (baseStartAngle + 0.01)) {
-                    ctx.strokeStyle = root.accentColor;
+                    ctx.strokeStyle = root.effectiveAccentColor;
                     ctx.lineWidth = lineWidth;
                     ctx.beginPath();
                     ctx.arc(centerX, centerY, radius, baseStartAngle, progressEndAngle, false);
@@ -170,7 +187,7 @@ StyledRect {
                 }
             }
 
-            property var _repaintTriggers: [progressCanvas.angle, root.accentColor]
+            property var _repaintTriggers: [progressCanvas.angle, root.effectiveAccentColor]
             on_RepaintTriggersChanged: canvas.requestPaint()
         }
 
