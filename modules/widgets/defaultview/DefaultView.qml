@@ -118,7 +118,9 @@ Item {
 
             NotchMediaView {
                 id: notchMedia
-                expandedState: false
+                // Hover expands the media player again; this was pinned to false while
+                // the notch briefly hosted a hover-triggered pill row.
+                expandedState: root.expandedState
                 anchors.centerIn: parent
                 opacity: notchEvents.active ? 0 : 1
                 visible: opacity > 0
