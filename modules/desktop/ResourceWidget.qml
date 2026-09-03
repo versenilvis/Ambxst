@@ -6,6 +6,7 @@ import Quickshell.Wayland
 import Quickshell.Hyprland
 import qs.modules.bar.workspaces
 import qs.modules.components
+import qs.modules.corners
 import qs.modules.services
 import qs.modules.theme
 import qs.config
@@ -26,8 +27,9 @@ PanelWindow {
         if (!root.screen)
             return false;
 
-        const h = Math.max(panel.height, 1);
-        const left = root.screen.x + root.screen.width - panel.visibleWidth;
+        const count = root.metrics ? root.metrics.length : 3;
+        const h = count * 66 + (count - 1) * 16 + 32 + 40;
+        const left = root.screen.x + root.screen.width - 72;
         const right = root.screen.x + root.screen.width;
         const top = root.screen.y + (root.screen.height - h) / 2;
         const bottom = top + h;
@@ -92,7 +94,7 @@ PanelWindow {
 
     // Only the pill takes pointer input; the detail card is read-only decoration
     mask: Region {
-        item: panel
+        item: pillContainer
     }
 
     anchors {
@@ -102,31 +104,51 @@ PanelWindow {
     }
 
     // Wide enough to hold the detail card to the left of the pill
-    implicitWidth: panel.visibleWidth + 300
+    implicitWidth: pillContainer.visibleWidth + 300
 
-    Rectangle {
-        id: panel
+    Item {
+        id: pillContainer
 
+        readonly property int cornerSize: Config.roundness > 0 ? Config.roundness + 4 : 20
         readonly property int visibleWidth: 72
 
-        // Solid black, not the translucent "pane" variant: this sits directly on
-        // the wallpaper with no blur behind it, so transparency reads as muddy.
-        color: "#000000"
-
-        radius: Styling.radius(8)
-        // Right corners are pushed past the screen edge so the pill sits flush against it
-        width: panel.visibleWidth + panel.radius
-        height: column.height + 32
+        width: visibleWidth
+        height: panel.height + cornerSize * 2
         anchors.right: parent.right
-        anchors.rightMargin: -panel.radius
         anchors.verticalCenter: parent.verticalCenter
 
-        Column {
-            id: column
-            spacing: 16
-            anchors.verticalCenter: parent.verticalCenter
-            anchors.left: parent.left
-            anchors.leftMargin: (panel.visibleWidth - width) / 2
+        RoundCorner {
+            id: topCorner
+            size: pillContainer.cornerSize
+            anchors.top: parent.top
+            anchors.right: parent.right
+            corner: RoundCorner.CornerEnum.BottomRight
+            color: "#000000"
+        }
+
+        Rectangle {
+            id: panel
+
+            readonly property int visibleWidth: pillContainer.visibleWidth
+            readonly property int cornerSize: pillContainer.cornerSize
+
+            color: "#000000"
+            topLeftRadius: cornerSize
+            bottomLeftRadius: cornerSize
+            topRightRadius: 0
+            bottomRightRadius: 0
+
+            width: visibleWidth
+            height: column.height + 32
+            anchors.top: topCorner.bottom
+            anchors.right: parent.right
+
+            Column {
+                id: column
+                spacing: 16
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.left: parent.left
+                anchors.leftMargin: (panel.visibleWidth - width) / 2
 
             Repeater {
                 model: root.metrics
@@ -174,6 +196,16 @@ PanelWindow {
         }
     }
 
+    RoundCorner {
+            id: bottomCorner
+            size: pillContainer.cornerSize
+            anchors.top: panel.bottom
+            anchors.right: parent.right
+            corner: RoundCorner.CornerEnum.TopRight
+            color: "#000000"
+        }
+    }
+
     Rectangle {
         id: card
 
@@ -186,7 +218,7 @@ PanelWindow {
 
         width: cardColumn.width + 28
         height: cardColumn.height + 20
-        anchors.right: panel.left
+        anchors.right: pillContainer.left
         anchors.rightMargin: 10
         y: root.hoveredItem ? root.hoveredItem.mapToItem(null, 0, root.hoveredItem.height / 2).y - height / 2 : 0
 
