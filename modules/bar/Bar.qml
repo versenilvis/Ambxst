@@ -689,6 +689,7 @@ PanelWindow {
                 Bar.NotifButton {
                     id: notifButtonVert
                     bar: panel
+                    isVerticalLayout: true
                     layerEnabled: Config.showBackground
                 }
 

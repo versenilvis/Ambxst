@@ -18,9 +18,14 @@ Item {
 
     property bool popupOpen: notifPopup.isOpen
 
+    property bool isVerticalLayout: false
+    readonly property bool isCurrentLayout: isVerticalLayout === (bar.orientation === "vertical")
+
     Connections {
         target: GlobalStates
         function onToggleNotifications() {
+            if (!root.isCurrentLayout) return;
+            if (root.bar.screen && Hyprland.focusedMonitor && root.bar.screen.name !== Hyprland.focusedMonitor.name) return;
             notifPopup.toggle();
         }
     }
