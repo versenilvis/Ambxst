@@ -71,14 +71,12 @@ Singleton {
         }
     }
 
+    // Battery alerts surface in the notch (see NotchEvents) rather than as desktop
+    // notifications. The threshold bookkeeping above stays here because it already
+    // handles de-duplication and resetting when the battery climbs again.
+    signal batteryAlert(string title, string body, string urgency)
+
     function _sendBatteryNotification(title, body, urgency) {
-        Quickshell.execDetached([
-            "notify-send",
-            "-a", "System",
-            "-u", urgency,
-            "-i", "battery-low",
-            title,
-            body
-        ]);
+        root.batteryAlert(title, body, urgency);
     }
 }

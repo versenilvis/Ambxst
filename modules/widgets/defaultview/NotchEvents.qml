@@ -22,11 +22,8 @@ Item {
     property bool ready: false
 
     // Previous values, so a handler can tell which DIRECTION a value moved.
-    property real lastPercentage: -1
     property int lastBluetoothCount: -1
     property string lastSsid: ""
-
-    readonly property var thresholds: [20, 10, 5]
 
     implicitWidth: current ? eventRow.implicitWidth + 32 : 0
     implicitHeight: current ? 44 : 0
@@ -37,7 +34,6 @@ Item {
         running: true
         repeat: false
         onTriggered: {
-            root.lastPercentage = Battery.available ? Battery.percentage : -1;
             root.lastBluetoothCount = BluetoothService.connectedDevices;
             root.lastSsid = NetworkService.active ? NetworkService.active.ssid : "";
             root.ready = true;
@@ -77,20 +73,10 @@ Item {
             }
         }
 
-        function onPercentageChanged() {
-            const now = Battery.percentage;
-            const prev = root.lastPercentage;
-            root.lastPercentage = now;
-            if (prev < 0 || Battery.isCharging)
-                return;
-            // Announce only when a threshold is crossed downward, once per crossing.
-            for (var i = 0; i < root.thresholds.length; i++) {
-                const t = root.thresholds[i];
-                if (prev > t && now <= t) {
-                    root.show(Icons.batteryLow, t <= 10 ? Colors.red : Colors.yellow, Math.round(now) + "%", Battery.timeToEmpty ? Battery.timeToEmpty + " left" : "Battery low");
-                    return;
-                }
-            }
+        // Battery.qml owns the threshold logic and used to shell out to notify-send;
+        // it now hands the alert here so it renders in the notch instead.
+        function onBatteryAlert(title, body, urgency) {
+            root.show(Icons.batteryLow, urgency === "critical" ? Colors.red : Colors.yellow, title, body);
         }
 
         function onChargeStateChanged() {
