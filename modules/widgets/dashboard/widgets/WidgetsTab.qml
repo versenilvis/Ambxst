@@ -507,14 +507,13 @@ Rectangle {
                         }
                         color: "transparent"
 
-                        // Selection band, inset so it reads as a row rather than a
-                        // full-bleed stripe touching both edges.
+                        // Selection band. Full width on purpose: something behind the
+                        // row paints a purple rounded rect (source not identified), and
+                        // any inset here lets its ends show through as slivers.
                         Rectangle {
                             anchors.left: parent.left
                             anchors.right: parent.right
                             anchors.top: parent.top
-                            anchors.leftMargin: 4
-                            anchors.rightMargin: 4
                             height: 48
                             radius: Styling.radius(-4)
                             color: index === appLauncher.selectedIndex ? Colors.surfaceContainer : "transparent"
