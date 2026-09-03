@@ -139,23 +139,20 @@ run)
 		exit 1
 	fi
 
-	# Fast path: Write directly to pipe if it exists (Zero latency)
-	if [ -p "$PIPE" ]; then
-		echo "$CMD" >"$PIPE" &
+	# Fast path: Write directly to pipe only if it exists and has an active reader
+	if [ -p "$PIPE" ] && fuser "$PIPE" >/dev/null 2>&1; then
+		echo "$CMD" >"$PIPE" 2>/dev/null &
 		exit 0
 	fi
 
-	# Fallback path: Use QS IPC (Slow, requires finding PID)
+	# Fallback path: Use native QS IPC directly
 	PID=$(find_ambxst_pid)
-	if [ -z "$PID" ]; then
-		echo "Error: Ambxst is not running"
-		exit 1
+	if [ -n "$PID" ]; then
+		exec qs ipc --pid "$PID" call ambxst run "$CMD"
 	fi
 
-	qs ipc --pid "$PID" call ambxst run "$CMD" 2>/dev/null || {
-		echo "Error: Could not run command '$CMD'"
-		exit 1
-	}
+	echo "Error: Ambxst is not running"
+	exit 1
 	;;
 lock)
 	# Trigger lockscreen via quickshell-ipc

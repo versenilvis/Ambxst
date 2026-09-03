@@ -234,6 +234,8 @@ Singleton {
 
     // Ambxst Settings state
     property bool settingsVisible: false
+    property bool clipboardVisible: false
+    property bool emojiVisible: false
 
     // Notification Center state toggle
     signal toggleNotifications()

@@ -36,8 +36,8 @@ Item {
             // Dashboard
             case "dashboard-widgets": toggleDashboardTab(0); break;
             case "dashboard-controls": toggleDashboardTab(1); break;
-            case "dashboard-clipboard": toggleDashboardWithPrefix(Config.prefix.clipboard + " "); break;
-            case "dashboard-emoji": toggleDashboardWithPrefix(Config.prefix.emoji + " "); break;
+            case "dashboard-clipboard": GlobalStates.clipboardVisible = !GlobalStates.clipboardVisible; break;
+            case "dashboard-emoji": GlobalStates.emojiVisible = !GlobalStates.emojiVisible; break;
             case "dashboard-notes": toggleDashboardWithPrefix(Config.prefix.notes + " "); break;
             
             // System
@@ -236,17 +236,17 @@ Item {
     GlobalShortcut {
         appid: root.appId
         name: "dashboard-clipboard"
-        description: "Open dashboard clipboard (via prefix)"
+        description: "Open dashboard clipboard"
 
-        onPressed: toggleDashboardWithPrefix(Config.prefix.clipboard + " ")
+        onPressed: GlobalStates.clipboardVisible = !GlobalStates.clipboardVisible
     }
 
     GlobalShortcut {
         appid: root.appId
         name: "dashboard-emoji"
-        description: "Open dashboard emoji picker (via prefix)"
+        description: "Open dashboard emoji picker"
 
-        onPressed: toggleDashboardWithPrefix(Config.prefix.emoji + " ")
+        onPressed: GlobalStates.emojiVisible = !GlobalStates.emojiVisible
     }
 
 

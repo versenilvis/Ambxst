@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
+import Quickshell.Hyprland
 import qs.modules.services
 import qs.modules.components
 import qs.modules.theme
