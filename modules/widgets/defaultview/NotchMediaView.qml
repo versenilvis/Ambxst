@@ -123,12 +123,12 @@ Item {
     }
     
     // Target dimensions
-    readonly property real collapsedWidth: 200
+    readonly property real collapsedWidth: Config.notchTheme === "island" ? 200 : 250
     readonly property real collapsedHeight: Config.notchTheme === "island" ? 36 : 40
     readonly property real expandedWidth: 380
     readonly property real expandedHeight: 130
     
-    implicitWidth: (expandedState && hasValidPlayer) ? expandedWidth : (hasValidPlayer ? collapsedWidth : 180)
+    implicitWidth: (expandedState && hasValidPlayer) ? expandedWidth : (hasValidPlayer ? collapsedWidth : (Config.notchTheme === "island" ? 180 : 220))
     implicitHeight: (expandedState && hasValidPlayer) ? expandedHeight : collapsedHeight
     
     // Removed double animation: rely on Notch.qml's implicitWidth/Height animation

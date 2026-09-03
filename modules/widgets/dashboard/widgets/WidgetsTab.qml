@@ -1513,8 +1513,8 @@ Rectangle {
                             brightnessContainer.parent.circularControlDragging = isDragging;
                         }
 
-                        property real brightnessGlobal: Brightness.brightness
-                        onBrightnessGlobalChanged: {
+                        property real monitorBrightness: brightnessSlider.currentMonitor?.brightness ?? 0.0
+                        onMonitorBrightnessChanged: {
                             if (brightnessSlider.currentMonitor && brightnessSlider.currentMonitor.ready && !brightnessSlider.isDragging) {
                                 brightnessSlider.brightnessValue = brightnessSlider.currentMonitor.brightness;
                             }

@@ -187,8 +187,8 @@ Item {
                     }
                 }
 
-                property real brightnessGlobal: Brightness.brightness
-                onBrightnessGlobalChanged: {
+                property real monitorBrightness: currentMonitor?.brightness ?? 0.0
+                onMonitorBrightnessChanged: {
                     if (brightnessRow.currentMonitor) {
                         brightnessRow.sliderValue = brightnessRow.currentMonitor.brightness;
                     }

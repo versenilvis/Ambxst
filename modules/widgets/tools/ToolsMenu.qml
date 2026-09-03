@@ -123,14 +123,15 @@ ActionGrid {
             
             if (ocrConfig) {
                 if (ocrConfig.eng !== false) langs.push("eng"); // Default true
-                if (ocrConfig.spa !== false) langs.push("spa"); // Default true
+                if (ocrConfig.vie !== false) langs.push("vie"); // Default true - tiếng Việt
+                if (ocrConfig.spa === true) langs.push("spa"); // opt-in
                 if (ocrConfig.lat === true) langs.push("lat");
                 if (ocrConfig.jpn === true) langs.push("jpn");
                 if (ocrConfig.chi_sim === true) langs.push("chi_sim");
                 if (ocrConfig.chi_tra === true) langs.push("chi_tra");
                 if (ocrConfig.kor === true) langs.push("kor");
             } else {
-                langs = ["eng", "spa"];
+                langs = ["eng", "vie"];
             }
             
             if (langs.length === 0) langs.push("eng");

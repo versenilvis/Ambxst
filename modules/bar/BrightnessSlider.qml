@@ -153,8 +153,8 @@ Item {
 
             onIconClicked: {}
 
-            property real brightnessGlobal: Brightness.brightness
-            onBrightnessGlobalChanged: {
+            property real monitorBrightness: root.currentMonitor?.brightness ?? 0.0
+            onMonitorBrightnessChanged: {
                 root.updateSliderFromMonitor(true);
             }
         }
