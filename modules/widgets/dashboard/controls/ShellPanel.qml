@@ -836,8 +836,8 @@ Item {
                             value: Config.notch.theme ?? "default"
                             onValueSelected: newValue => {
                                 if (newValue !== Config.notch.theme) {
-                                    GlobalStates.markShellChanged();
                                     Config.notch.theme = newValue;
+                                    Config.saveNotch();
                                 }
                             }
                         }
@@ -850,8 +850,8 @@ Item {
                             suffix: "px"
                             onValueEdited: newValue => {
                                 if (newValue !== Config.notch.hoverRegionHeight) {
-                                    GlobalStates.markShellChanged();
                                     Config.notch.hoverRegionHeight = newValue;
+                                    Config.saveNotch();
                                 }
                             }
                         }
