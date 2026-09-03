@@ -12,8 +12,8 @@ import qs.config
 Item {
     id: root
 
-    readonly property color cardBg: "#0c0c11"
-    readonly property color cardBorder: Qt.rgba(1, 1, 1, 0.08)
+    readonly property color cardBg: Colors.background || "#000000"
+    readonly property color cardBorder: Qt.rgba(1, 1, 1, 0.1)
 
     Rectangle {
         id: mainCard

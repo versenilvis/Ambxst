@@ -12,14 +12,6 @@ Singleton {
     readonly property int maxStoredNotifications: 50
 
     function notifToJSON(notif) {
-        let img = notif.image || "";
-        if (img.includes("/tmp/") || img.includes("qsimage/")) {
-            img = "";
-        }
-        let appIcon = notif.appIcon || "";
-        if (appIcon.includes("/tmp/") || appIcon.includes("qsimage/")) {
-            appIcon = "";
-        }
         return {
             "id": notif.id,
             "actions": notif.actions,
@@ -104,14 +96,6 @@ Singleton {
     }
 
     function jsonToNotif(json) {
-        let img = json.image || "";
-        if (img.includes("/tmp/") || img.includes("qsimage/")) {
-            img = "";
-        }
-        let appIcon = json.appIcon || "";
-        if (appIcon.includes("/tmp/") || appIcon.includes("qsimage/")) {
-            appIcon = "";
-        }
         return {
             "id": json.id,
             "actions": json.actions || [],

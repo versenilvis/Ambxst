@@ -38,6 +38,7 @@ ClippingRectangle {
             cleanIcon = cleanIcon.substring(0, queryIdx);
         }
         
+        if (cleanIcon.startsWith("http://") || cleanIcon.startsWith("https://")) return cleanIcon;
         if (cleanIcon.startsWith("file://")) return cleanIcon;
         if (cleanIcon.startsWith("/")) return "file://" + cleanIcon;
         

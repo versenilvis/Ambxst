@@ -76,8 +76,8 @@ Item {
         implicitHeight: mainLayout.implicitHeight + 20
 
         radius: 14
-        color: root.isHovered ? "#1b1b26" : "#13131c"
-        border.color: root.isCritical ? Colors.red : (root.isHovered ? Qt.rgba(1, 1, 1, 0.14) : Qt.rgba(1, 1, 1, 0.06))
+        color: root.isHovered ? "#161616" : "#0d0d0d"
+        border.color: root.isCritical ? Colors.red : (root.isHovered ? Qt.rgba(1, 1, 1, 0.18) : Qt.rgba(1, 1, 1, 0.08))
         border.width: 1
         clip: true
 
@@ -114,58 +114,22 @@ Item {
             anchors.right: parent.right
             anchors.top: parent.top
             anchors.margins: 12
-            spacing: 6
+            spacing: 8
 
             // top header row
             RowLayout {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 22
+                Layout.preferredHeight: 20
                 spacing: 6
-
-                // app icon or web favicon
-                Item {
-                    Layout.preferredWidth: 20
-                    Layout.preferredHeight: 20
-
-                    NotificationAppIcon {
-                        id: appIconFallback
-                        anchors.fill: parent
-                        size: 20
-                        scale: 1
-                        radius: 5
-                        appIcon: root.effectiveAppIcon
-                        image: ""
-                        summary: root.notifData?.summary ?? ""
-                        urgency: root.notifData?.urgency ?? NotificationUrgency.Normal
-                        visible: !faviconRect.visible
-                    }
-
-                    Rectangle {
-                        id: faviconRect
-                        anchors.fill: parent
-                        radius: 5
-                        color: "#0a0a12"
-                        visible: root.faviconUrl !== "" && faviconImage.status === Image.Ready
-
-                        Image {
-                            id: faviconImage
-                            anchors.fill: parent
-                            anchors.margins: 2
-                            fillMode: Image.PreserveAspectFit
-                            smooth: true
-                            source: root.faviconUrl
-                        }
-                    }
-                }
 
                 Text {
                     text: root.displayAppName
                     font.family: Config.theme.font ?? Config.defaultFont
                     font.pixelSize: 11
                     font.weight: Font.DemiBold
-                    color: root.isCritical ? Colors.red : Qt.rgba(Colors.overBackground.r, Colors.overBackground.g, Colors.overBackground.b, 0.7)
+                    color: root.isCritical ? Colors.red : Qt.rgba(Colors.overBackground.r, Colors.overBackground.g, Colors.overBackground.b, 0.6)
                     elide: Text.ElideRight
-                    Layout.maximumWidth: 160
+                    Layout.maximumWidth: 180
                 }
 
                 Text {
@@ -185,14 +149,13 @@ Item {
 
                 Item { Layout.fillWidth: true }
 
-                // single dismiss button, visible on hover
+                // single dismiss button, always visible with subtle opacity, pops on hover
                 Rectangle {
-                    width: 24
-                    height: 24
-                    radius: 12
-                    opacity: root.isHovered ? 1 : 0
-                    visible: opacity > 0
-                    color: closeHover.containsMouse ? (closeHover.pressed ? Qt.rgba(1, 0, 0, 0.35) : Qt.rgba(1, 1, 1, 0.14)) : Qt.rgba(1, 1, 1, 0.06)
+                    width: 22
+                    height: 22
+                    radius: 11
+                    opacity: root.isHovered ? 1.0 : 0.4
+                    color: closeHover.containsMouse ? (closeHover.pressed ? Qt.rgba(1, 0, 0, 0.35) : Qt.rgba(1, 1, 1, 0.14)) : (root.isHovered ? Qt.rgba(1, 1, 1, 0.08) : "transparent")
 
                     Behavior on opacity {
                         enabled: Config.animDuration > 0
@@ -205,7 +168,7 @@ Item {
                         font.family: Icons.font
                         font.pixelSize: 11
                         font.weight: Font.Bold
-                        color: closeHover.containsMouse ? Colors.red : Qt.rgba(Colors.overBackground.r, Colors.overBackground.g, Colors.overBackground.b, 0.6)
+                        color: closeHover.containsMouse ? Colors.red : (root.isHovered ? Colors.overBackground : Qt.rgba(Colors.overBackground.r, Colors.overBackground.g, Colors.overBackground.b, 0.6))
                     }
 
                     MouseArea {
@@ -218,49 +181,65 @@ Item {
                 }
             }
 
-            // summary title
-            Text {
+            // main content row with avatar and message
+            RowLayout {
                 Layout.fillWidth: true
-                visible: (root.notifData?.summary ?? "") !== ""
-                text: root.notifData?.summary ?? ""
-                font.family: Config.theme.font ?? Config.defaultFont
-                font.pixelSize: 13
-                font.weight: Font.Bold
-                color: Colors.overBackground
-                wrapMode: Text.WrapAtWordBoundaryOrAnywhere
-                maximumLineCount: 2
-                elide: Text.ElideRight
-            }
+                spacing: 10
+                Layout.alignment: Qt.AlignTop
 
-            // notification body
-            Text {
-                Layout.fillWidth: true
-                visible: root.processedBody !== ""
-                text: root.processedBody
-                font.family: Config.theme.font ?? Config.defaultFont
-                font.pixelSize: 12
-                color: Qt.rgba(Colors.overBackground.r, Colors.overBackground.g, Colors.overBackground.b, 0.65)
-                wrapMode: Text.WrapAtWordBoundaryOrAnywhere
-                maximumLineCount: 4
-                elide: Text.ElideRight
-                lineHeight: 1.15
-                linkColor: Styling.srItem("overprimary")
-                onLinkActivated: link => Qt.openUrlExternally(link)
-            }
+                // avatar or app icon
+                Item {
+                    id: avatarContainer
+                    Layout.preferredWidth: 40
+                    Layout.preferredHeight: 40
+                    Layout.alignment: Qt.AlignTop
 
-            // optional attached image
-            ClippingRectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 120
-                visible: (root.notifData?.image ?? "") !== "" && !root.notifData.image.includes("/tmp/")
-                radius: 8
-                color: "#0a0a0f"
+                    NotificationAppIcon {
+                        anchors.fill: parent
+                        size: 40
+                        radius: (root.notifData?.image ?? "") !== "" ? 20 : 10
+                        appIcon: root.faviconUrl || root.effectiveAppIcon
+                        image: root.notifData?.image ?? ""
+                        summary: root.notifData?.summary ?? ""
+                        urgency: root.notifData?.urgency ?? NotificationUrgency.Normal
+                    }
+                }
 
-                Image {
-                    anchors.fill: parent
-                    source: root.notifData?.image ?? ""
-                    fillMode: Image.PreserveAspectCrop
-                    smooth: true
+                // text column
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 3
+                    Layout.alignment: Qt.AlignTop
+
+                    // summary title
+                    Text {
+                        Layout.fillWidth: true
+                        visible: (root.notifData?.summary ?? "") !== ""
+                        text: root.notifData?.summary ?? ""
+                        font.family: Config.theme.font ?? Config.defaultFont
+                        font.pixelSize: 13
+                        font.weight: Font.Bold
+                        color: (root.notifData?.image ?? "") !== "" ? Styling.srItem("overprimary") : Colors.overBackground
+                        wrapMode: Text.WrapAtWordBoundaryOrAnywhere
+                        maximumLineCount: 2
+                        elide: Text.ElideRight
+                    }
+
+                    // notification body
+                    Text {
+                        Layout.fillWidth: true
+                        visible: root.processedBody !== ""
+                        text: root.processedBody
+                        font.family: Config.theme.font ?? Config.defaultFont
+                        font.pixelSize: 12
+                        color: Qt.rgba(Colors.overBackground.r, Colors.overBackground.g, Colors.overBackground.b, 0.7)
+                        wrapMode: Text.WrapAtWordBoundaryOrAnywhere
+                        maximumLineCount: 4
+                        elide: Text.ElideRight
+                        lineHeight: 1.15
+                        linkColor: Styling.srItem("overprimary")
+                        onLinkActivated: link => Qt.openUrlExternally(link)
+                    }
                 }
             }
         }
