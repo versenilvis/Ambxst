@@ -13,7 +13,6 @@ import qs.config
 import "../clipboard"
 import "../emoji"
 import "../notes"
-import "calendar"
 
 Rectangle {
     color: "transparent"
@@ -1270,11 +1269,6 @@ Rectangle {
 
                     FullPlayer {
                         Layout.fillWidth: true
-                    }
-
-                    Calendar {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: width
                     }
 
                     StyledRect {
