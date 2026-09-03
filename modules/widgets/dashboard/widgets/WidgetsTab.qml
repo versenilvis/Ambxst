@@ -17,6 +17,8 @@ Rectangle {
     implicitHeight: 450
 
     property int leftPanelWidth: 0
+    // See ClipboardTab: the palette owns the search field when this is false.
+    property bool showSearch: true
 
     function focusAppSearch() {
         Qt.callLater(() => {
@@ -28,104 +30,13 @@ Rectangle {
         focusAppSearch();
     }
 
+    function clearSearch() {
+        appLauncher.clearSearch();
+    }
+
     ColumnLayout {
         anchors.fill: parent
         spacing: 8
-
-        // control buttons row
-        StyledRect {
-            id: controlButtonsContainer
-            variant: "pane"
-            Layout.alignment: Qt.AlignHCenter
-            implicitWidth: internalBgRect.implicitWidth + 8
-            implicitHeight: internalBgRect.implicitHeight + 8
-            radius: Styling.radius(4)
-
-            StyledRect {
-                id: internalBgRect
-                variant: "internalbg"
-                anchors.centerIn: parent
-                implicitWidth: buttonRow.implicitWidth + 8
-                implicitHeight: buttonRow.implicitHeight + 8
-                radius: Styling.radius(0)
-
-                RowLayout {
-                    id: buttonRow
-                    anchors.centerIn: parent
-                    spacing: 4
-
-                    ControlButton {
-                        Layout.preferredWidth: 48
-                        Layout.preferredHeight: 48
-                        iconName: {
-                            if (!NetworkService.wifiEnabled)
-                                return Icons.wifiOff;
-                            const strength = NetworkService.networkStrength;
-                            if (strength === 0)
-                                return Icons.wifiHigh;
-                            if (strength < 25)
-                                return Icons.wifiNone;
-                            if (strength < 50)
-                                return Icons.wifiLow;
-                            if (strength < 75)
-                                return Icons.wifiMedium;
-                            return Icons.wifiHigh;
-                        }
-                        isActive: NetworkService.wifiEnabled
-                        tooltipText: NetworkService.wifiEnabled ? "Wi-Fi: On" : "Wi-Fi: Off"
-                        onClicked: NetworkService.toggleWifi()
-                    }
-
-                    ControlButton {
-                        Layout.preferredWidth: 48
-                        Layout.preferredHeight: 48
-                        iconName: {
-                            if (!BluetoothService.enabled)
-                                return Icons.bluetoothOff;
-                            if (BluetoothService.connected)
-                                return Icons.bluetoothConnected;
-                            return Icons.bluetooth;
-                        }
-                        isActive: BluetoothService.enabled
-                        tooltipText: {
-                            if (!BluetoothService.enabled)
-                                return "Bluetooth: Off";
-                            if (BluetoothService.connected)
-                                return "Bluetooth: Connected";
-                            return "Bluetooth: On";
-                        }
-                        onClicked: BluetoothService.toggle()
-                    }
-
-                    ControlButton {
-                        Layout.preferredWidth: 48
-                        Layout.preferredHeight: 48
-                        iconName: Icons.nightLight
-                        isActive: NightLightService.active
-                        tooltipText: NightLightService.active ? "Night Light: On" : "Night Light: Off"
-                        onClicked: NightLightService.toggle()
-                    }
-
-                    ControlButton {
-                        Layout.preferredWidth: 48
-                        Layout.preferredHeight: 48
-                        iconName: Icons.caffeine
-                        isActive: CaffeineService.inhibit
-                        tooltipText: CaffeineService.inhibit ? "Caffeine: On" : "Caffeine: Off"
-                        onClicked: CaffeineService.toggleInhibit()
-                    }
-
-                    ControlButton {
-                        Layout.preferredWidth: 48
-                        Layout.preferredHeight: 48
-                        iconName: Icons.gameMode
-                        isActive: GameModeService.toggled
-                        tooltipText: GameModeService.toggled ? "Game Mode: On" : "Game Mode: Off"
-                        onClicked: GameModeService.toggle()
-                    }
-                }
-            }
-        }
 
         // app launcher
         Rectangle {
@@ -241,6 +152,7 @@ Rectangle {
                 if (app && app.execute) {
                     app.execute();
                     UsageTracker.recordUsage(appId);
+                    GlobalStates.commandPaletteVisible = false;
                 }
             }
 
@@ -277,6 +189,7 @@ Rectangle {
 
             function clearSearch() {
                 GlobalStates.clearLauncherState();
+                searchInput.clear();
                 searchInput.focusInput();
             }
 
@@ -326,6 +239,8 @@ Rectangle {
                     id: searchInput
                     width: parent.width
                     anchors.top: parent.top
+                    height: root.showSearch ? implicitHeight : 0
+                    visible: root.showSearch
                     text: GlobalStates.launcherSearchText
                     placeholderText: "Search applications..."
                     iconText: ""
@@ -361,7 +276,7 @@ Rectangle {
                             if (selectedApp) {
                                 let options = [function () {
                                         appLauncher.executeApp(selectedApp.appId);
-                                        Visibilities.setActiveModule("");
+                                        GlobalStates.commandPaletteVisible = false;
                                     }, function () {
                                         TaskbarApps.togglePin(selectedApp.appId);
                                         appLauncher.expandedItemIndex = -1;
@@ -388,7 +303,7 @@ Rectangle {
                                 let selectedApp = appsModel.get(appLauncher.selectedIndex);
                                 if (selectedApp) {
                                     appLauncher.executeApp(selectedApp.appId);
-                                    Visibilities.setActiveModule("");
+                                    GlobalStates.commandPaletteVisible = false;
                                 }
                             }
                         }
@@ -414,7 +329,7 @@ Rectangle {
                             appLauncher.selectedOptionIndex = 0;
                             appLauncher.keyboardNavigation = false;
                         } else {
-                            Visibilities.setActiveModule("");
+                            GlobalStates.commandPaletteVisible = false;
                         }
                     }
 
@@ -580,8 +495,16 @@ Rectangle {
                             }
                             return baseHeight;
                         }
-                        color: "transparent"
-                        radius: 16
+                        color: index === appLauncher.selectedIndex ? Colors.surfaceContainer : "transparent"
+                        radius: Styling.radius(-4)
+
+                        Behavior on color {
+                            enabled: Config.animDuration > 0
+                            ColorAnimation {
+                                duration: Config.animDuration / 3
+                                easing.type: Easing.OutQuart
+                            }
+                        }
 
                         Behavior on height {
                             enabled: Config.animDuration > 0
@@ -614,7 +537,7 @@ Rectangle {
                                 if (mouse.button === Qt.LeftButton) {
                                     if (!isExpanded) {
                                         appLauncher.executeApp(appId);
-                                        Visibilities.setActiveModule("");
+                                        GlobalStates.commandPaletteVisible = false;
                                     }
                                 } else if (mouse.button === Qt.RightButton) {
                                     if (appLauncher.expandedItemIndex === index) {
@@ -776,7 +699,7 @@ Rectangle {
                                             textColor: Styling.srItem("primary"),
                                             action: function () {
                                                 appLauncher.executeApp(appId);
-                                                Visibilities.setActiveModule("");
+                                                GlobalStates.commandPaletteVisible = false;
                                             }
                                         },
                                         {
@@ -1001,6 +924,7 @@ Rectangle {
                 onExited: function (code) {}
             }
         }
+
     }
 
     Component.onCompleted: {

@@ -236,6 +236,8 @@ Singleton {
     property bool settingsVisible: false
     property bool clipboardVisible: false
     property bool emojiVisible: false
+    property bool commandPaletteVisible: false
+    property int commandPaletteTab: 0
 
     // Notification Center state toggle
     signal toggleNotifications()

@@ -33,11 +33,11 @@ Item {
     function run(command) {
         console.log("IPC run command received:", command);
         switch (command) {
-            // Dashboard
-            case "dashboard-widgets": toggleDashboardTab(0); break;
+            // Dashboard / Command Palette
+            case "dashboard-widgets": toggleCommandPalette(0); break;
             case "dashboard-controls": toggleDashboardTab(1); break;
-            case "dashboard-clipboard": GlobalStates.clipboardVisible = !GlobalStates.clipboardVisible; break;
-            case "dashboard-emoji": GlobalStates.emojiVisible = !GlobalStates.emojiVisible; break;
+            case "dashboard-clipboard": toggleCommandPalette(1); break;
+            case "dashboard-emoji": toggleCommandPalette(2); break;
             case "dashboard-notes": toggleDashboardWithPrefix(Config.prefix.notes + " "); break;
             
             // System
@@ -98,6 +98,19 @@ Item {
             if (p && typeof p.pinned !== 'undefined') {
                 p.pinned = !p.pinned;
             }
+        }
+    }
+
+    function toggleCommandPalette(tabIndex) {
+        if (GlobalStates.commandPaletteVisible) {
+            if (GlobalStates.commandPaletteTab === tabIndex) {
+                GlobalStates.commandPaletteVisible = false;
+            } else {
+                GlobalStates.commandPaletteTab = tabIndex;
+            }
+        } else {
+            GlobalStates.commandPaletteTab = tabIndex;
+            GlobalStates.commandPaletteVisible = true;
         }
     }
 
@@ -224,29 +237,29 @@ Item {
         }
     }
 
-    // Dashboard tab shortcuts
+    // command palette tab shortcuts
     GlobalShortcut {
         appid: root.appId
         name: "dashboard-widgets"
-        description: "Open dashboard widgets tab (includes app launcher)"
+        description: "Open command palette (apps)"
 
-        onPressed: toggleDashboardTab(0)
+        onPressed: toggleCommandPalette(0)
     }
 
     GlobalShortcut {
         appid: root.appId
         name: "dashboard-clipboard"
-        description: "Open dashboard clipboard"
+        description: "Open command palette (clipboard)"
 
-        onPressed: GlobalStates.clipboardVisible = !GlobalStates.clipboardVisible
+        onPressed: toggleCommandPalette(1)
     }
 
     GlobalShortcut {
         appid: root.appId
         name: "dashboard-emoji"
-        description: "Open dashboard emoji picker"
+        description: "Open command palette (emoji)"
 
-        onPressed: GlobalStates.emojiVisible = !GlobalStates.emojiVisible
+        onPressed: toggleCommandPalette(2)
     }
 
 

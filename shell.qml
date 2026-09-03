@@ -11,8 +11,7 @@ import qs.modules.bar
 import qs.modules.bar.workspaces
 import qs.modules.notifications
 import qs.modules.widgets.settings
-import qs.modules.widgets.clipboard
-import qs.modules.widgets.emoji
+import qs.modules.widgets.commandpalette
 import qs.modules.notch
 import qs.modules.widgets.overview
 import qs.modules.services
@@ -200,12 +199,8 @@ ShellRoot {
         id: settingsWindow
     }
 
-    ClipboardWindow {
-        id: clipboardWindow
-    }
-
-    EmojiWindow {
-        id: emojiWindow
+    CommandPalette {
+        id: commandPalette
     }
 
     // Screenshot Tool

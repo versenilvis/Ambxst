@@ -22,6 +22,9 @@ Rectangle {
     property int leftPanelWidth: 0
 
     property string searchText: ""
+    // The command palette supplies one shared search field; when it does,
+    // this tab hides its own so there is only ever one place to type.
+    property bool showSearch: true
     property bool showResults: searchText.length > 0
     property int selectedIndex: -1
     property int selectedRecentIndex: -1
@@ -336,7 +339,7 @@ Rectangle {
 
         root.addToRecent(emojiForRecent);
         ClipboardService.copyAndTypeEmoji(emojiToCopy);
-        GlobalStates.emojiVisible = false;
+        GlobalStates.commandPaletteVisible = false;
     }
 
     function onDownPressed() {
@@ -507,7 +510,8 @@ Rectangle {
                 Row {
                     id: searchRow
                     width: parent.width
-                    height: 48
+                    height: root.showSearch ? 48 : 0
+                    visible: root.showSearch
                     anchors.top: parent.top
                     spacing: 8
 
@@ -576,7 +580,7 @@ Rectangle {
                                 root.selectedOptionIndex = 0;
                                 root.keyboardNavigation = false;
                             } else if (root.searchText.length === 0) {
-                                GlobalStates.emojiVisible = false;
+                                GlobalStates.commandPaletteVisible = false;
                             } else {
                                 root.clearSearch();
                             }
@@ -1441,7 +1445,7 @@ Rectangle {
 
     Keys.onPressed: event => {
         if (event.key === Qt.Key_Escape) {
-            GlobalStates.emojiVisible = false;
+            GlobalStates.commandPaletteVisible = false;
             event.accepted = true;
         }
     }

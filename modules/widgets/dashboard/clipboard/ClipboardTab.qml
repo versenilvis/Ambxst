@@ -28,11 +28,14 @@ Item {
             root.cancelAliasMode();
         } else {
             // Cerrar el dashboard
-            GlobalStates.clipboardVisible = false;
+            GlobalStates.commandPaletteVisible = false;
         }
     }
 
     property string searchText: ""
+    // The command palette supplies one shared search field; when it does,
+    // this tab hides its own so there is only ever one place to type.
+    property bool showSearch: true
     property bool showResults: searchText.length > 0
     property int selectedIndex: -1
     property var allItems: []
@@ -670,7 +673,8 @@ Item {
             Row {
                 id: searchRow
                 width: parent.width
-                height: 48
+                height: root.showSearch ? 48 : 0
+                visible: root.showSearch
                 anchors.top: parent.top
                 spacing: 8
 
@@ -701,7 +705,7 @@ Item {
                                 // Build options array dynamically
                                 let options = [function () {
                                         root.copyToClipboard(item.id);
-                                        GlobalStates.clipboardVisible = false;
+                                        GlobalStates.commandPaletteVisible = false;
                                     }];
 
                                 // Add Open if applicable
@@ -732,7 +736,7 @@ Item {
                                 let selectedItem = root.allItems[root.selectedIndex];
                                 if (selectedItem && !root.deleteMode) {
                                     root.copyToClipboard(selectedItem.id);
-                                    GlobalStates.clipboardVisible = false;
+                                    GlobalStates.commandPaletteVisible = false;
                                 }
                             }
                         }
@@ -800,7 +804,7 @@ Item {
                             root.selectedOptionIndex = 0;
                             root.keyboardNavigation = false;
                         } else if (!root.deleteMode) {
-                            GlobalStates.clipboardVisible = false;
+                            GlobalStates.commandPaletteVisible = false;
                         }
                     }
 
@@ -1225,7 +1229,7 @@ Item {
 
                                     if (!root.deleteMode && !isExpanded) {
                                         root.copyToClipboard(modelData.id);
-                                        GlobalStates.clipboardVisible = false;
+                                        GlobalStates.commandPaletteVisible = false;
                                     }
                                 } else if (mouse.button === Qt.RightButton) {
                                     if (root.deleteMode) {
@@ -1667,7 +1671,7 @@ Item {
                                 onTriggered: {
                                     if (!mouseArea.isDragging) {
                                         root.copyToClipboard(modelData.id);
-                                        GlobalStates.clipboardVisible = false;
+                                        GlobalStates.commandPaletteVisible = false;
                                         mouseArea.longPressTriggered = true;
                                     }
                                 }
@@ -1733,7 +1737,7 @@ Item {
                                                 textColor: Styling.srItem("primary"),
                                                 action: function () {
                                                     root.copyToClipboard(modelData.id);
-                                                    GlobalStates.clipboardVisible = false;
+                                                    GlobalStates.commandPaletteVisible = false;
                                                 }
                                             }
                                         ];
