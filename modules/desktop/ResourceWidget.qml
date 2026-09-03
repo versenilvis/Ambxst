@@ -20,26 +20,37 @@ PanelWindow {
     readonly property HyprlandMonitor hyprlandMonitor: Hyprland.monitorFor(root.screen)
     readonly property int activeWorkspaceId: hyprlandMonitor?.activeWorkspace?.id ?? 1
 
-    // Hide only when a window actually overlaps the pill - a window sitting
-    // elsewhere on the workspace is no reason to disappear. Hyprland reports
-    // window geometry in logical coordinates, same space as ShellScreen.
-    readonly property bool covered: {
-        if (!root.screen)
+    readonly property bool activeWindowFullscreen: {
+        const toplevel = ToplevelManager.activeToplevel;
+        if (!toplevel)
             return false;
+        if (toplevel.screen !== root.screen)
+            return false;
+        return toplevel.fullscreen === true;
+    }
 
-        const count = root.metrics ? root.metrics.length : 3;
-        const h = count * 66 + (count - 1) * 16 + 32 + 40;
-        const left = root.screen.x + root.screen.width - 72;
-        const right = root.screen.x + root.screen.width;
-        const top = root.screen.y + (root.screen.height - h) / 2;
-        const bottom = top + h;
+    property bool reveal: false
+    readonly property bool isMouseOver: hitArea.containsMouse || (root.hoveredItem !== null)
 
-        return HyprlandData.windowList.some(w => {
-            if (w.workspace?.id !== root.activeWorkspaceId || w.hidden || !w.at || !w.size)
-                return false;
-            const x1 = w.at[0], y1 = w.at[1];
-            return x1 < right && x1 + w.size[0] > left && y1 < bottom && y1 + w.size[1] > top;
-        });
+    onIsMouseOverChanged: {
+        if (isMouseOver) {
+            hideTimer.stop();
+            root.reveal = true;
+        } else {
+            hideTimer.restart();
+        }
+    }
+
+    Timer {
+        id: hideTimer
+        interval: 150
+        repeat: false
+        onTriggered: {
+            if (!root.isMouseOver) {
+                root.reveal = false;
+                root.hoveredItem = null;
+            }
+        }
     }
 
     // Green while there is headroom, yellow once it matters, red when it hurts.
@@ -49,7 +60,7 @@ PanelWindow {
             return "#f64108";
         if (percent >= 50)
             return "#effd14";
-        return "#04FE88";
+        return Colors.green;
     }
 
     function gib(bytes) {
@@ -84,17 +95,17 @@ PanelWindow {
     property Item hoveredItem: null
     readonly property var hoveredMetric: hoveredItem ? hoveredItem.modelData : null
 
-    visible: (Config.desktop?.resourceWidget ?? true) && !root.covered
+    visible: (Config.desktop?.resourceWidget ?? true) && !root.activeWindowFullscreen
 
     color: "transparent"
     exclusionMode: ExclusionMode.Ignore
-    WlrLayershell.layer: WlrLayer.Bottom
+    WlrLayershell.layer: WlrLayer.Top
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
     WlrLayershell.namespace: "quickshell:resourceWidget"
 
     // Only the pill takes pointer input; the detail card is read-only decoration
     mask: Region {
-        item: pillContainer
+        item: hitArea
     }
 
     anchors {
@@ -106,16 +117,38 @@ PanelWindow {
     // Wide enough to hold the detail card to the left of the pill
     implicitWidth: pillContainer.visibleWidth + 300
 
+    MouseArea {
+        id: hitArea
+        hoverEnabled: true
+
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        width: root.reveal
+            ? (root.hoveredItem ? pillContainer.visibleWidth + card.width + 20 : pillContainer.visibleWidth)
+            : pillContainer.peekWidth + 6
+        height: pillContainer.height + 40
+    }
+
     Item {
         id: pillContainer
 
         readonly property int cornerSize: Config.roundness > 0 ? Config.roundness + 4 : 20
         readonly property int visibleWidth: 72
+        readonly property int peekWidth: 8
 
         width: visibleWidth
         height: panel.height + cornerSize * 2
         anchors.right: parent.right
+        anchors.rightMargin: root.reveal ? 0 : -(visibleWidth - peekWidth)
         anchors.verticalCenter: parent.verticalCenter
+
+        Behavior on anchors.rightMargin {
+            enabled: Config.animDuration > 0
+            NumberAnimation {
+                duration: root.reveal ? 240 : 160
+                easing.type: Easing.OutCubic
+            }
+        }
 
         RoundCorner {
             id: topCorner

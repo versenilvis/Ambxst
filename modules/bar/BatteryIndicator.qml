@@ -21,7 +21,7 @@ Item {
 
     readonly property color boldRed: "#f64108"
     readonly property color boldYellow: "#effd14"
-    readonly property color boldGreen: "#04FE88"
+    readonly property color boldGreen: Colors.green
 
     // Function to interpolate color between red, yellow, and green based on battery percentage
     function getBatteryColor() {

@@ -13,7 +13,6 @@ StyledRect {
 
     required property string icon
     readonly property color boldRed: "#f64108"
-    readonly property color boldGreen: "#04FE88"
     readonly property color boldYellow: "#effd14"
     readonly property color boldBlue: "#38bdf8"
     readonly property color boldCyan: "#00f2fe"
@@ -24,7 +23,6 @@ StyledRect {
 
     readonly property color effectiveAccentColor: {
         if (accentColor === Colors.red) return boldRed;
-        if (accentColor === Colors.green) return boldGreen;
         if (accentColor === Colors.yellow) return boldYellow;
         if (accentColor === Colors.blue) return boldBlue;
         if (accentColor === Colors.cyan) return boldCyan;

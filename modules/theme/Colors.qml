@@ -38,7 +38,7 @@ FileView {
     }
 
     adapter: JsonAdapter {
-        property color background: "#1a1111"
+        property color background: "#000000"
         property color blue: "#cebdfe"
         property color blueContainer: "#4c3e76"
         property color blueSource: "#0000ff"
@@ -113,7 +113,7 @@ FileView {
         property color secondaryFixed: "#ffdad7"
         property color secondaryFixedDim: "#e7bdb9"
         property color shadow: "#000000"
-        property color surface: "#1a1111"
+        property color surface: "#000000"
         property color surfaceBright: "#423736"
         property color surfaceContainer: "#271d1d"
         property color surfaceContainerHigh: "#322827"
