@@ -82,13 +82,27 @@ PanelWindow {
                 detail: `${root.gib(SystemResources.ramUsed)} / ${root.gib(SystemResources.ramTotal)} GiB`
             }
         ];
-        if (SystemResources.gpuDetected)
+        if (SystemResources.gpuDetected) {
             m.push({
-                icon: Icons.gpu,
+                icon: Icons.cube,
                 value: SystemResources.gpuUsage,
                 title: "GPU",
                 detail: (SystemResources.gpuNames[0] || "Graphics") + (SystemResources.gpuTemp >= 0 ? `  ·  ${SystemResources.gpuTemp}°C` : "")
             });
+        }
+        const mainDisk = (SystemResources.validDisks && SystemResources.validDisks.length > 0)
+            ? SystemResources.validDisks[0]
+            : "/";
+        const diskType = SystemResources.diskTypes[mainDisk] || "unknown";
+        const diskIcon = diskType === "ssd" ? Icons.ssd : (diskType === "hdd" ? Icons.hdd : Icons.disk);
+        const diskUsedB = SystemResources.diskUsed[mainDisk] || 0;
+        const diskTotalB = SystemResources.diskTotal[mainDisk] || 0;
+        m.push({
+            icon: diskIcon,
+            value: SystemResources.diskUsage[mainDisk] || 0,
+            title: "Disk",
+            detail: `${root.gib(diskUsedB)} / ${root.gib(diskTotalB)} GiB (${mainDisk})`
+        });
         return m;
     }
 
