@@ -145,7 +145,8 @@ QtObject {
             luaCode.push(`hl.animation({ leaf = "windows", enabled = true, speed = 2.5, bezier = "myBezier", style = "popin 80%" })`);
             luaCode.push(`hl.animation({ leaf = "border", enabled = true, speed = 2.5, bezier = "myBezier" })`);
             luaCode.push(`hl.animation({ leaf = "fade", enabled = true, speed = 2.5, bezier = "myBezier" })`);
-            luaCode.push(`hl.layer_rule({ match = { namespace = "^(quickshell)$" }, no_anim = true, blur = true, blur_popups = true, ignore_alpha = ${ignoreAlphaValue} })`);
+            const layerBlur = Config.hyprland.blurEnabled ? "true" : "false";
+            luaCode.push(`hl.layer_rule({ match = { namespace = "^(quickshell)$" }, no_anim = true, blur = ${layerBlur}, blur_popups = ${layerBlur}, ignore_alpha = ${ignoreAlphaValue} })`);
 
             console.log("HyprlandConfig: Applying hyprctl eval (Lua parser).");
             hyprctlProcess.command = ["hyprctl", "eval", luaCode.join(";\n")];

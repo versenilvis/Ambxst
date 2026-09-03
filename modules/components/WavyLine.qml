@@ -50,10 +50,6 @@ Item {
             antialiasing: true
             blending: true
 
-            Component.onCompleted: {
-                animationTimer.start();
-            }
-
             Timer {
                 id: animationTimer
                 interval: 16

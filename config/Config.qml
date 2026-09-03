@@ -761,7 +761,7 @@ Singleton {
             property real shadowOpacity: 0.5
             property string shadowOffset: "0 0"
             property real shadowScale: 1.0
-            property bool blurEnabled: true
+            property bool blurEnabled: false
             property int blurSize: 4
             property int blurPasses: 2
             property bool blurIgnoreOpacity: true

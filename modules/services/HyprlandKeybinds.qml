@@ -242,6 +242,10 @@ QtObject {
                 dspExpr = `hl.dsp.exec_cmd(${JSON.stringify(argument)})`;
             } else if (dispatcher === "global") {
                 dspExpr = `hl.dsp.global(${JSON.stringify(argument)})`;
+            } else if (dispatcher === "movewindow" && !argument) {
+                dspExpr = `hl.dsp.window.drag()`;
+            } else if (dispatcher === "resizewindow" && !argument) {
+                dspExpr = `hl.dsp.window.resize()`;
             } else {
                 dspExpr = `hl.dsp.exec_raw(${JSON.stringify(dispatcher + (argument ? " " + argument : ""))})`;
             }
@@ -251,7 +255,7 @@ QtObject {
                 if (flags.includes("l")) opts.push("locked = true");
                 if (flags.includes("r")) opts.push("release = true");
                 if (flags.includes("e")) opts.push("repeating = true");
-                if (flags.includes("m")) opts.push("mouse = true");
+                if (flags.includes("m")) opts.push("drag = true");
                 if (flags.includes("n")) opts.push("non_consuming = true");
             }
 
@@ -274,6 +278,10 @@ QtObject {
                 dspExpr = `hl.dsp.exec_cmd(${JSON.stringify(argument)})`;
             } else if (dispatcher === "global") {
                 dspExpr = `hl.dsp.global(${JSON.stringify(argument)})`;
+            } else if (dispatcher === "movewindow" && !argument) {
+                dspExpr = `hl.dsp.window.drag()`;
+            } else if (dispatcher === "resizewindow" && !argument) {
+                dspExpr = `hl.dsp.window.resize()`;
             } else {
                 dspExpr = `hl.dsp.exec_raw(${JSON.stringify(dispatcher + (argument ? " " + argument : ""))})`;
             }
@@ -283,7 +291,7 @@ QtObject {
                 if (flags.includes("l")) opts.push("locked = true");
                 if (flags.includes("r")) opts.push("release = true");
                 if (flags.includes("e")) opts.push("repeating = true");
-                if (flags.includes("m")) opts.push("mouse = true");
+                if (flags.includes("m")) opts.push("drag = true");
                 if (flags.includes("n")) opts.push("non_consuming = true");
             }
 
