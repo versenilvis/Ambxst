@@ -683,6 +683,7 @@ PanelWindow {
                 Clock {
                     id: clockComponentVert
                     bar: panel
+                    vertical: true
                     layerEnabled: Config.showBackground
                 }
 

@@ -241,6 +241,7 @@ Singleton {
 
     // Notification Center state toggle
     signal toggleNotifications()
+    signal toggleCalendar()
 
     // Dynamic Island notch event spring bounce
     signal notchBounce()

@@ -69,6 +69,9 @@ Item {
             case "notification-center":
                 GlobalStates.toggleNotifications();
                 break;
+            case "calendar":
+                GlobalStates.toggleCalendar();
+                break;
                 
             default: console.warn("Unknown IPC command:", command);
         }

@@ -5,6 +5,7 @@ import qs.config
 import qs.modules.theme
 import qs.modules.components
 import qs.modules.services
+import qs.modules.globals
 
 Item {
     id: root
@@ -17,7 +18,7 @@ Item {
     property string currentFullDate: ""
 
     required property var bar
-    property bool vertical: bar.orientation === "vertical"
+    property bool vertical: false
     property bool isHovered: false
     property bool layerEnabled: true
 
@@ -173,6 +174,15 @@ Item {
 
         CalendarCard {
             id: calendarCard
+        }
+    }
+
+    Connections {
+        target: GlobalStates
+        function onToggleCalendar() {
+            if ((root.vertical && root.bar.orientation === "vertical") || (!root.vertical && root.bar.orientation !== "vertical")) {
+                clockPopup.toggle()
+            }
         }
     }
 

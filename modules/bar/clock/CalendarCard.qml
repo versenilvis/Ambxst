@@ -16,9 +16,9 @@ Item {
     property date now: new Date()
     property int monthShift: 0
 
-    // Refresh every minute
+    // Refresh every second
     Timer {
-        interval: 60000
+        interval: 1000
         running: true
         repeat: true
         onTriggered: root.now = new Date()
@@ -74,101 +74,174 @@ Item {
             anchors.margins: 16
             spacing: 14
 
-            // Left Section: Day & Agenda Summary
+            // Left Section: StandBy Clock & Agenda Summary
             Item {
                 id: leftSection
-                width: 164
+                width: 176
                 height: parent.height
 
                 Column {
                     anchors.fill: parent
-                    spacing: 2
+                    spacing: 10
 
-                    // Day name in uppercase soft red
-                    Text {
-                        text: root.now.toLocaleDateString(Qt.locale(), "dddd").toUpperCase()
-                        color: root.accentRed
-                        font.family: Config.theme.font
-                        font.pixelSize: 13
-                        font.weight: Font.Bold
-                        font.letterSpacing: 1.0
-                    }
-
-                    // Large clean date number
-                    Text {
-                        text: root.now.getDate()
-                        color: Colors.overBackground
-                        font.family: Config.theme.font
-                        font.pixelSize: 52
-                        font.weight: Font.Normal
-                    }
-
-                    Item {
-                        width: parent.width
-                        height: 12
-                    }
-
-                    // Agenda item 1: Date & month full detail
+                    // StandBy Clock (inspired by iOS StandBy mode)
                     Row {
                         spacing: 8
                         width: parent.width
 
-                        Rectangle {
-                            width: 3.5
-                            height: 32
-                            radius: 1.75
-                            color: root.accentRed
+                        // Big bold digital time
+                        Text {
                             anchors.verticalCenter: parent.verticalCenter
+                            text: Qt.formatDateTime(root.now, "hh:mm")
+                            color: Colors.blue || "#60a5fa"
+                            font.family: Styling.defaultFont
+                            font.pixelSize: 42
+                            font.weight: Font.Black
+                            font.letterSpacing: -1.5
                         }
 
+                        // Beside time: Weekday & Date stacked (like TUE 6)
                         Column {
                             anchors.verticalCenter: parent.verticalCenter
                             spacing: 2
-                            width: parent.width - 12
 
                             Text {
-                                text: root.now.toLocaleDateString(Qt.locale(), "MMMM yyyy")
-                                color: Colors.overBackground
-                                font.family: Config.theme.font
+                                text: root.now.toLocaleDateString(Qt.locale(), "ddd").toUpperCase() + " " + root.now.getDate()
+                                color: Colors.blue || "#93c5fd"
+                                font.family: Styling.defaultFont
                                 font.pixelSize: 13
-                                font.weight: Font.Bold
-                                elide: Text.ElideRight
-                                width: parent.width
+                                font.weight: Font.Black
+                                font.letterSpacing: 0.5
                             }
 
                             Text {
-                                text: Qt.formatDateTime(root.now, "hh:mm") + " · All Day"
+                                text: root.now.toLocaleDateString(Qt.locale(), "MMM")
                                 color: Colors.outline
-                                font.family: Config.theme.font
-                                font.pixelSize: 11
+                                font.family: Styling.defaultFont
+                                font.pixelSize: 12
+                                font.weight: Font.Bold
                             }
                         }
                     }
 
-                    Item {
+                    // Day & Month Detail Card
+                    Rectangle {
                         width: parent.width
-                        height: 10
+                        height: 98
+                        radius: 12
+                        color: Qt.rgba(255, 255, 255, 0.03)
+                        border.width: 1
+                        border.color: Qt.rgba(255, 255, 255, 0.06)
+
+                        Column {
+                            anchors.fill: parent
+                            anchors.margins: 10
+                            spacing: 8
+
+                            // Row 1: Full date & month
+                            Row {
+                                spacing: 8
+                                width: parent.width
+
+                                Rectangle {
+                                    width: 3.5
+                                    height: 28
+                                    radius: 1.75
+                                    color: root.accentRed
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+
+                                Column {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    spacing: 2
+                                    width: parent.width - 12
+
+                                    Text {
+                                        text: root.now.toLocaleDateString(Qt.locale(), "dddd, MMMM d")
+                                        color: Colors.overBackground
+                                        font.family: Styling.defaultFont
+                                        font.pixelSize: 12
+                                        font.weight: Font.Bold
+                                        elide: Text.ElideRight
+                                        width: parent.width
+                                    }
+
+                                    Text {
+                                        text: root.now.getFullYear().toString() + " · All Day"
+                                        color: Colors.outline
+                                        font.family: Styling.defaultFont
+                                        font.pixelSize: 11
+                                    }
+                                }
+                            }
+
+                            // Row 2: Week & Day counter
+                            Row {
+                                spacing: 8
+                                width: parent.width
+
+                                Rectangle {
+                                    width: 3.5
+                                    height: 18
+                                    radius: 1.75
+                                    color: Colors.yellow
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+
+                                Text {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: `Week ${root.weekNumber} · Day ${root.dayOfYear}`
+                                    color: Colors.outline
+                                    font.family: Styling.defaultFont
+                                    font.pixelSize: 11
+                                    font.weight: Font.Medium
+                                }
+                            }
+                        }
                     }
 
-                    // Agenda item 2: Week & Day counter
-                    Row {
-                        spacing: 8
+                    // Mini Day Progress Bar
+                    Column {
                         width: parent.width
+                        spacing: 4
+
+                        Item {
+                            width: parent.width
+                            height: 14
+
+                            Text {
+                                anchors.left: parent.left
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: "Today"
+                                color: Colors.outline
+                                font.family: Styling.defaultFont
+                                font.pixelSize: 10
+                                font.weight: Font.Medium
+                            }
+
+                            Text {
+                                anchors.right: parent.right
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: Math.round(((root.now.getHours() * 60 + root.now.getMinutes()) / 1440) * 100) + "%"
+                                color: Colors.outline
+                                font.family: Styling.defaultFont
+                                font.pixelSize: 10
+                                font.weight: Font.Bold
+                            }
+                        }
 
                         Rectangle {
-                            width: 3.5
-                            height: 20
-                            radius: 1.75
-                            color: Colors.yellow
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
+                            width: parent.width
+                            height: 3
+                            radius: 1.5
+                            color: Qt.rgba(255, 255, 255, 0.08)
 
-                        Text {
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: `Week ${root.weekNumber} · Day ${root.dayOfYear}`
-                            color: Colors.outline
-                            font.family: Config.theme.font
-                            font.pixelSize: 12
+                            Rectangle {
+                                height: parent.height
+                                radius: 1.5
+                                width: parent.width * Math.min(1.0, (root.now.getHours() * 60 + root.now.getMinutes()) / 1440)
+                                color: Colors.blue || "#60a5fa"
+                            }
                         }
                     }
                 }
