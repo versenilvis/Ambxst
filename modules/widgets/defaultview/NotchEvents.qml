@@ -31,7 +31,9 @@ Item {
     property int lastBluetoothCount: -1
     property string lastSsid: ""
 
-    implicitWidth: current ? eventRow.implicitWidth + (expanded ? 38 : 20) : 0
+    // Glyph events need the extra room so their ping ring is not clipped
+    // by the notch edge.
+    implicitWidth: current ? eventRow.implicitWidth + (expanded ? (isBattery ? 38 : 48) : 28) : 0
     implicitHeight: current ? 44 : 0
 
     Behavior on implicitWidth {
@@ -132,9 +134,14 @@ Item {
         target: Battery
         enabled: Battery.available
 
-        function onIsChargingChanged() {
+        // Every charge transition comes through here. Watching isCharging alone
+        // missed the states that are plugged in but not charging - full, or held
+        // at a charge threshold - so plugging in could produce nothing at all.
+        function onChargeStateChanged() {
             if (Battery.isCharging) {
                 root.show(Icons.batteryCharging, Colors.green, "", root.batteryPct, root.batteryLevel, true, Battery.timeToFull);
+            } else if (Battery.isPluggedIn) {
+                root.show(Icons.batteryFull, Colors.green, "", root.batteryPct, root.batteryLevel, false, "");
             } else {
                 root.show(Icons.batteryMedium, Colors.overBackground, "", root.batteryPct, root.batteryLevel, false, Battery.timeToEmpty);
             }
@@ -145,12 +152,6 @@ Item {
         // and body are both prose - the glyph, the colour and the level say it.
         function onBatteryAlert(title, body, urgency) {
             root.show(Icons.batteryLow, urgency === "critical" ? Colors.red : Colors.yellow, "", root.batteryPct, root.batteryLevel, urgency === "critical", Battery.timeToEmpty);
-        }
-
-        function onChargeStateChanged() {
-            if (Battery.percentage >= 99 && Battery.isPluggedIn) {
-                root.show(Icons.batteryFull, Colors.green, "", "100%", 1);
-            }
         }
     }
 
@@ -181,7 +182,7 @@ Item {
             if (ssid === prev)
                 return;
             if (ssid) {
-                root.show(Icons.wifiHigh, Colors.cyan, ssid, "");
+                root.show(Icons.wifiHigh, Colors.primary, ssid, "");
             } else if (prev) {
                 root.show(Icons.wifiOff, Colors.outline, "", "");
             }
@@ -328,43 +329,85 @@ Item {
             }
         }
 
-        // Everything else is just its glyph, lit in its own colour.
-        Text {
+        // Everything else is just its glyph, lit in its own colour, pinging out
+        // a ring the way a radio event should.
+        Item {
             visible: !root.isBattery
             anchors.verticalCenter: parent.verticalCenter
-            text: root.current ? root.current.icon : ""
-            font.family: Icons.font
-            font.pixelSize: 19
-            color: root.accent
-            opacity: root.arrived ? root.pulseOpacity : 0
-            scale: root.arrived ? 1 : 0.4
+            width: glyph.implicitWidth
+            height: glyph.implicitHeight
 
-            Behavior on opacity {
-                enabled: Config.animDuration > 0
-                NumberAnimation {
-                    duration: Config.animDuration * 0.6
-                    easing.type: Easing.OutQuart
+            Rectangle {
+                id: ping
+                anchors.centerIn: parent
+                width: 22
+                height: 22
+                radius: 999
+                color: "transparent"
+                border.width: 2
+                border.color: root.accent
+                opacity: 0
+                scale: 0.6
+            }
+
+            SequentialAnimation {
+                id: pingAnim
+                loops: 2
+
+                ParallelAnimation {
+                    NumberAnimation { target: ping; property: "scale"; from: 0.6; to: 1.9; duration: 950; easing.type: Easing.OutCubic }
+                    SequentialAnimation {
+                        NumberAnimation { target: ping; property: "opacity"; from: 0; to: 0.6; duration: 140 }
+                        NumberAnimation { target: ping; property: "opacity"; to: 0; duration: 810; easing.type: Easing.OutCubic }
+                    }
                 }
             }
 
-            Behavior on scale {
-                enabled: Config.animDuration > 0
-                NumberAnimation {
-                    duration: Config.animDuration
-                    easing.type: Easing.OutBack
-                    easing.overshoot: 2.6
+            Connections {
+                target: root
+                function onArrivedChanged() {
+                    if (root.arrived && !root.isBattery)
+                        pingAnim.restart();
                 }
             }
 
-            layer.enabled: true
-            layer.effect: MultiEffect {
-                shadowEnabled: true
-                shadowColor: root.accent
-                shadowBlur: 1.0
-                shadowOpacity: 0.9
-                shadowHorizontalOffset: 0
-                shadowVerticalOffset: 0
-                blurMax: 24
+            Text {
+                id: glyph
+                anchors.centerIn: parent
+                text: root.current ? root.current.icon : ""
+                font.family: Icons.font
+                font.pixelSize: 19
+                color: root.accent
+                opacity: root.arrived ? root.pulseOpacity : 0
+                scale: root.arrived ? 1 : 0.4
+
+                Behavior on opacity {
+                    enabled: Config.animDuration > 0
+                    NumberAnimation {
+                        duration: Config.animDuration * 0.6
+                        easing.type: Easing.OutQuart
+                    }
+                }
+
+                Behavior on scale {
+                    enabled: Config.animDuration > 0
+                    NumberAnimation {
+                        duration: Config.animDuration
+                        easing.type: Easing.OutBack
+                        easing.overshoot: 2.6
+                    }
+                }
+
+                layer.enabled: true
+                layer.effect: MultiEffect {
+                    shadowEnabled: true
+                    shadowColor: root.accent
+                    shadowBlur: 1.0
+                    shadowOpacity: 0.9
+                    shadowHorizontalOffset: 0
+                    shadowVerticalOffset: 0
+                    blurMax: 24
+                }
             }
         }
 
@@ -402,7 +445,8 @@ Item {
                 text: root.current ? (root.isBattery ? root.current.trail : root.current.label) : ""
                 font.family: Styling.defaultFont
                 font.pixelSize: Styling.fontSize(0)
-                font.weight: Font.DemiBold
+                // A name is the headline; a time estimate is a footnote.
+                font.weight: root.isBattery ? Font.DemiBold : Font.ExtraBold
                 color: root.isBattery ? root.accent : Colors.overBackground
                 elide: Text.ElideRight
                 maximumLineCount: 1
