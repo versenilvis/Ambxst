@@ -96,9 +96,9 @@ Item {
             if (prev < 0 || now === prev)
                 return;
             if (now > prev) {
-                root.show(Icons.bluetoothConnected, Colors.cyan, "Connected", now === 1 ? "Bluetooth device" : now + " devices");
+                root.show(Icons.bluetoothConnected, Colors.cyan, "Bluetooth", now === 1 ? "Connected" : now + " devices");
             } else {
-                root.show(Icons.bluetooth, Colors.outline, "Disconnected", now === 0 ? "No devices" : now + " left");
+                root.show(Icons.bluetooth, Colors.outline, "Bluetooth", now === 0 ? "Disconnected" : now + " left");
             }
         }
     }
@@ -113,7 +113,7 @@ Item {
             if (ssid === prev)
                 return;
             if (ssid) {
-                root.show(Icons.wifiHigh, Colors.cyan, ssid, "Wi-Fi connected");
+                root.show(Icons.wifiHigh, Colors.cyan, ssid, "Connected");
             } else if (prev) {
                 root.show(Icons.wifiOff, Colors.outline, "Wi-Fi", "Disconnected");
             }
@@ -123,46 +123,59 @@ Item {
     Row {
         id: eventRow
         anchors.centerIn: parent
-        spacing: 11
+        spacing: 10
         visible: root.current !== null
 
         Rectangle {
-            width: 30
-            height: 30
+            width: 26
+            height: 26
             radius: 999
             anchors.verticalCenter: parent.verticalCenter
-            color: root.current ? Qt.rgba(root.current.accent.r, root.current.accent.g, root.current.accent.b, 0.16) : "transparent"
+            color: root.current ? Qt.rgba(root.current.accent.r, root.current.accent.g, root.current.accent.b, 0.18) : "transparent"
 
             Text {
                 anchors.centerIn: parent
                 text: root.current ? root.current.icon : ""
                 font.family: Icons.font
-                font.pixelSize: 16
+                font.pixelSize: 14
                 color: root.current ? root.current.accent : Colors.outline
             }
         }
 
-        Column {
+        // The subject of the event, on the same baseline as everything else so
+        // the row reads as one line instead of a shrunken notification.
+        Text {
+            id: titleText
             anchors.verticalCenter: parent.verticalCenter
-            spacing: 1
+            text: root.current ? root.current.title : ""
+            font.family: Styling.defaultFont
+            font.pixelSize: Styling.fontSize(0)
+            font.weight: Font.Medium
+            color: Colors.overBackground
+            elide: Text.ElideRight
+            maximumLineCount: 1
+            // A long SSID must not stretch the notch across the screen.
+            width: Math.min(implicitWidth, 230)
+        }
+
+        // Its state or value, carried in an accent chip. Puck left, chip right:
+        // the row balances instead of trailing off ragged to the right.
+        Rectangle {
+            anchors.verticalCenter: parent.verticalCenter
+            visible: stateText.text !== ""
+            width: stateText.implicitWidth + 18
+            height: 21
+            radius: 999
+            color: root.current ? Qt.rgba(root.current.accent.r, root.current.accent.g, root.current.accent.b, 0.14) : "transparent"
 
             Text {
-                text: root.current ? root.current.title : ""
-                font.family: Styling.defaultFont
-                font.pixelSize: Styling.fontSize(1)
-                font.weight: Font.Bold
-                color: root.current ? root.current.accent : Colors.overBackground
-                elide: Text.ElideRight
-                maximumLineCount: 1
-            }
-
-            Text {
+                id: stateText
+                anchors.centerIn: parent
                 text: root.current ? root.current.subtitle : ""
                 font.family: Styling.defaultFont
                 font.pixelSize: Styling.fontSize(-3)
-                color: Colors.outline
-                elide: Text.ElideRight
-                maximumLineCount: 1
+                font.weight: Font.Medium
+                color: root.current ? root.current.accent : Colors.outline
             }
         }
     }
