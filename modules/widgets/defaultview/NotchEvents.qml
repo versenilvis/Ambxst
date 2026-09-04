@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Effects
+import Quickshell.Io
 import qs.modules.theme
 import qs.modules.services
 import qs.config
@@ -200,6 +201,50 @@ Item {
         onStopped: root.pulseOpacity = 1.0
         NumberAnimation { target: root; property: "pulseOpacity"; to: 0.45; duration: 850; easing.type: Easing.InOutQuad }
         NumberAnimation { target: root; property: "pulseOpacity"; to: 1.0; duration: 850; easing.type: Easing.InOutQuad }
+    }
+
+    // Fire an event by hand instead of waiting for the hardware to produce one:
+    //   qs ipc call notchEvents preview charging
+    IpcHandler {
+        target: "notchEvents"
+
+        function preview(kind: string): string {
+            root.ready = true;
+            const pct = root.batteryPct !== "" ? root.batteryPct : "76";
+            const lvl = root.batteryLevel >= 0 ? root.batteryLevel : 0.76;
+            switch (kind) {
+            case "charging":
+                root.show(Icons.batteryCharging, Colors.green, "", pct, lvl, true, Battery.timeToFull);
+                break;
+            case "full":
+                root.show(Icons.batteryFull, Colors.green, "", pct, lvl, false, "");
+                break;
+            case "unplug":
+                root.show(Icons.batteryMedium, Colors.overBackground, "", pct, lvl, false, Battery.timeToEmpty);
+                break;
+            case "low":
+                root.show(Icons.batteryLow, Colors.yellow, "", pct, lvl, false, Battery.timeToEmpty);
+                break;
+            case "critical":
+                root.show(Icons.batteryLow, Colors.red, "", pct, lvl, true, Battery.timeToEmpty);
+                break;
+            case "wifi":
+                root.show(Icons.wifiHigh, Colors.primary, NetworkService.active ? NetworkService.active.ssid : "Wi-Fi", "");
+                break;
+            case "wifioff":
+                root.show(Icons.wifiOff, Colors.outline, "", "");
+                break;
+            case "bt":
+                root.show(Icons.bluetoothConnected, Colors.primary, root.connectedBluetoothName(), "");
+                break;
+            case "btoff":
+                root.show(Icons.bluetooth, Colors.outline, "", "");
+                break;
+            default:
+                return "unknown kind: " + kind + " (charging full unplug low critical wifi wifioff bt btoff)";
+            }
+            return "shown: " + kind;
+        }
     }
 
     readonly property bool isBattery: current !== null && current.meter >= 0
