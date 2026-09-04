@@ -507,27 +507,6 @@ Rectangle {
                         }
                         color: "transparent"
 
-                        // Selection band. Full width on purpose: something behind the
-                        // row paints a purple rounded rect (source not identified), and
-                        // any inset here lets its ends show through as slivers.
-                        Rectangle {
-                            anchors.left: parent.left
-                            anchors.right: parent.right
-                            anchors.top: parent.top
-                            height: 48
-                            radius: Styling.radius(-4)
-                            color: index === appLauncher.selectedIndex ? Colors.surfaceContainer : "transparent"
-                            z: -1
-
-                            Behavior on color {
-                                enabled: Config.animDuration > 0
-                                ColorAnimation {
-                                    duration: Config.animDuration / 3
-                                    easing.type: Easing.OutQuart
-                                }
-                            }
-                        }
-
                         Behavior on height {
                             enabled: Config.animDuration > 0
                             NumberAnimation {
@@ -634,6 +613,8 @@ Rectangle {
                                     color: {
                                         if (isExpanded) {
                                             return Styling.srItem("pane");
+                                        } else if (appLauncher.selectedIndex === index) {
+                                            return Styling.srItem("primary");
                                         } else {
                                             return Colors.overBackground;
                                         }
@@ -658,6 +639,8 @@ Rectangle {
                                     color: {
                                         if (isExpanded) {
                                             return Styling.srItem("pane");
+                                        } else if (appLauncher.selectedIndex === index) {
+                                            return Styling.srItem("primary");
                                         } else {
                                             return Colors.outline;
                                         }
