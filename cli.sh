@@ -97,6 +97,27 @@ find_ambxst_pid() {
 	echo "$pid"
 }
 
+find_ambxst_pids() {
+	# Same match as find_ambxst_pid, but every instance. Reload must not leave a
+	# second one alive: two shells both push keybinds through `hyprctl eval` and
+	# both claim the daemon socket, which is what kills the super binds and the
+	# app icons.
+	# Matched by process name first, then by cmdline. `pgrep -f` alone also hits
+	# any shell whose command line happens to mention the path - including the
+	# one running this script, which must never be killed.
+	local p
+	{
+		pgrep -x qs 2>/dev/null || true
+		pgrep -x quickshell 2>/dev/null || true
+	} | sort -u | while read -r p; do
+		# The pid can be gone already; reading its cmdline is best effort.
+		[ -r "/proc/$p/cmdline" ] || continue
+		if { tr '\0' ' ' <"/proc/$p/cmdline" || true; } 2>/dev/null | grep -qF "${SCRIPT_DIR}/shell.qml"; then
+			echo "$p"
+		fi
+	done
+}
+
 dispatch_dpms() {
 	local state="$1"
 	local lock_file="${XDG_RUNTIME_DIR:-/tmp}/ambxst-dpms.lock"
@@ -167,14 +188,23 @@ lock)
 	}
 	;;
 reload)
-	PID=$(find_ambxst_pid)
-	if [ -n "$PID" ]; then
-		echo "Stopping Ambxst (PID $PID)..."
-		kill "$PID"
-		# Wait for process to exit
-		while kill -0 "$PID" 2>/dev/null; do
+	PIDS=$(find_ambxst_pids)
+	if [ -n "$PIDS" ]; then
+		echo "Stopping Ambxst (PID $(echo "$PIDS" | tr '\n' ' '))..."
+		# shellcheck disable=SC2086
+		kill $PIDS 2>/dev/null || true
+		# Bounded wait: a wedged instance must not block the restart forever.
+		for _ in $(seq 50); do
+			[ -z "$(find_ambxst_pids)" ] && break
 			sleep 0.1
 		done
+		LEFT=$(find_ambxst_pids)
+		if [ -n "$LEFT" ]; then
+			echo "Force killing $(echo "$LEFT" | tr '\n' ' ')..."
+			# shellcheck disable=SC2086
+			kill -9 $LEFT 2>/dev/null || true
+			sleep 0.3
+		fi
 	fi
 	pkill -f ambxst-daemon || true
 	rm -f "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/ambxst-daemon.sock"
@@ -183,10 +213,11 @@ reload)
 	nohup "${SCRIPT_DIR}/cli.sh" >/tmp/ambxst_reload_start.log 2>&1 &
 	;;
 quit)
-	PID=$(find_ambxst_pid)
-	if [ -n "$PID" ]; then
-		echo "Stopping Ambxst (PID $PID)..."
-		kill "$PID"
+	PIDS=$(find_ambxst_pids)
+	if [ -n "$PIDS" ]; then
+		echo "Stopping Ambxst (PID $(echo "$PIDS" | tr '\n' ' '))..."
+		# shellcheck disable=SC2086
+		kill $PIDS 2>/dev/null || true
 	else
 		echo "Ambxst is not running"
 	fi
@@ -499,10 +530,12 @@ help | --help | -h)
 
 	# Launch QuickShell with the main shell.qml
 	# If NIXGL_BIN is set (NixOS/Nix setup), use it. Otherwise, just run qs directly.
+	# --no-duplicate: if one is already up, exit instead of stacking a second
+	# shell on top of it.
 	if [ -n "$NIXGL_BIN" ]; then
-		exec "$NIXGL_BIN" "$QS_BIN" -p "${SCRIPT_DIR}/shell.qml"
+		exec "$NIXGL_BIN" "$QS_BIN" -n -p "${SCRIPT_DIR}/shell.qml"
 	else
-		exec qs -p "${SCRIPT_DIR}/shell.qml"
+		exec qs -n -p "${SCRIPT_DIR}/shell.qml"
 	fi
 	;;
 *)
