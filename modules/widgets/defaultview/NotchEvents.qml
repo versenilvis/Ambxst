@@ -3,6 +3,7 @@ import QtQuick.Effects
 import Quickshell.Io
 import qs.modules.theme
 import qs.modules.services
+import qs.modules.globals
 import qs.config
 
 // Event-driven notch content: the notch morphs briefly when something actually
@@ -34,8 +35,8 @@ Item {
 
     // Glyph events need the extra room so their ping ring is not clipped
     // by the notch edge.
-    implicitWidth: current ? eventRow.implicitWidth + (expanded ? (isBattery ? 38 : 48) : 28) : 0
-    implicitHeight: current ? 44 : 0
+    implicitWidth: current ? (isBattery ? (root.expanded ? 216 : 60) : (eventRow.implicitWidth + (expanded ? 48 : 28))) : 0
+    implicitHeight: current ? 36 : 0
 
     Behavior on implicitWidth {
         enabled: Config.animDuration > 0
@@ -102,6 +103,7 @@ Item {
     function show(icon, accent, label, value, meter, pulse, trail) {
         if (!root.ready)
             return;
+        GlobalStates.notchBounce();
         root.arrived = false;
         root.expanded = false;
         collapseTimer.stop();
@@ -142,7 +144,7 @@ Item {
             if (Battery.isCharging) {
                 root.show(Icons.batteryCharging, Colors.green, "", root.batteryPct, root.batteryLevel, true, Battery.timeToFull);
             } else if (Battery.isPluggedIn) {
-                root.show(Icons.batteryFull, Colors.green, "", root.batteryPct, root.batteryLevel, false, "");
+                root.show(Icons.batteryFull, Colors.green, "", root.batteryPct, root.batteryLevel, false, "Full");
             } else {
                 root.show(Icons.batteryMedium, Colors.overBackground, "", root.batteryPct, root.batteryLevel, false, Battery.timeToEmpty);
             }
@@ -190,7 +192,8 @@ Item {
         }
     }
 
-    readonly property color accent: current ? current.accent : Colors.outline
+    readonly property color chargingGreen: "#22c55e"
+    readonly property color accent: current ? (current.accent === Colors.green ? chargingGreen : current.accent) : Colors.outline
 
     // Slow breath on the glyph while charging or critical, so those two keep
     // moving for as long as they are on screen.
@@ -199,7 +202,7 @@ Item {
         running: root.arrived && root.current !== null && root.current.pulse
         loops: Animation.Infinite
         onStopped: root.pulseOpacity = 1.0
-        NumberAnimation { target: root; property: "pulseOpacity"; to: 0.45; duration: 850; easing.type: Easing.InOutQuad }
+        NumberAnimation { target: root; property: "pulseOpacity"; to: 0.80; duration: 850; easing.type: Easing.InOutQuad }
         NumberAnimation { target: root; property: "pulseOpacity"; to: 1.0; duration: 850; easing.type: Easing.InOutQuad }
     }
 
@@ -210,23 +213,23 @@ Item {
 
         function preview(kind: string): string {
             root.ready = true;
-            const pct = root.batteryPct !== "" ? root.batteryPct : "76";
-            const lvl = root.batteryLevel >= 0 ? root.batteryLevel : 0.76;
+            const pct = root.batteryPct !== "" ? root.batteryPct : "82";
+            const lvl = root.batteryLevel >= 0 ? root.batteryLevel : 0.82;
             switch (kind) {
             case "charging":
-                root.show(Icons.batteryCharging, Colors.green, "", pct, lvl, true, Battery.timeToFull);
+                root.show(Icons.batteryCharging, Colors.green, "", pct, lvl, true, Battery.timeToFull ? Battery.timeToFull : "45m");
                 break;
             case "full":
-                root.show(Icons.batteryFull, Colors.green, "", pct, lvl, false, "");
+                root.show(Icons.batteryFull, Colors.green, "", "100", 1.0, false, "Full");
                 break;
             case "unplug":
-                root.show(Icons.batteryMedium, Colors.overBackground, "", pct, lvl, false, Battery.timeToEmpty);
+                root.show(Icons.batteryMedium, Colors.overBackground, "", pct, lvl, false, Battery.timeToEmpty ? Battery.timeToEmpty : "3h 40m");
                 break;
             case "low":
-                root.show(Icons.batteryLow, Colors.yellow, "", pct, lvl, false, Battery.timeToEmpty);
+                root.show(Icons.batteryLow, Colors.yellow, "", "18", 0.18, false, Battery.timeToEmpty ? Battery.timeToEmpty : "25m");
                 break;
             case "critical":
-                root.show(Icons.batteryLow, Colors.red, "", pct, lvl, true, Battery.timeToEmpty);
+                root.show(Icons.batteryLow, Colors.red, "", "6", 0.06, true, Battery.timeToEmpty ? Battery.timeToEmpty : "8m");
                 break;
             case "wifi":
                 root.show(Icons.wifiHigh, Colors.primary, NetworkService.active ? NetworkService.active.ssid : "Wi-Fi", "");
@@ -250,11 +253,217 @@ Item {
     readonly property bool isBattery: current !== null && current.meter >= 0
     readonly property real meterValue: current ? Math.min(1, Math.max(0, current.meter)) : 0
 
+    function formatRemainingTime() {
+        if (!root.current)
+            return "";
+        const trail = root.current.trail ? String(root.current.trail).trim() : "";
+        if (root.current.icon === Icons.batteryFull || root.current.value === "100")
+            return "Fully Charged";
+        if (trail !== "") {
+            if (trail.startsWith("in ") || trail.endsWith("left") || trail.endsWith("remaining"))
+                return trail;
+            if (root.current.pulse)
+                return "in " + trail;
+            return trail + " left";
+        }
+        return root.current.pulse ? "Charging" : "";
+    }
+
+    // Minimalist 3-part layout for battery / charging events
+    Item {
+        id: batteryEventLayout
+        anchors.fill: parent
+        visible: root.current !== null && root.isBattery
+
+        // Left: Battery icon (green, pulsing when charging/critical)
+        Item {
+            id: batteryIconItem
+            anchors.left: parent.left
+            anchors.leftMargin: 10
+            anchors.verticalCenter: parent.verticalCenter
+            width: 24
+            height: 24
+
+            opacity: root.arrived ? root.pulseOpacity : 0
+            scale: root.arrived ? 1 : 0.5
+
+            Behavior on opacity {
+                enabled: Config.animDuration > 0
+                NumberAnimation {
+                    duration: Config.animDuration * 0.6
+                    easing.type: Easing.OutQuart
+                }
+            }
+
+            Behavior on scale {
+                enabled: Config.animDuration > 0
+                NumberAnimation {
+                    duration: Config.animDuration
+                    easing.type: Easing.OutBack
+                    easing.overshoot: 1.6
+                }
+            }
+
+            Text {
+                anchors.centerIn: parent
+                text: root.current ? (root.current.icon || Icons.batteryCharging) : Icons.batteryCharging
+                font.family: Icons.font
+                font.pixelSize: 20
+                color: root.accent
+            }
+        }
+
+        // Center: Remaining time only
+        Item {
+            id: remainingTimeItem
+            anchors.centerIn: parent
+            width: remainingTimeText.implicitWidth
+            height: remainingTimeText.implicitHeight
+            opacity: root.expanded ? 1 : 0
+            scale: root.expanded ? 1 : 0.8
+
+            Behavior on opacity {
+                enabled: Config.animDuration > 0
+                NumberAnimation {
+                    duration: Config.animDuration * 0.7
+                    easing.type: Easing.OutQuart
+                }
+            }
+
+            Behavior on scale {
+                enabled: Config.animDuration > 0
+                NumberAnimation {
+                    duration: Config.animDuration * 0.7
+                    easing.type: Easing.OutBack
+                    easing.overshoot: 1.2
+                }
+            }
+
+            Text {
+                id: remainingTimeText
+                anchors.centerIn: parent
+                text: root.formatRemainingTime()
+                font.family: Styling.defaultFont
+                font.pixelSize: 12
+                font.weight: Font.DemiBold
+                color: Qt.rgba(255, 255, 255, 0.9)
+                font.letterSpacing: 0.3
+            }
+        }
+
+        // Right: Circular progress ring with battery number inside (Image 2 style)
+        Item {
+            id: batteryRingItem
+            anchors.right: parent.right
+            anchors.rightMargin: 10
+            anchors.verticalCenter: parent.verticalCenter
+            width: 28
+            height: 28
+
+            opacity: root.arrived ? 1 : 0
+            scale: root.arrived ? 1 : 0.5
+
+            Behavior on opacity {
+                enabled: Config.animDuration > 0
+                NumberAnimation {
+                    duration: Config.animDuration * 0.6
+                    easing.type: Easing.OutQuart
+                }
+            }
+
+            Behavior on scale {
+                enabled: Config.animDuration > 0
+                NumberAnimation {
+                    duration: Config.animDuration
+                    easing.type: Easing.OutBack
+                    easing.overshoot: 1.4
+                }
+            }
+
+            property real animatedLevel: 0
+            Behavior on animatedLevel {
+                enabled: Config.animDuration > 0
+                NumberAnimation {
+                    duration: Config.animDuration * 1.5
+                    easing.type: Easing.OutCubic
+                }
+            }
+
+            onAnimatedLevelChanged: ringCanvas.requestPaint()
+
+            Connections {
+                target: root
+                function onArrivedChanged() {
+                    if (root.arrived) {
+                        batteryRingItem.animatedLevel = root.meterValue;
+                    } else {
+                        batteryRingItem.animatedLevel = 0;
+                    }
+                }
+            }
+
+            Canvas {
+                id: ringCanvas
+                anchors.fill: parent
+                antialiasing: true
+
+                onPaint: {
+                    var ctx = getContext("2d");
+                    ctx.reset();
+                    var centerX = width / 2;
+                    var centerY = height / 2;
+                    var radius = 10.5;
+                    var startAngle = -Math.PI / 2;
+
+                    // Background track ring
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+                    ctx.lineWidth = 2.4;
+                    ctx.strokeStyle = Qt.rgba(255, 255, 255, 0.14);
+                    ctx.stroke();
+
+                    // Progress arc
+                    if (batteryRingItem.animatedLevel > 0) {
+                        var sweep = Math.min(1.0, Math.max(0.01, batteryRingItem.animatedLevel)) * 2 * Math.PI;
+                        ctx.beginPath();
+                        ctx.arc(centerX, centerY, radius, startAngle, startAngle + sweep);
+                        ctx.lineWidth = 2.4;
+                        ctx.lineCap = "round";
+                        ctx.strokeStyle = root.accent;
+                        ctx.stroke();
+                    }
+                }
+
+                layer.enabled: true
+                layer.effect: MultiEffect {
+                    shadowEnabled: true
+                    shadowColor: root.accent
+                    shadowBlur: 0.6
+                    shadowOpacity: 0.65
+                    shadowHorizontalOffset: 0
+                    shadowVerticalOffset: 0
+                    blurMax: 16
+                }
+            }
+
+            // Battery percentage number inside ring (Image 2)
+            Text {
+                anchors.centerIn: parent
+                text: root.current ? root.current.value : ""
+                font.family: Styling.defaultFont
+                font.pixelSize: 10
+                font.weight: Font.Black
+                color: "#ffffff"
+            }
+        }
+    }
+
+    // Non-battery events: glyph ping + label/detail
     Row {
         id: eventRow
         anchors.centerIn: parent
         spacing: root.expanded ? 10 : 0
-        visible: root.current !== null
+        visible: root.current !== null && !root.isBattery
 
         Behavior on spacing {
             enabled: Config.animDuration > 0
@@ -264,120 +473,7 @@ Item {
             }
         }
 
-        // A level event arrives as a lit pill and grows a track under itself, the
-        // pill riding out to where the charge actually sits.
         Item {
-            id: batteryBlock
-            visible: root.isBattery
-            anchors.verticalCenter: parent.verticalCenter
-            width: visible ? Math.max(trackLength, knob.x + knob.width) : 0
-            height: 20
-
-            property real trackLength: root.expanded ? 158 : 0
-
-            Behavior on trackLength {
-                enabled: Config.animDuration > 0
-                NumberAnimation {
-                    duration: Config.animDuration * 1.4
-                    easing.type: Easing.OutCubic
-                }
-            }
-
-            Rectangle {
-                anchors.verticalCenter: parent.verticalCenter
-                width: batteryBlock.trackLength
-                height: 6
-                radius: 999
-                color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.20)
-            }
-
-            Rectangle {
-                anchors.verticalCenter: parent.verticalCenter
-                width: Math.max(0, knob.x + knob.width / 2)
-                height: 6
-                radius: 999
-                color: root.accent
-
-                layer.enabled: true
-                layer.effect: MultiEffect {
-                    shadowEnabled: true
-                    shadowColor: root.accent
-                    shadowBlur: 1.0
-                    shadowOpacity: 0.7
-                    shadowHorizontalOffset: 0
-                    shadowVerticalOffset: 0
-                    blurMax: 24
-                }
-            }
-
-            Rectangle {
-                id: knob
-                anchors.verticalCenter: parent.verticalCenter
-                x: Math.max(0, batteryBlock.trackLength * root.meterValue - width / 2)
-                width: knobRow.implicitWidth + 16
-                height: 22
-                radius: 999
-                color: root.accent
-                opacity: root.arrived ? 1 : 0
-                scale: root.arrived ? 1 : 0.4
-
-                Behavior on opacity {
-                    enabled: Config.animDuration > 0
-                    NumberAnimation {
-                        duration: Config.animDuration * 0.6
-                        easing.type: Easing.OutQuart
-                    }
-                }
-
-                Behavior on scale {
-                    enabled: Config.animDuration > 0
-                    NumberAnimation {
-                        duration: Config.animDuration
-                        easing.type: Easing.OutBack
-                        easing.overshoot: 2.6
-                    }
-                }
-
-                layer.enabled: true
-                layer.effect: MultiEffect {
-                    shadowEnabled: true
-                    shadowColor: root.accent
-                    shadowBlur: 1.0
-                    shadowOpacity: root.pulseOpacity
-                    shadowHorizontalOffset: 0
-                    shadowVerticalOffset: 0
-                    blurMax: 32
-                }
-
-                Row {
-                    id: knobRow
-                    anchors.centerIn: parent
-                    spacing: 4
-
-                    Text {
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: root.current ? root.current.icon : ""
-                        font.family: Icons.font
-                        font.pixelSize: 13
-                        color: Colors.background
-                    }
-
-                    Text {
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: root.current ? root.current.value : ""
-                        font.family: Styling.defaultFont
-                        font.pixelSize: Styling.fontSize(-1)
-                        font.weight: Font.ExtraBold
-                        color: Colors.background
-                    }
-                }
-            }
-        }
-
-        // Everything else is just its glyph, lit in its own colour, pinging out
-        // a ring the way a radio event should.
-        Item {
-            visible: !root.isBattery
             anchors.verticalCenter: parent.verticalCenter
             width: glyph.implicitWidth
             height: glyph.implicitHeight
@@ -456,8 +552,6 @@ Item {
             }
         }
 
-        // The trailing word - an SSID, a device name, a time estimate - unfurls
-        // last. Width animates to zero so the notch grows with it.
         Item {
             id: detail
             anchors.verticalCenter: parent.verticalCenter
@@ -485,17 +579,14 @@ Item {
             Text {
                 id: trailText
                 anchors.verticalCenter: parent.verticalCenter
-                // Slides out from under whatever precedes it.
                 x: root.expanded ? 0 : -14
-                text: root.current ? (root.isBattery ? root.current.trail : root.current.label) : ""
+                text: root.current ? root.current.label : ""
                 font.family: Styling.defaultFont
                 font.pixelSize: Styling.fontSize(0)
-                // A name is the headline; a time estimate is a footnote.
-                font.weight: root.isBattery ? Font.DemiBold : Font.ExtraBold
-                color: root.isBattery ? root.accent : Colors.overBackground
+                font.weight: Font.ExtraBold
+                color: Colors.overBackground
                 elide: Text.ElideRight
                 maximumLineCount: 1
-                // A long SSID must not stretch the notch across the screen.
                 width: Math.min(implicitWidth, 230)
 
                 Behavior on x {
