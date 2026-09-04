@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Effects
 import qs.modules.theme
 import qs.modules.services
 import qs.config
@@ -95,7 +96,7 @@ Item {
 
     // label is only for things that need naming (an SSID, a device); everything
     // else is its glyph plus its value. meter is 0..1, or -1 for no level.
-    function show(icon, accent, label, value, meter, pulse) {
+    function show(icon, accent, label, value, meter, pulse, trail) {
         if (!root.ready)
             return;
         root.arrived = false;
@@ -107,7 +108,8 @@ Item {
             label: label,
             value: value,
             meter: meter === undefined ? -1 : meter,
-            pulse: pulse === true
+            pulse: pulse === true,
+            trail: trail === undefined ? "" : trail
         };
         arriveTimer.restart();
         expandTimer.restart();
@@ -115,7 +117,7 @@ Item {
     }
 
     readonly property real batteryLevel: Battery.available ? Battery.percentage / 100 : -1
-    readonly property string batteryPct: Battery.available ? Math.round(Battery.percentage) + "%" : ""
+    readonly property string batteryPct: Battery.available ? String(Math.round(Battery.percentage)) : ""
 
     function connectedBluetoothName() {
         const list = BluetoothService.devices;
@@ -132,9 +134,9 @@ Item {
 
         function onIsChargingChanged() {
             if (Battery.isCharging) {
-                root.show(Icons.batteryCharging, Colors.green, "", root.batteryPct, root.batteryLevel, true);
+                root.show(Icons.batteryCharging, Colors.green, "", root.batteryPct, root.batteryLevel, true, Battery.timeToFull);
             } else {
-                root.show(Icons.batteryMedium, Colors.overBackground, "", root.batteryPct, root.batteryLevel);
+                root.show(Icons.batteryMedium, Colors.overBackground, "", root.batteryPct, root.batteryLevel, false, Battery.timeToEmpty);
             }
         }
 
@@ -142,7 +144,7 @@ Item {
         // it now hands the alert here so it renders in the notch instead. Its title
         // and body are both prose - the glyph, the colour and the level say it.
         function onBatteryAlert(title, body, urgency) {
-            root.show(Icons.batteryLow, urgency === "critical" ? Colors.red : Colors.yellow, "", root.batteryPct, root.batteryLevel, urgency === "critical");
+            root.show(Icons.batteryLow, urgency === "critical" ? Colors.red : Colors.yellow, "", root.batteryPct, root.batteryLevel, urgency === "critical", Battery.timeToEmpty);
         }
 
         function onChargeStateChanged() {
@@ -199,6 +201,9 @@ Item {
         NumberAnimation { target: root; property: "pulseOpacity"; to: 1.0; duration: 850; easing.type: Easing.InOutQuad }
     }
 
+    readonly property bool isBattery: current !== null && current.meter >= 0
+    readonly property real meterValue: current ? Math.min(1, Math.max(0, current.meter)) : 0
+
     Row {
         id: eventRow
         anchors.centerIn: parent
@@ -213,8 +218,119 @@ Item {
             }
         }
 
-        // Bare glyph, no puck behind it. It pops in on its own beat.
+        // A level event arrives as a lit pill and grows a track under itself, the
+        // pill riding out to where the charge actually sits.
+        Item {
+            id: batteryBlock
+            visible: root.isBattery
+            anchors.verticalCenter: parent.verticalCenter
+            width: visible ? Math.max(trackLength, knob.x + knob.width) : 0
+            height: 20
+
+            property real trackLength: root.expanded ? 158 : 0
+
+            Behavior on trackLength {
+                enabled: Config.animDuration > 0
+                NumberAnimation {
+                    duration: Config.animDuration * 1.4
+                    easing.type: Easing.OutCubic
+                }
+            }
+
+            Rectangle {
+                anchors.verticalCenter: parent.verticalCenter
+                width: batteryBlock.trackLength
+                height: 6
+                radius: 999
+                color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.20)
+            }
+
+            Rectangle {
+                anchors.verticalCenter: parent.verticalCenter
+                width: Math.max(0, knob.x + knob.width / 2)
+                height: 6
+                radius: 999
+                color: root.accent
+
+                layer.enabled: true
+                layer.effect: MultiEffect {
+                    shadowEnabled: true
+                    shadowColor: root.accent
+                    shadowBlur: 1.0
+                    shadowOpacity: 0.7
+                    shadowHorizontalOffset: 0
+                    shadowVerticalOffset: 0
+                    blurMax: 24
+                }
+            }
+
+            Rectangle {
+                id: knob
+                anchors.verticalCenter: parent.verticalCenter
+                x: Math.max(0, batteryBlock.trackLength * root.meterValue - width / 2)
+                width: knobRow.implicitWidth + 16
+                height: 22
+                radius: 999
+                color: root.accent
+                opacity: root.arrived ? 1 : 0
+                scale: root.arrived ? 1 : 0.4
+
+                Behavior on opacity {
+                    enabled: Config.animDuration > 0
+                    NumberAnimation {
+                        duration: Config.animDuration * 0.6
+                        easing.type: Easing.OutQuart
+                    }
+                }
+
+                Behavior on scale {
+                    enabled: Config.animDuration > 0
+                    NumberAnimation {
+                        duration: Config.animDuration
+                        easing.type: Easing.OutBack
+                        easing.overshoot: 2.6
+                    }
+                }
+
+                layer.enabled: true
+                layer.effect: MultiEffect {
+                    shadowEnabled: true
+                    shadowColor: root.accent
+                    shadowBlur: 1.0
+                    shadowOpacity: root.pulseOpacity
+                    shadowHorizontalOffset: 0
+                    shadowVerticalOffset: 0
+                    blurMax: 32
+                }
+
+                Row {
+                    id: knobRow
+                    anchors.centerIn: parent
+                    spacing: 4
+
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: root.current ? root.current.icon : ""
+                        font.family: Icons.font
+                        font.pixelSize: 13
+                        color: Colors.background
+                    }
+
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: root.current ? root.current.value : ""
+                        font.family: Styling.defaultFont
+                        font.pixelSize: Styling.fontSize(-1)
+                        font.weight: Font.ExtraBold
+                        color: Colors.background
+                    }
+                }
+            }
+        }
+
+        // Everything else is just its glyph, lit in its own colour.
         Text {
+            visible: !root.isBattery
             anchors.verticalCenter: parent.verticalCenter
             text: root.current ? root.current.icon : ""
             font.family: Icons.font
@@ -239,15 +355,26 @@ Item {
                     easing.overshoot: 2.6
                 }
             }
+
+            layer.enabled: true
+            layer.effect: MultiEffect {
+                shadowEnabled: true
+                shadowColor: root.accent
+                shadowBlur: 1.0
+                shadowOpacity: 0.9
+                shadowHorizontalOffset: 0
+                shadowVerticalOffset: 0
+                blurMax: 24
+            }
         }
 
-        // Everything after the glyph unfurls sideways. Width animates to zero
-        // rather than the item being hidden, so the notch itself grows with it.
+        // The trailing word - an SSID, a device name, a time estimate - unfurls
+        // last. Width animates to zero so the notch grows with it.
         Item {
             id: detail
             anchors.verticalCenter: parent.verticalCenter
-            width: root.expanded ? detailRow.implicitWidth : 0
-            height: detailRow.implicitHeight
+            width: root.expanded ? trailText.implicitWidth : 0
+            height: trailText.implicitHeight
             clip: true
             opacity: root.expanded ? 1 : 0
 
@@ -267,71 +394,26 @@ Item {
                 }
             }
 
-            Row {
-                id: detailRow
+            Text {
+                id: trailText
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: 10
-                // Slides out from under the glyph instead of just appearing.
+                // Slides out from under whatever precedes it.
                 x: root.expanded ? 0 : -14
+                text: root.current ? (root.isBattery ? root.current.trail : root.current.label) : ""
+                font.family: Styling.defaultFont
+                font.pixelSize: Styling.fontSize(0)
+                font.weight: Font.DemiBold
+                color: root.isBattery ? root.accent : Colors.overBackground
+                elide: Text.ElideRight
+                maximumLineCount: 1
+                // A long SSID must not stretch the notch across the screen.
+                width: Math.min(implicitWidth, 230)
 
                 Behavior on x {
                     enabled: Config.animDuration > 0
                     NumberAnimation {
                         duration: Config.animDuration
                         easing.type: Easing.OutQuart
-                    }
-                }
-
-                // Only for events that carry a name - an SSID, a paired device.
-                Text {
-                    anchors.verticalCenter: parent.verticalCenter
-                    visible: text !== ""
-                    text: root.current ? root.current.label : ""
-                    font.family: Styling.defaultFont
-                    font.pixelSize: Styling.fontSize(0)
-                    font.weight: Font.Medium
-                    color: Colors.overBackground
-                    elide: Text.ElideRight
-                    maximumLineCount: 1
-                    // A long SSID must not stretch the notch across the screen.
-                    width: Math.min(implicitWidth, 230)
-                }
-
-                Text {
-                    anchors.verticalCenter: parent.verticalCenter
-                    visible: text !== ""
-                    text: root.current ? root.current.value : ""
-                    font.family: Styling.defaultFont
-                    font.pixelSize: Styling.fontSize(0)
-                    font.weight: Font.Bold
-                    color: root.accent
-                }
-
-                // Only battery events carry a level, and only they get the bar.
-                Rectangle {
-                    anchors.verticalCenter: parent.verticalCenter
-                    visible: root.current && root.current.meter >= 0
-                    width: visible ? 32 : 0
-                    height: 13
-                    radius: 999
-                    color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.18)
-
-                    Rectangle {
-                        anchors.left: parent.left
-                        anchors.verticalCenter: parent.verticalCenter
-                        // Fills from empty once the row is open.
-                        width: root.expanded ? Math.max(4, parent.width * (root.current ? Math.min(1, Math.max(0, root.current.meter)) : 0)) : 0
-                        height: parent.height
-                        radius: 999
-                        color: root.accent
-
-                        Behavior on width {
-                            enabled: Config.animDuration > 0
-                            NumberAnimation {
-                                duration: Config.animDuration * 1.4
-                                easing.type: Easing.OutCubic
-                            }
-                        }
                     }
                 }
             }
