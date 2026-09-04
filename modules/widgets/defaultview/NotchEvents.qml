@@ -16,8 +16,9 @@ Item {
     property var current: null
     readonly property bool active: current !== null
 
-    // Dynamic-Island arrival: the puck lands first, the detail unfurls after it.
-    // Driven by expandTimer so an event always plays the same beat.
+    // Two beats in, two beats out: the glyph lands (arrived), then the detail
+    // unfurls beside it (expanded). Leaving plays the same beats in reverse.
+    property bool arrived: false
     property bool expanded: false
 
     // Services fire their change handlers once during startup as they populate.
@@ -29,7 +30,7 @@ Item {
     property int lastBluetoothCount: -1
     property string lastSsid: ""
 
-    implicitWidth: current ? eventRow.implicitWidth + (expanded ? 40 : 22) : 0
+    implicitWidth: current ? eventRow.implicitWidth + (expanded ? 38 : 20) : 0
     implicitHeight: current ? 44 : 0
 
     Behavior on implicitWidth {
@@ -53,9 +54,19 @@ Item {
         }
     }
 
+    // Beat 1 in: a frame after current is set, so the glyph animates from its
+    // collapsed state instead of being born at full size.
+    Timer {
+        id: arriveTimer
+        interval: 20
+        repeat: false
+        onTriggered: root.arrived = true
+    }
+
+    // Beat 2 in.
     Timer {
         id: expandTimer
-        interval: 260
+        interval: 240
         repeat: false
         onTriggered: root.expanded = true
     }
@@ -68,22 +79,37 @@ Item {
         repeat: false
         onTriggered: {
             root.expanded = false;
-            root.current = null;
+            root.arrived = false;
+            collapseTimer.restart();
         }
     }
 
-    // meter is 0..1 for events that have a level to show, or -1 for none.
-    function show(icon, accent, title, value, meter) {
+    // Beat 2 out: hold the event until the collapse has actually played, or the
+    // whole row would vanish mid-animation.
+    Timer {
+        id: collapseTimer
+        interval: Math.max(Config.animDuration, 1)
+        repeat: false
+        onTriggered: root.current = null
+    }
+
+    // label is only for things that need naming (an SSID, a device); everything
+    // else is its glyph plus its value. meter is 0..1, or -1 for no level.
+    function show(icon, accent, label, value, meter, pulse) {
         if (!root.ready)
             return;
+        root.arrived = false;
         root.expanded = false;
+        collapseTimer.stop();
         root.current = {
             icon: icon,
             accent: accent,
-            title: title,
+            label: label,
             value: value,
-            meter: meter === undefined ? -1 : meter
+            meter: meter === undefined ? -1 : meter,
+            pulse: pulse === true
         };
+        arriveTimer.restart();
         expandTimer.restart();
         dismissTimer.restart();
     }
@@ -91,28 +117,37 @@ Item {
     readonly property real batteryLevel: Battery.available ? Battery.percentage / 100 : -1
     readonly property string batteryPct: Battery.available ? Math.round(Battery.percentage) + "%" : ""
 
+    function connectedBluetoothName() {
+        const list = BluetoothService.devices;
+        for (let i = 0; i < list.length; i++) {
+            if (list[i].connected)
+                return list[i].name || "";
+        }
+        return "";
+    }
+
     Connections {
         target: Battery
         enabled: Battery.available
 
         function onIsChargingChanged() {
             if (Battery.isCharging) {
-                root.show(Icons.batteryCharging, Colors.green, Battery.timeToFull ? Battery.timeToFull + " to full" : "Charging", root.batteryPct, root.batteryLevel);
+                root.show(Icons.batteryCharging, Colors.green, "", root.batteryPct, root.batteryLevel, true);
             } else {
-                root.show(Icons.batteryMedium, Colors.overBackground, Battery.timeToEmpty ? Battery.timeToEmpty + " left" : "On battery", root.batteryPct, root.batteryLevel);
+                root.show(Icons.batteryMedium, Colors.overBackground, "", root.batteryPct, root.batteryLevel);
             }
         }
 
         // Battery.qml owns the threshold logic and used to shell out to notify-send;
-        // it now hands the alert here so it renders in the notch instead. Its body is
-        // a full sentence, too long for a glance surface - the level says it better.
+        // it now hands the alert here so it renders in the notch instead. Its title
+        // and body are both prose - the glyph, the colour and the level say it.
         function onBatteryAlert(title, body, urgency) {
-            root.show(Icons.batteryLow, urgency === "critical" ? Colors.red : Colors.yellow, title, root.batteryPct, root.batteryLevel);
+            root.show(Icons.batteryLow, urgency === "critical" ? Colors.red : Colors.yellow, "", root.batteryPct, root.batteryLevel, urgency === "critical");
         }
 
         function onChargeStateChanged() {
             if (Battery.percentage >= 99 && Battery.isPluggedIn) {
-                root.show(Icons.batteryFull, Colors.green, "Fully charged", "100%", 1);
+                root.show(Icons.batteryFull, Colors.green, "", "100%", 1);
             }
         }
     }
@@ -127,9 +162,9 @@ Item {
             if (prev < 0 || now === prev)
                 return;
             if (now > prev) {
-                root.show(Icons.bluetoothConnected, Colors.cyan, "Bluetooth", now === 1 ? "Connected" : now + " devices");
+                root.show(Icons.bluetoothConnected, Colors.cyan, root.connectedBluetoothName(), "");
             } else {
-                root.show(Icons.bluetooth, Colors.outline, "Bluetooth", now === 0 ? "Disconnected" : now + " left");
+                root.show(Icons.bluetooth, Colors.outline, "", "");
             }
         }
     }
@@ -144,19 +179,30 @@ Item {
             if (ssid === prev)
                 return;
             if (ssid) {
-                root.show(Icons.wifiHigh, Colors.cyan, ssid, "Connected");
+                root.show(Icons.wifiHigh, Colors.cyan, ssid, "");
             } else if (prev) {
-                root.show(Icons.wifiOff, Colors.outline, "Wi-Fi", "Disconnected");
+                root.show(Icons.wifiOff, Colors.outline, "", "");
             }
         }
     }
 
     readonly property color accent: current ? current.accent : Colors.outline
 
+    // Slow breath on the glyph while charging or critical, so those two keep
+    // moving for as long as they are on screen.
+    property real pulseOpacity: 1.0
+    SequentialAnimation {
+        running: root.arrived && root.current !== null && root.current.pulse
+        loops: Animation.Infinite
+        onStopped: root.pulseOpacity = 1.0
+        NumberAnimation { target: root; property: "pulseOpacity"; to: 0.45; duration: 850; easing.type: Easing.InOutQuad }
+        NumberAnimation { target: root; property: "pulseOpacity"; to: 1.0; duration: 850; easing.type: Easing.InOutQuad }
+    }
+
     Row {
         id: eventRow
         anchors.centerIn: parent
-        spacing: root.expanded ? 11 : 0
+        spacing: root.expanded ? 10 : 0
         visible: root.current !== null
 
         Behavior on spacing {
@@ -167,31 +213,35 @@ Item {
             }
         }
 
-        // The puck: a lit disc in the event's colour, so the notch reads at a
-        // glance before any text has unfurled.
-        Rectangle {
-            width: 28
-            height: 28
-            radius: 999
+        // Bare glyph, no puck behind it. It pops in on its own beat.
+        Text {
             anchors.verticalCenter: parent.verticalCenter
-            border.width: 1
-            border.color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.30)
+            text: root.current ? root.current.icon : ""
+            font.family: Icons.font
+            font.pixelSize: 19
+            color: root.accent
+            opacity: root.arrived ? root.pulseOpacity : 0
+            scale: root.arrived ? 1 : 0.4
 
-            gradient: Gradient {
-                GradientStop { position: 0.0; color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.30) }
-                GradientStop { position: 1.0; color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.10) }
+            Behavior on opacity {
+                enabled: Config.animDuration > 0
+                NumberAnimation {
+                    duration: Config.animDuration * 0.6
+                    easing.type: Easing.OutQuart
+                }
             }
 
-            Text {
-                anchors.centerIn: parent
-                text: root.current ? root.current.icon : ""
-                font.family: Icons.font
-                font.pixelSize: 15
-                color: root.accent
+            Behavior on scale {
+                enabled: Config.animDuration > 0
+                NumberAnimation {
+                    duration: Config.animDuration
+                    easing.type: Easing.OutBack
+                    easing.overshoot: 2.6
+                }
             }
         }
 
-        // Everything after the puck unfurls sideways. Width is animated to zero
+        // Everything after the glyph unfurls sideways. Width animates to zero
         // rather than the item being hidden, so the notch itself grows with it.
         Item {
             id: detail
@@ -219,13 +269,24 @@ Item {
 
             Row {
                 id: detailRow
-                anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: 12
+                spacing: 10
+                // Slides out from under the glyph instead of just appearing.
+                x: root.expanded ? 0 : -14
 
+                Behavior on x {
+                    enabled: Config.animDuration > 0
+                    NumberAnimation {
+                        duration: Config.animDuration
+                        easing.type: Easing.OutQuart
+                    }
+                }
+
+                // Only for events that carry a name - an SSID, a paired device.
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
-                    text: root.current ? root.current.title : ""
+                    visible: text !== ""
+                    text: root.current ? root.current.label : ""
                     font.family: Styling.defaultFont
                     font.pixelSize: Styling.fontSize(0)
                     font.weight: Font.Medium
@@ -236,10 +297,9 @@ Item {
                     width: Math.min(implicitWidth, 230)
                 }
 
-                // The value carries the colour, the way the reference designs put
-                // the loud number on the trailing edge.
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
+                    visible: text !== ""
                     text: root.current ? root.current.value : ""
                     font.family: Styling.defaultFont
                     font.pixelSize: Styling.fontSize(0)
@@ -251,7 +311,7 @@ Item {
                 Rectangle {
                     anchors.verticalCenter: parent.verticalCenter
                     visible: root.current && root.current.meter >= 0
-                    width: visible ? 30 : 0
+                    width: visible ? 32 : 0
                     height: 13
                     radius: 999
                     color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.18)
@@ -259,10 +319,19 @@ Item {
                     Rectangle {
                         anchors.left: parent.left
                         anchors.verticalCenter: parent.verticalCenter
-                        width: Math.max(4, parent.width * (root.current ? Math.min(1, Math.max(0, root.current.meter)) : 0))
+                        // Fills from empty once the row is open.
+                        width: root.expanded ? Math.max(4, parent.width * (root.current ? Math.min(1, Math.max(0, root.current.meter)) : 0)) : 0
                         height: parent.height
                         radius: 999
                         color: root.accent
+
+                        Behavior on width {
+                            enabled: Config.animDuration > 0
+                            NumberAnimation {
+                                duration: Config.animDuration * 1.4
+                                easing.type: Easing.OutCubic
+                            }
+                        }
                     }
                 }
             }
