@@ -242,6 +242,9 @@ Singleton {
     // Notification Center state toggle
     signal toggleNotifications()
 
+    // Dynamic Island notch event spring bounce
+    signal notchBounce()
+
     // Screenshot Tool state
     property bool screenshotToolVisible: false
     // property string screenshotToolMode: "normal" // DEPRECATED

@@ -33,6 +33,13 @@ Item {
         }
     }
 
+    Connections {
+        target: GlobalStates
+        function onNotchBounce() {
+            bounceAnimation.start()
+        }
+    }
+
     SequentialAnimation {
         id: bounceAnimation
 
