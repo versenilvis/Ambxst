@@ -36,7 +36,6 @@ Item {
     Connections {
         target: GlobalStates
         function onNotchBounce() {
-            bounceAnimation.start()
         }
     }
 

@@ -12,9 +12,22 @@ Singleton {
 
     readonly property bool available: primaryDevice !== null && primaryDevice.type === UPowerDevice.Battery
     readonly property real percentage: available ? (primaryDevice.percentage * 100) : 0
-    readonly property bool isCharging: available && primaryDevice.state === UPowerDevice.Charging
-    readonly property bool isPluggedIn: available && (primaryDevice.state === UPowerDevice.Charging || primaryDevice.state === UPowerDevice.FullyCharged)
+    readonly property bool isPluggedIn: available && !UPower.onBattery
+    readonly property bool isCharging: isPluggedIn && primaryDevice.state === UPowerDevice.Charging
     readonly property int chargeState: available ? primaryDevice.state : UPowerDevice.Unknown
+
+    signal powerTransition()
+
+    Timer {
+        id: powerDebounceTimer
+        interval: 150
+        repeat: false
+        onTriggered: root.powerTransition()
+    }
+
+    onIsPluggedInChanged: powerDebounceTimer.restart()
+    onIsChargingChanged: powerDebounceTimer.restart()
+    onChargeStateChanged: powerDebounceTimer.restart()
 
     // Add some helpful descriptive properties if needed
     readonly property string timeToEmpty: available && primaryDevice.timeToEmpty > 0 ? formatTime(primaryDevice.timeToEmpty) : ""
@@ -27,16 +40,20 @@ Singleton {
         return m + "m";
     }
 
+    function getBatteryLevelIcon(pct) {
+        if (!available && pct === undefined) return Icons.batteryEmpty;
+        const val = pct !== undefined ? pct : percentage;
+        if (val > 75) return Icons.batteryFull;
+        if (val > 50) return Icons.batteryHigh;
+        if (val > 25) return Icons.batteryMedium;
+        if (val > 5) return Icons.batteryLow;
+        return Icons.batteryEmpty;
+    }
+
     function getBatteryIcon() {
         if (!available) return Icons.batteryEmpty;
         if (isPluggedIn) return Icons.batteryCharging;
-        
-        const pct = percentage;
-        if (pct > 75) return Icons.batteryFull;
-        if (pct > 50) return Icons.batteryHigh;
-        if (pct > 25) return Icons.batteryMedium;
-        if (pct > 5) return Icons.batteryLow;
-        return Icons.batteryEmpty;
+        return getBatteryLevelIcon(percentage);
     }
 
     // Low Battery Notifications

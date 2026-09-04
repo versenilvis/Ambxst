@@ -127,9 +127,13 @@ Item {
 
                 Behavior on opacity {
                     enabled: Config.animDuration > 0
-                    NumberAnimation {
-                        duration: Config.animDuration
-                        easing.type: Easing.OutQuart
+                    SequentialAnimation {
+                        // wait for event to clear before coming back
+                        PauseAnimation { duration: notchEvents.active ? 0 : 170 }
+                        NumberAnimation {
+                            duration: notchEvents.active ? 80 : Config.animDuration
+                            easing.type: Easing.OutQuart
+                        }
                     }
                 }
             }
@@ -142,9 +146,13 @@ Item {
 
                 Behavior on opacity {
                     enabled: Config.animDuration > 0
-                    NumberAnimation {
-                        duration: Config.animDuration
-                        easing.type: Easing.OutQuart
+                    SequentialAnimation {
+                        // let player finish leaving first
+                        PauseAnimation { duration: notchEvents.active ? 90 : 0 }
+                        NumberAnimation {
+                            duration: notchEvents.active ? Config.animDuration : 130
+                            easing.type: Easing.OutQuart
+                        }
                     }
                 }
             }

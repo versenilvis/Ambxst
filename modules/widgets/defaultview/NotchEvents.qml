@@ -23,6 +23,7 @@ Item {
     // unfurls beside it (expanded). Leaving plays the same beats in reverse.
     property bool arrived: false
     property bool expanded: false
+    property bool closing: false
 
     // Services fire their change handlers once during startup as they populate.
     // Nothing may be shown until this settles, or the notch announces the battery
@@ -32,20 +33,13 @@ Item {
     // Previous values, so a handler can tell which DIRECTION a value moved.
     property int lastBluetoothCount: -1
     property string lastSsid: ""
+    property int lastPluggedIn: -1
+    property int lastCharging: -1
 
-    // Glyph events need the extra room so their ping ring is not clipped
-    // by the notch edge.
-    implicitWidth: current ? (isBattery ? (root.expanded ? 216 : 60) : (eventRow.implicitWidth + (expanded ? 48 : 28))) : 0
+    // compact dynamic island pill width tailored to content
+    readonly property real batteryContentWidth: Math.max(160, remainingTimeText.implicitWidth + 88)
+    implicitWidth: current ? (isBattery ? batteryContentWidth : (eventRow.implicitWidth + (expanded ? 48 : 28))) : 0
     implicitHeight: current ? 36 : 0
-
-    Behavior on implicitWidth {
-        enabled: Config.animDuration > 0
-        NumberAnimation {
-            duration: Config.animDuration
-            easing.type: Easing.OutBack
-            easing.overshoot: 1.15
-        }
-    }
 
     Timer {
         id: readyTimer
@@ -55,25 +49,21 @@ Item {
         onTriggered: {
             root.lastBluetoothCount = BluetoothService.connectedDevices;
             root.lastSsid = NetworkService.active ? NetworkService.active.ssid : "";
+            root.lastPluggedIn = Battery.isPluggedIn ? 1 : 0;
+            root.lastCharging = Battery.isCharging ? 1 : 0;
             root.ready = true;
         }
     }
 
-    // Beat 1 in: a frame after current is set, so the glyph animates from its
-    // collapsed state instead of being born at full size.
+    // morph starts on next frame for smooth entrance
     Timer {
         id: arriveTimer
-        interval: 20
+        interval: 16
         repeat: false
-        onTriggered: root.arrived = true
-    }
-
-    // Beat 2 in.
-    Timer {
-        id: expandTimer
-        interval: 240
-        repeat: false
-        onTriggered: root.expanded = true
+        onTriggered: {
+            root.arrived = true;
+            root.expanded = true;
+        }
     }
 
     // Only runs while something is on screen; idle costs nothing.
@@ -83,27 +73,31 @@ Item {
         running: root.current !== null
         repeat: false
         onTriggered: {
-            root.expanded = false;
-            root.arrived = false;
+            root.closing = true;
             collapseTimer.restart();
         }
     }
 
-    // Beat 2 out: hold the event until the collapse has actually played, or the
-    // whole row would vanish mid-animation.
+    // hold the event until the collapse animation finishes
     Timer {
         id: collapseTimer
-        interval: Math.max(Config.animDuration, 1)
+        interval: 150
         repeat: false
-        onTriggered: root.current = null
+        onTriggered: {
+            root.current = null;
+            root.arrived = false;
+            root.expanded = false;
+            root.closing = false;
+        }
     }
 
     // label is only for things that need naming (an SSID, a device); everything
     // else is its glyph plus its value. meter is 0..1, or -1 for no level.
-    function show(icon, accent, label, value, meter, pulse, trail) {
+    function show(icon, accent, label, value, meter, pulse, trail, mode) {
         if (!root.ready)
             return;
         GlobalStates.notchBounce();
+        root.closing = false;
         root.arrived = false;
         root.expanded = false;
         collapseTimer.stop();
@@ -114,10 +108,10 @@ Item {
             value: value,
             meter: meter === undefined ? -1 : meter,
             pulse: pulse === true,
-            trail: trail === undefined ? "" : trail
+            trail: trail === undefined ? "" : trail,
+            mode: mode || ""
         };
         arriveTimer.restart();
-        expandTimer.restart();
         dismissTimer.restart();
     }
 
@@ -140,13 +134,27 @@ Item {
         // Every charge transition comes through here. Watching isCharging alone
         // missed the states that are plugged in but not charging - full, or held
         // at a charge threshold - so plugging in could produce nothing at all.
-        function onChargeStateChanged() {
-            if (Battery.isCharging) {
-                root.show(Icons.batteryCharging, Colors.green, "", root.batteryPct, root.batteryLevel, true, Battery.timeToFull);
-            } else if (Battery.isPluggedIn) {
-                root.show(Icons.batteryFull, Colors.green, "", root.batteryPct, root.batteryLevel, false, "Full");
+        function onPowerTransition() {
+            const plugged = Battery.isPluggedIn ? 1 : 0;
+            const charging = Battery.isCharging ? 1 : 0;
+            const prevPlugged = root.lastPluggedIn;
+            const prevCharging = root.lastCharging;
+            root.lastPluggedIn = plugged;
+            root.lastCharging = charging;
+
+            if (!root.ready || prevPlugged < 0)
+                return;
+
+            if (plugged === 0) {
+                if (prevPlugged === 1) {
+                    root.show(Battery.getBatteryLevelIcon(), root.getBatteryColor(Battery.percentage), "", root.batteryPct, root.batteryLevel, false, Battery.timeToEmpty, "unplug");
+                }
             } else {
-                root.show(Icons.batteryMedium, Colors.overBackground, "", root.batteryPct, root.batteryLevel, false, Battery.timeToEmpty);
+                if (prevPlugged === 0) {
+                    root.show(Icons.lightning, Colors.green, "", root.batteryPct, root.batteryLevel, true, Battery.timeToFull, "charging");
+                } else if (prevCharging === 1 && charging === 0) {
+                    root.show(Icons.batteryFull, Colors.green, "", root.batteryPct, root.batteryLevel, false, "Full", "full");
+                }
             }
         }
 
@@ -154,7 +162,7 @@ Item {
         // it now hands the alert here so it renders in the notch instead. Its title
         // and body are both prose - the glyph, the colour and the level say it.
         function onBatteryAlert(title, body, urgency) {
-            root.show(Icons.batteryLow, urgency === "critical" ? Colors.red : Colors.yellow, "", root.batteryPct, root.batteryLevel, urgency === "critical", Battery.timeToEmpty);
+            root.show(Icons.batteryLow, urgency === "critical" ? Colors.red : Colors.yellow, "", root.batteryPct, root.batteryLevel, urgency === "critical", Battery.timeToEmpty, "alert");
         }
     }
 
@@ -192,18 +200,38 @@ Item {
         }
     }
 
-    readonly property color chargingGreen: "#22c55e"
-    readonly property color accent: current ? (current.accent === Colors.green ? chargingGreen : current.accent) : Colors.outline
+    function getBatteryColor(pct) {
+        if (pct <= 20) return Colors.red;
+        if (pct >= 80) return Colors.green;
+        if (pct < 50) {
+            const ratio = (pct - 20) / 30;
+            return Qt.rgba(
+                Colors.red.r + (Colors.yellow.r - Colors.red.r) * ratio,
+                Colors.red.g + (Colors.yellow.g - Colors.red.g) * ratio,
+                Colors.red.b + (Colors.yellow.b - Colors.red.b) * ratio,
+                1
+            );
+        } else {
+            const ratio = (pct - 50) / 30;
+            return Qt.rgba(
+                Colors.yellow.r + (Colors.green.r - Colors.yellow.r) * ratio,
+                Colors.yellow.g + (Colors.green.g - Colors.yellow.g) * ratio,
+                Colors.yellow.b + (Colors.green.b - Colors.yellow.b) * ratio,
+                1
+            );
+        }
+    }
 
-    // Slow breath on the glyph while charging or critical, so those two keep
-    // moving for as long as they are on screen.
+    readonly property color accent: current ? (current.accent || Colors.green) : Colors.outline
+
+    // Slow breath on the glyph while charging or critical
     property real pulseOpacity: 1.0
     SequentialAnimation {
-        running: root.arrived && root.current !== null && root.current.pulse
+        running: root.arrived && root.current !== null && root.current.pulse && !root.closing
         loops: Animation.Infinite
         onStopped: root.pulseOpacity = 1.0
-        NumberAnimation { target: root; property: "pulseOpacity"; to: 0.80; duration: 850; easing.type: Easing.InOutQuad }
-        NumberAnimation { target: root; property: "pulseOpacity"; to: 1.0; duration: 850; easing.type: Easing.InOutQuad }
+        NumberAnimation { target: root; property: "pulseOpacity"; to: 0.65; duration: 800; easing.type: Easing.InOutSine }
+        NumberAnimation { target: root; property: "pulseOpacity"; to: 1.0; duration: 800; easing.type: Easing.InOutSine }
     }
 
     // Fire an event by hand instead of waiting for the hardware to produce one:
@@ -217,19 +245,19 @@ Item {
             const lvl = root.batteryLevel >= 0 ? root.batteryLevel : 0.82;
             switch (kind) {
             case "charging":
-                root.show(Icons.batteryCharging, Colors.green, "", pct, lvl, true, Battery.timeToFull ? Battery.timeToFull : "45m");
+                root.show(Icons.lightning, Colors.green, "", pct, lvl, true, Battery.timeToFull ? Battery.timeToFull : "45m", "charging");
                 break;
             case "full":
-                root.show(Icons.batteryFull, Colors.green, "", "100", 1.0, false, "Full");
+                root.show(Icons.batteryFull, Colors.green, "", "100", 1.0, false, "Full", "full");
                 break;
             case "unplug":
-                root.show(Icons.batteryMedium, Colors.overBackground, "", pct, lvl, false, Battery.timeToEmpty ? Battery.timeToEmpty : "3h 40m");
+                root.show(Battery.getBatteryLevelIcon(Number(pct)), root.getBatteryColor(Number(pct)), "", pct, lvl, false, Battery.timeToEmpty ? Battery.timeToEmpty : "3h 40m", "unplug");
                 break;
             case "low":
-                root.show(Icons.batteryLow, Colors.yellow, "", "18", 0.18, false, Battery.timeToEmpty ? Battery.timeToEmpty : "25m");
+                root.show(Icons.batteryLow, Colors.yellow, "", "18", 0.18, false, Battery.timeToEmpty ? Battery.timeToEmpty : "25m", "alert");
                 break;
             case "critical":
-                root.show(Icons.batteryLow, Colors.red, "", "6", 0.06, true, Battery.timeToEmpty ? Battery.timeToEmpty : "8m");
+                root.show(Icons.batteryLow, Colors.red, "", "6", 0.06, true, Battery.timeToEmpty ? Battery.timeToEmpty : "8m", "alert");
                 break;
             case "wifi":
                 root.show(Icons.wifiHigh, Colors.primary, NetworkService.active ? NetworkService.active.ssid : "Wi-Fi", "");
@@ -256,136 +284,142 @@ Item {
     function formatRemainingTime() {
         if (!root.current)
             return "";
-        const trail = root.current.trail ? String(root.current.trail).trim() : "";
-        if (root.current.icon === Icons.batteryFull || root.current.value === "100")
+        const mode = root.current.mode || "";
+        const rawTrail = root.current.trail ? String(root.current.trail).trim() : (mode === "charging" ? Battery.timeToFull : Battery.timeToEmpty);
+        const trail = rawTrail ? String(rawTrail).trim() : "";
+        const cleaned = trail.replace(/^in\s+/i, "").replace(/\s+(left|remaining)$/i, "").trim();
+
+        if (mode === "full")
             return "Fully Charged";
-        if (trail !== "") {
-            if (trail.startsWith("in ") || trail.endsWith("left") || trail.endsWith("remaining"))
-                return trail;
-            if (root.current.pulse)
-                return "in " + trail;
-            return trail + " left";
+
+        if (mode === "charging") {
+            if (cleaned !== "" && cleaned.toLowerCase() !== "full")
+                return cleaned;
+            return "Charging";
         }
-        return root.current.pulse ? "Charging" : "";
+
+        if (mode === "unplug" || mode === "alert") {
+            if (cleaned !== "" && cleaned.toLowerCase() !== "full")
+                return cleaned;
+            return "Discharging";
+        }
+
+        // fallback if mode wasn't explicitly passed
+        if (root.current.pulse && root.current.icon === Icons.lightning) {
+            if (cleaned !== "" && cleaned.toLowerCase() !== "full")
+                return cleaned;
+            return "Charging";
+        }
+
+        if (cleaned !== "" && cleaned.toLowerCase() !== "full")
+            return cleaned;
+
+        return "Discharging";
     }
 
-    // Minimalist 3-part layout for battery / charging events
+    // minimalist 3-part layout for battery and charging events
     Item {
         id: batteryEventLayout
         anchors.fill: parent
         visible: root.current !== null && root.isBattery
 
-        // Left: Battery icon (green, pulsing when charging/critical)
+        // The pill takes animDuration * 1.3 to grow. Revealing the content before
+        // it settles made the icon and the ring visibly slide apart, because their
+        // anchors are the pill's own edges.
+        readonly property bool shown: root.arrived && !root.closing
+        readonly property int revealDelay: shown ? Math.round(Config.animDuration * 0.75) : 0
+
+        opacity: shown ? 1 : 0
+        scale: shown ? 1 : 0.9
+
+        Behavior on opacity {
+            enabled: Config.animDuration > 0
+            SequentialAnimation {
+                PauseAnimation { duration: batteryEventLayout.revealDelay }
+                NumberAnimation {
+                    duration: root.closing ? 120 : 200
+                    easing.type: root.closing ? Easing.InQuad : Easing.OutCubic
+                }
+            }
+        }
+
+        Behavior on scale {
+            enabled: Config.animDuration > 0
+            SequentialAnimation {
+                PauseAnimation { duration: batteryEventLayout.revealDelay }
+                NumberAnimation {
+                    duration: root.closing ? 120 : 340
+                    easing.type: root.closing ? Easing.InQuad : Easing.OutBack
+                    easing.overshoot: 1.5
+                }
+            }
+        }
+
+        // left: battery or lightning icon with glowing accent color
         Item {
             id: batteryIconItem
             anchors.left: parent.left
-            anchors.leftMargin: 10
+            anchors.leftMargin: 12
             anchors.verticalCenter: parent.verticalCenter
-            width: 24
-            height: 24
-
-            opacity: root.arrived ? root.pulseOpacity : 0
-            scale: root.arrived ? 1 : 0.5
-
-            Behavior on opacity {
-                enabled: Config.animDuration > 0
-                NumberAnimation {
-                    duration: Config.animDuration * 0.6
-                    easing.type: Easing.OutQuart
-                }
-            }
-
-            Behavior on scale {
-                enabled: Config.animDuration > 0
-                NumberAnimation {
-                    duration: Config.animDuration
-                    easing.type: Easing.OutBack
-                    easing.overshoot: 1.6
-                }
-            }
+            width: 22
+            height: 22
 
             Text {
                 anchors.centerIn: parent
-                text: root.current ? (root.current.icon || Icons.batteryCharging) : Icons.batteryCharging
+                text: root.current ? (root.current.icon || Icons.lightning) : Icons.lightning
                 font.family: Icons.font
                 font.pixelSize: 20
                 color: root.accent
             }
+
+            layer.enabled: true
+            layer.effect: MultiEffect {
+                shadowEnabled: true
+                shadowColor: root.accent
+                shadowBlur: 0.35
+                shadowOpacity: 0.55
+                shadowHorizontalOffset: 0
+                shadowVerticalOffset: 0
+                blurMax: 8
+            }
         }
 
-        // Center: Remaining time only
+        // center: bold remaining time
         Item {
             id: remainingTimeItem
             anchors.centerIn: parent
             width: remainingTimeText.implicitWidth
             height: remainingTimeText.implicitHeight
-            opacity: root.expanded ? 1 : 0
-            scale: root.expanded ? 1 : 0.8
-
-            Behavior on opacity {
-                enabled: Config.animDuration > 0
-                NumberAnimation {
-                    duration: Config.animDuration * 0.7
-                    easing.type: Easing.OutQuart
-                }
-            }
-
-            Behavior on scale {
-                enabled: Config.animDuration > 0
-                NumberAnimation {
-                    duration: Config.animDuration * 0.7
-                    easing.type: Easing.OutBack
-                    easing.overshoot: 1.2
-                }
-            }
 
             Text {
                 id: remainingTimeText
                 anchors.centerIn: parent
                 text: root.formatRemainingTime()
                 font.family: Styling.defaultFont
-                font.pixelSize: 12
-                font.weight: Font.DemiBold
-                color: Qt.rgba(255, 255, 255, 0.9)
-                font.letterSpacing: 0.3
+                font.pixelSize: Config.theme.fontSize
+                font.bold: true
+                color: Colors.overBackground
             }
         }
 
-        // Right: Circular progress ring with battery number inside (Image 2 style)
+        // right: circular progress ring with battery number inside
         Item {
             id: batteryRingItem
             anchors.right: parent.right
-            anchors.rightMargin: 10
+            anchors.rightMargin: 12
             anchors.verticalCenter: parent.verticalCenter
-            width: 28
-            height: 28
-
-            opacity: root.arrived ? 1 : 0
-            scale: root.arrived ? 1 : 0.5
-
-            Behavior on opacity {
-                enabled: Config.animDuration > 0
-                NumberAnimation {
-                    duration: Config.animDuration * 0.6
-                    easing.type: Easing.OutQuart
-                }
-            }
-
-            Behavior on scale {
-                enabled: Config.animDuration > 0
-                NumberAnimation {
-                    duration: Config.animDuration
-                    easing.type: Easing.OutBack
-                    easing.overshoot: 1.4
-                }
-            }
+            width: 24
+            height: 24
 
             property real animatedLevel: 0
             Behavior on animatedLevel {
                 enabled: Config.animDuration > 0
-                NumberAnimation {
-                    duration: Config.animDuration * 1.5
-                    easing.type: Easing.OutCubic
+                SequentialAnimation {
+                    PauseAnimation { duration: batteryEventLayout.revealDelay }
+                    NumberAnimation {
+                        duration: 520
+                        easing.type: Easing.OutCubic
+                    }
                 }
             }
 
@@ -396,7 +430,7 @@ Item {
                 function onArrivedChanged() {
                     if (root.arrived) {
                         batteryRingItem.animatedLevel = root.meterValue;
-                    } else {
+                    } else if (!root.closing) {
                         batteryRingItem.animatedLevel = 0;
                     }
                 }
@@ -412,17 +446,17 @@ Item {
                     ctx.reset();
                     var centerX = width / 2;
                     var centerY = height / 2;
-                    var radius = 10.5;
+                    var radius = 9.5;
                     var startAngle = -Math.PI / 2;
 
-                    // Background track ring
+                    // background track ring
                     ctx.beginPath();
                     ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
                     ctx.lineWidth = 2.4;
-                    ctx.strokeStyle = Qt.rgba(255, 255, 255, 0.14);
+                    ctx.strokeStyle = Qt.rgba(Colors.outlineVariant.r, Colors.outlineVariant.g, Colors.outlineVariant.b, 0.45);
                     ctx.stroke();
 
-                    // Progress arc
+                    // progress arc
                     if (batteryRingItem.animatedLevel > 0) {
                         var sweep = Math.min(1.0, Math.max(0.01, batteryRingItem.animatedLevel)) * 2 * Math.PI;
                         ctx.beginPath();
@@ -438,22 +472,22 @@ Item {
                 layer.effect: MultiEffect {
                     shadowEnabled: true
                     shadowColor: root.accent
-                    shadowBlur: 0.6
-                    shadowOpacity: 0.65
+                    shadowBlur: 0.35
+                    shadowOpacity: 0.45
                     shadowHorizontalOffset: 0
                     shadowVerticalOffset: 0
-                    blurMax: 16
+                    blurMax: 8
                 }
             }
 
-            // Battery percentage number inside ring (Image 2)
+            // battery percentage number inside ring
             Text {
                 anchors.centerIn: parent
                 text: root.current ? root.current.value : ""
                 font.family: Styling.defaultFont
-                font.pixelSize: 10
-                font.weight: Font.Black
-                color: "#ffffff"
+                font.pixelSize: (root.current && root.current.value === "100") ? 8 : 10
+                font.bold: true
+                color: Colors.overBackground
             }
         }
     }
@@ -464,6 +498,15 @@ Item {
         anchors.centerIn: parent
         spacing: root.expanded ? 10 : 0
         visible: root.current !== null && !root.isBattery
+        opacity: root.closing ? 0 : 1
+
+        Behavior on opacity {
+            enabled: Config.animDuration > 0
+            NumberAnimation {
+                duration: 160
+                easing.type: Easing.InQuad
+            }
+        }
 
         Behavior on spacing {
             enabled: Config.animDuration > 0
