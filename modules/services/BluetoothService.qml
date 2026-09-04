@@ -12,10 +12,16 @@ Singleton {
     property bool discovering: false
     property bool connected: false
     property int connectedDevices: 0
+    property var connectedDeviceList: []
+    property var knownConnectedAddresses: []
+    property bool initialCheckDone: false
+
+    signal deviceConnected(string address, string name)
+    signal deviceDisconnected(string address, string name)
     
     readonly property list<BluetoothDevice> devices: []
     
-    // Cached sorted device list - only updates when devices change
+    // cached sorted device list
     property list<var> friendlyDeviceList: []
     
     // Queue for batching updateInfo calls
@@ -125,6 +131,12 @@ Singleton {
         checkPowerProcess.running = true;
     }
 
+    function checkConnected() {
+        if (root.enabled && !checkConnectedProcess.running) {
+            checkConnectedProcess.running = true;
+        }
+    }
+
     // Timers
     Timer {
         id: updateTimer
@@ -132,6 +144,14 @@ Singleton {
         running: root.enabled
         repeat: true
         onTriggered: root.updateDevices()
+    }
+
+    Timer {
+        id: connectedTimer
+        interval: 2000
+        running: root.enabled
+        repeat: true
+        onTriggered: root.checkConnected()
     }
 
     Timer {
@@ -168,13 +188,19 @@ Singleton {
     Process {
         id: connectProcess
         running: false
-        onExited: root.updateDevices()
+        onExited: {
+            root.checkConnected();
+            root.updateDevices();
+        }
     }
 
     Process {
         id: disconnectProcess
         running: false
-        onExited: root.updateDevices()
+        onExited: {
+            root.checkConnected();
+            root.updateDevices();
+        }
     }
 
     Process {
@@ -204,10 +230,13 @@ Singleton {
                 root.enabled = output === "yes";
                 
                 if (root.enabled) {
-                    checkConnectedProcess.running = true;
+                    root.checkConnected();
+                    root.updateDevices();
                 } else {
                     root.connected = false;
                     root.connectedDevices = 0;
+                    root.connectedDeviceList = [];
+                    root.knownConnectedAddresses = [];
                     root.discovering = false;
                 }
             }
@@ -216,14 +245,70 @@ Singleton {
 
     Process {
         id: checkConnectedProcess
-        command: ["bash", "-c", "bluetoothctl devices Connected | wc -l"]
+        command: ["bluetoothctl", "devices", "Connected"]
         running: false
+        property string buffer: ""
+        environment: ({
+            LANG: "C",
+            LC_ALL: "C"
+        })
         stdout: SplitParser {
-            onRead: (data) => {
-                const output = data ? data.trim() : "0";
-                root.connectedDevices = parseInt(output) || 0;
-                root.connected = root.connectedDevices > 0;
+            onRead: data => {
+                checkConnectedProcess.buffer += data + "\n";
             }
+        }
+        onExited: (exitCode, exitStatus) => {
+            const text = checkConnectedProcess.buffer;
+            checkConnectedProcess.buffer = "";
+
+            if (exitCode !== 0)
+                return;
+
+            const lines = text.trim().split("\n").filter(l => l.startsWith("Device "));
+            const currentList = lines.map(line => {
+                const parts = line.split(" ");
+                return {
+                    address: parts[1] || "",
+                    name: parts.slice(2).join(" ") || "Unknown"
+                };
+            }).filter(d => d.address !== "");
+
+            root.connectedDeviceList = currentList;
+            root.connectedDevices = currentList.length;
+            root.connected = currentList.length > 0;
+
+            const currentAddrs = currentList.map(d => d.address);
+
+            // sync connected flag to individual device objects
+            for (const device of root.devices) {
+                device.connected = currentAddrs.includes(device.address);
+            }
+
+            if (!root.initialCheckDone) {
+                root.initialCheckDone = true;
+                root.knownConnectedAddresses = currentAddrs;
+                return;
+            }
+
+            const prevAddrs = root.knownConnectedAddresses || [];
+
+            for (const dev of currentList) {
+                if (!prevAddrs.includes(dev.address)) {
+                    root.deviceConnected(dev.address, dev.name);
+                    root.updateDevices();
+                }
+            }
+
+            for (const addr of prevAddrs) {
+                if (!currentAddrs.includes(addr)) {
+                    const prevDev = (root.devices || []).find(d => d.address === addr);
+                    const name = prevDev ? prevDev.name : "";
+                    root.deviceDisconnected(addr, name);
+                    root.updateDevices();
+                }
+            }
+
+            root.knownConnectedAddresses = currentAddrs;
         }
     }
 
@@ -301,5 +386,6 @@ Singleton {
 
     Component.onCompleted: {
         updateStatus();
+        updateDevices();
     }
 }

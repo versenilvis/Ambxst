@@ -41,6 +41,8 @@ Item {
     implicitWidth: current ? (isBattery ? batteryContentWidth : (eventRow.implicitWidth + (expanded ? 48 : 28))) : 0
     implicitHeight: current ? 36 : 0
 
+    property var eventQueue: []
+
     Timer {
         id: readyTimer
         interval: 2500
@@ -52,6 +54,15 @@ Item {
             root.lastPluggedIn = Battery.isPluggedIn ? 1 : 0;
             root.lastCharging = Battery.isCharging ? 1 : 0;
             root.ready = true;
+
+            // show boot bluetooth connections
+            const bootDevices = BluetoothService.connectedDeviceList || [];
+            for (let i = 0; i < bootDevices.length; i++) {
+                const dev = bootDevices[i];
+                if (dev && dev.name) {
+                    root.show(Icons.bluetoothConnected, Colors.cyan, dev.name, "");
+                }
+            }
         }
     }
 
@@ -88,6 +99,24 @@ Item {
             root.arrived = false;
             root.expanded = false;
             root.closing = false;
+            if (root.eventQueue.length > 0) {
+                const nextEvt = root.eventQueue.shift();
+                nextEventTimer.nextEvt = nextEvt;
+                nextEventTimer.restart();
+            }
+        }
+    }
+
+    Timer {
+        id: nextEventTimer
+        interval: 200
+        repeat: false
+        property var nextEvt: null
+        onTriggered: {
+            if (nextEvt) {
+                root.displayEvent(nextEvt);
+                nextEvt = null;
+            }
         }
     }
 
@@ -96,12 +125,8 @@ Item {
     function show(icon, accent, label, value, meter, pulse, trail, mode) {
         if (!root.ready)
             return;
-        GlobalStates.notchBounce();
-        root.closing = false;
-        root.arrived = false;
-        root.expanded = false;
-        collapseTimer.stop();
-        root.current = {
+
+        const evt = {
             icon: icon,
             accent: accent,
             label: label,
@@ -111,6 +136,23 @@ Item {
             trail: trail === undefined ? "" : trail,
             mode: mode || ""
         };
+
+        const isUrgent = mode === "charging" || mode === "unplug" || mode === "alert" || mode === "full";
+        if (!isUrgent && root.current !== null && !root.closing) {
+            root.eventQueue.push(evt);
+            return;
+        }
+
+        displayEvent(evt);
+    }
+
+    function displayEvent(evt) {
+        GlobalStates.notchBounce();
+        root.closing = false;
+        root.arrived = false;
+        root.expanded = false;
+        collapseTimer.stop();
+        root.current = evt;
         arriveTimer.restart();
         dismissTimer.restart();
     }
@@ -119,6 +161,9 @@ Item {
     readonly property string batteryPct: Battery.available ? String(Math.round(Battery.percentage)) : ""
 
     function connectedBluetoothName() {
+        if (BluetoothService.connectedDeviceList && BluetoothService.connectedDeviceList.length > 0) {
+            return BluetoothService.connectedDeviceList[0].name || "";
+        }
         const list = BluetoothService.devices;
         for (let i = 0; i < list.length; i++) {
             if (list[i].connected)
@@ -169,17 +214,16 @@ Item {
     Connections {
         target: BluetoothService
 
-        function onConnectedDevicesChanged() {
-            const now = BluetoothService.connectedDevices;
-            const prev = root.lastBluetoothCount;
-            root.lastBluetoothCount = now;
-            if (prev < 0 || now === prev)
+        function onDeviceConnected(address, name) {
+            if (!root.ready)
                 return;
-            if (now > prev) {
-                root.show(Icons.bluetoothConnected, Colors.cyan, root.connectedBluetoothName(), "");
-            } else {
-                root.show(Icons.bluetooth, Colors.outline, "", "");
-            }
+            root.show(Icons.bluetoothConnected, Colors.cyan, name, "");
+        }
+
+        function onDeviceDisconnected(address, name) {
+            if (!root.ready)
+                return;
+            root.show(Icons.bluetooth, Colors.outline, name, "");
         }
     }
 
@@ -266,10 +310,10 @@ Item {
                 root.show(Icons.wifiOff, Colors.outline, "", "");
                 break;
             case "bt":
-                root.show(Icons.bluetoothConnected, Colors.primary, root.connectedBluetoothName(), "");
+                root.show(Icons.bluetoothConnected, Colors.cyan, root.connectedBluetoothName(), "");
                 break;
             case "btoff":
-                root.show(Icons.bluetooth, Colors.outline, "", "");
+                root.show(Icons.bluetooth, Colors.outline, root.connectedBluetoothName(), "");
                 break;
             default:
                 return "unknown kind: " + kind + " (charging full unplug low critical wifi wifioff bt btoff)";
