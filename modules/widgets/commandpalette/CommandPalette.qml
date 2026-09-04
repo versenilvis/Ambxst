@@ -116,6 +116,9 @@ FloatingWindow {
         if (visible) {
             focusCurrentTab();
         } else {
+            // Clearing the field also routes "" through applySearch, which resets the
+            // active tab's own searchText and the launcher state it mirrors.
+            sharedSearch.text = "";
             GlobalStates.clearLauncherState();
         }
     }
