@@ -123,11 +123,17 @@ FloatingWindow {
     onVisibleChanged: {
         if (visible) {
             focusCurrentTab();
+            if (root.currentTab === 1 && clipboardLoader.item && typeof clipboardLoader.item.resetToTop === "function") {
+                clipboardLoader.item.resetToTop();
+            }
         } else {
             // Clearing the field also routes "" through applySearch, which resets the
             // active tab's own searchText and the launcher state it mirrors.
             sharedSearch.text = "";
             GlobalStates.clearLauncherState();
+            if (clipboardLoader.item && typeof clipboardLoader.item.resetToTop === "function") {
+                clipboardLoader.item.resetToTop();
+            }
         }
     }
 
@@ -135,6 +141,9 @@ FloatingWindow {
         sharedSearch.text = "";
         if (visible) {
             focusCurrentTab();
+            if (root.currentTab === 1 && clipboardLoader.item && typeof clipboardLoader.item.resetToTop === "function") {
+                clipboardLoader.item.resetToTop();
+            }
         }
     }
 
@@ -468,8 +477,12 @@ FloatingWindow {
                         }
                     }
                     onLoaded: {
-                        if (root.currentTab === 1)
+                        if (root.currentTab === 1) {
                             root.focusCurrentTab();
+                            if (clipboardLoader.item && typeof clipboardLoader.item.resetToTop === "function") {
+                                clipboardLoader.item.resetToTop();
+                            }
+                        }
                     }
                 }
 

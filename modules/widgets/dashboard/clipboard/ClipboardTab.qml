@@ -298,14 +298,69 @@ Item {
         ClipboardService.search(searchText);
     }
 
-    function clearSearch() {
+    onVisibleChanged: {
+        if (visible) {
+            resetToTop();
+        }
+    }
+
+    function resetToTop() {
         searchText = "";
-        selectedIndex = -1;
         hasNavigatedFromSearch = false;
         clearButtonFocused = false;
         clearButtonConfirmState = false;
+        cancelDeleteModeFromExternal();
+        expandedItemIndex = -1;
+        selectedOptionIndex = 0;
+        keyboardNavigation = false;
+        pendingItemIdToSelect = "";
+
+        updateFilteredItems(true);
+
+        if (resultsList) {
+            resultsList.enableScrollAnimation = false;
+            resultsList.contentY = 0;
+            if (allItems.length > 0) {
+                selectedIndex = 0;
+                resultsList.currentIndex = 0;
+                let first = allItems[0];
+                if (first && !first.isImage) {
+                    ClipboardService.getFullContent(first.id);
+                }
+            } else {
+                selectedIndex = -1;
+                resultsList.currentIndex = -1;
+            }
+            resultsList.positionViewAtBeginning();
+            Qt.callLater(() => {
+                if (resultsList) {
+                    resultsList.contentY = 0;
+                    resultsList.positionViewAtBeginning();
+                    resultsList.enableScrollAnimation = true;
+                }
+            });
+        }
+    }
+
+    function clearSearch() {
+        searchText = "";
+        hasNavigatedFromSearch = false;
+        clearButtonFocused = false;
+        clearButtonConfirmState = false;
+        updateFilteredItems(true);
+        if (resultsList) {
+            resultsList.enableScrollAnimation = false;
+            resultsList.contentY = 0;
+            resultsList.positionViewAtBeginning();
+            Qt.callLater(() => {
+                if (resultsList) {
+                    resultsList.contentY = 0;
+                    resultsList.positionViewAtBeginning();
+                    resultsList.enableScrollAnimation = true;
+                }
+            });
+        }
         searchInput.focusInput();
-        updateFilteredItems();
     }
 
     function resetClearButton() {
@@ -423,146 +478,61 @@ Item {
         searchInput.focusInput();
     }
 
-    function updateFilteredItems() {
-        // Capture current selection to restore it if possible (handling double updates)
-        var currentIdToKeep = "";
-        if (selectedIndex >= 0 && selectedIndex < allItems.length) {
-            currentIdToKeep = allItems[selectedIndex].id;
+    function updateFilteredItems(forceTop) {
+        var newItems = ClipboardService.items.slice();
+        allItems = newItems;
+
+        itemsModel.clear();
+        for (var k = 0; k < newItems.length; k++) {
+            itemsModel.append({
+                itemId: newItems[k].id,
+                itemData: newItems[k]
+            });
         }
 
-        // The backend daemon now handles fuzzy searching, so ClipboardService.items
-        // already contains the search results.
-        var newItems = ClipboardService.items.slice();
+        if (newItems.length === 0) {
+            selectedIndex = -1;
+            if (resultsList)
+                resultsList.currentIndex = -1;
+            return;
+        }
 
-        allItems = newItems;
-        // Don't reset scroll or animation state here to prevent jumps during rapid updates
-
-        // Smart sync itemsModel to minimize delegate destruction/creation
-        // For search results, the list is completely different, so bypass smart sync 
-        // to avoid QML ListModel setProperty bugs with JS objects that cause empty text
-        if (searchText.length > 0) {
-            itemsModel.clear();
-            for (var k = 0; k < newItems.length; k++) {
-                itemsModel.append({
-                    itemId: newItems[k].id,
-                    itemData: newItems[k]
-                });
-            }
-            
-            // Force selection to 0 if we are searching and haven't navigated yet
-            if (newItems.length > 0 && (!hasNavigatedFromSearch || selectedIndex < 0 || selectedIndex >= newItems.length)) {
-                selectedIndex = 0;
+        // if forcing top or user hasn't navigated yet, always select top item
+        if (forceTop || !hasNavigatedFromSearch) {
+            selectedIndex = 0;
+            if (resultsList) {
                 resultsList.currentIndex = 0;
+                resultsList.contentY = 0;
+                resultsList.positionViewAtBeginning();
+            }
+            if (newItems[0] && !newItems[0].isImage) {
+                ClipboardService.getFullContent(newItems[0].id);
             }
             return;
         }
 
-        // Smart sync for normal appending/updates
-        var modelIndex = 0;
-        var newIndex = 0;
-
-        while (newIndex < newItems.length) {
-            var newItem = newItems[newIndex];
-            var newItemId = newItem.id;
-
-            if (modelIndex < itemsModel.count) {
-                var currentModelItem = itemsModel.get(modelIndex);
-
-                if (currentModelItem.itemId === newItemId) {
-                    // Match found: update data if needed and advance
-                    if (currentModelItem.itemData !== newItem) {
-                        itemsModel.setProperty(modelIndex, "itemData", newItem);
-                    }
-                    modelIndex++;
-                    newIndex++;
-                } else {
-                    // Mismatch: check if newItem exists later (move) or is new (insert)
-                    var foundLaterIndex = -1;
-                    // Limit lookahead to avoid performance hit on large lists, though clipboard is usually small
-                    for (var j = modelIndex + 1; j < itemsModel.count; j++) {
-                        if (itemsModel.get(j).itemId === newItemId) {
-                            foundLaterIndex = j;
-                            break;
-                        }
-                    }
-
-                    if (foundLaterIndex !== -1) {
-                        // Found later: move it here
-                        itemsModel.move(foundLaterIndex, modelIndex, 1);
-                        itemsModel.setProperty(modelIndex, "itemData", newItem);
-                        modelIndex++;
-                        newIndex++;
-                    } else {
-                        // Not found later: insert here
-                        itemsModel.insert(modelIndex, {
-                            itemId: newItemId,
-                            itemData: newItem
-                        });
-                        modelIndex++;
-                        newIndex++;
-                    }
-                }
-            } else {
-                // End of model: append
-                itemsModel.append({
-                    itemId: newItemId,
-                    itemData: newItem
-                });
-                modelIndex++;
-                newIndex++;
-            }
-        }
-
-        // Remove excess items at the end
-        if (modelIndex < itemsModel.count) {
-            var itemsToRemove = itemsModel.count - modelIndex;
-            itemsModel.remove(modelIndex, itemsToRemove);
-        }
-
-        // Only trigger later scroll animation enable if strictly needed,
-        // but since we aren't clearing, we might not need to toggle it at all.
-
-        // If we have a pending item to select (after pin/alias operations), find it
+        // if we have a pending item to select (after pin/alias), select it
         if (pendingItemIdToSelect !== "") {
             for (var i = 0; i < newItems.length; i++) {
                 if (newItems[i].id === pendingItemIdToSelect) {
                     selectedIndex = i;
-                    resultsList.currentIndex = i;
+                    if (resultsList)
+                        resultsList.currentIndex = i;
                     pendingItemIdToSelect = "";
                     return;
                 }
             }
-            // If not found, clear the pending selection
             pendingItemIdToSelect = "";
         }
 
-        // Try to maintain current selection if no pending item was forced (only for non-search updates)
-        if (currentIdToKeep !== "" && searchText.length === 0) {
-            for (var i = 0; i < newItems.length; i++) {
-                if (newItems[i].id === currentIdToKeep) {
-                    selectedIndex = i;
-                    resultsList.currentIndex = i;
-                    return;
-                }
-            }
-        }
-
-        // Default behavior for non-search updates when clearing search
-        if (searchText.length === 0) {
-            // When clearing search, only reset if we haven't navigated or if list is empty
-            if (!hasNavigatedFromSearch || allItems.length === 0) {
-                selectedIndex = -1;
-                resultsList.currentIndex = -1;
-            } else {
-                // Keep current selection valid, or default to first item
-                if (selectedIndex >= allItems.length) {
-                    selectedIndex = Math.max(0, allItems.length - 1);
-                    resultsList.currentIndex = selectedIndex;
-                } else if (selectedIndex < 0 && allItems.length > 0) {
-                    selectedIndex = 0;
-                    resultsList.currentIndex = 0;
-                }
-            }
+        // maintain current selection index within bounds
+        if (selectedIndex >= 0 && selectedIndex < newItems.length) {
+            if (resultsList)
+                resultsList.currentIndex = selectedIndex;
+        } else {
+            selectedIndex = 0;
+            if (resultsList)
+                resultsList.currentIndex = 0;
         }
     }
 
@@ -573,6 +543,9 @@ Item {
                 if (root.selectedIndex === -1) {
                     root.selectedIndex = 0;
                     resultsList.currentIndex = 0;
+                } else if (root.selectedIndex === 0 && resultsList.count > 1) {
+                    root.selectedIndex = 1;
+                    resultsList.currentIndex = 1;
                 }
             }
         } else {
@@ -620,6 +593,20 @@ Item {
         onClicked: {
             if (root.deleteMode) {
                 root.cancelDeleteMode();
+            }
+        }
+    }
+
+    Connections {
+        target: GlobalStates
+        function onCommandPaletteVisibleChanged() {
+            if (GlobalStates.commandPaletteVisible && GlobalStates.commandPaletteTab === 1) {
+                root.resetToTop();
+            }
+        }
+        function onCommandPaletteTabChanged() {
+            if (GlobalStates.commandPaletteVisible && GlobalStates.commandPaletteTab === 1) {
+                root.resetToTop();
             }
         }
     }
@@ -988,6 +975,13 @@ Item {
 
                     property bool enableScrollAnimation: true
 
+                    onHeightChanged: {
+                        if (height > 0 && !root.hasNavigatedFromSearch) {
+                            contentY = 0;
+                            positionViewAtBeginning();
+                        }
+                    }
+
                     onContentYChanged: {
                         if (contentHeight > 0 && contentY + height >= contentHeight - 120) {
                             ClipboardService.loadMore();
@@ -1007,8 +1001,13 @@ Item {
                             root.selectedIndex = currentIndex;
                         }
 
+                        if (currentIndex === 0) {
+                            resultsList.contentY = 0;
+                            return;
+                        }
+
                         // Manual smooth auto-scroll (simplified for variable height items)
-                        if (currentIndex >= 0) {
+                        if (currentIndex > 0 && resultsList.height > 0) {
                             var itemY = 0;
                             for (var i = 0; i < currentIndex && i < itemsModel.count; i++) {
                                 var itemData = itemsModel.get(i).itemData;
@@ -1085,7 +1084,7 @@ Item {
                         }
 
                         Behavior on y {
-                            enabled: Config.animDuration > 0
+                            enabled: Config.animDuration > 0 && resultsList.enableScrollAnimation
                             NumberAnimation {
                                 duration: Config.animDuration / 2
                                 easing.type: Easing.OutCubic
