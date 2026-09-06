@@ -27,6 +27,14 @@ Item {
         contentHeight: contentColumn.implicitHeight
         clip: true
 
+        WheelHandler {
+            acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+            onWheel: event => {
+                const maxScroll = Math.max(0, flickable.contentHeight - flickable.height);
+                flickable.contentY = Math.max(0, Math.min(maxScroll, flickable.contentY - event.angleDelta.y));
+            }
+        }
+
         ColumnLayout {
             id: contentColumn
             width: flickable.width

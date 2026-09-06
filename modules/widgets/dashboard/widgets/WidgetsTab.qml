@@ -19,6 +19,7 @@ Rectangle {
     property int leftPanelWidth: 0
     // See ClipboardTab: the palette owns the search field when this is false.
     property bool showSearch: true
+    property alias searchText: appLauncher.searchText
 
     // The palette owns the visible search field, so it forwards navigation keys
     // here; re-emit them on the (hidden) internal input that already has all the
@@ -117,6 +118,11 @@ Rectangle {
             onFilteredAppsChanged: {
                 resultsList.enableScrollAnimation = false;
                 resultsList.contentY = 0;
+                if (appLauncher.searchText.length > 0) {
+                    GlobalStates.launcherSelectedIndex = 0;
+                    appLauncher.selectedIndex = 0;
+                    resultsList.currentIndex = 0;
+                }
                 updateAppsModel();
                 Qt.callLater(() => {
                     resultsList.enableScrollAnimation = true;
@@ -136,7 +142,8 @@ Rectangle {
 
                 appsModel.clear();
                 
-                let initialBatch = Math.min(appLauncher.batchSize, newApps.length);
+                let loadAll = (appLauncher.searchText.length > 0) || (newApps.length <= 100);
+                let initialBatch = loadAll ? newApps.length : Math.min(appLauncher.batchSize, newApps.length);
                 for (let i = 0; i < initialBatch; i++) {
                     let app = newApps[i];
                     appsModel.append({
@@ -182,6 +189,15 @@ Rectangle {
             }
 
             onSearchTextChanged: {
+                if (searchText.length > 0) {
+                    GlobalStates.launcherSelectedIndex = 0;
+                    appLauncher.selectedIndex = 0;
+                    resultsList.currentIndex = 0;
+                } else {
+                    GlobalStates.launcherSelectedIndex = -1;
+                    appLauncher.selectedIndex = -1;
+                    resultsList.currentIndex = -1;
+                }
                 updateFilteredApps();
             }
 
@@ -309,10 +325,17 @@ Rectangle {
                                 }
                             }
                         } else {
-                            if (appLauncher.selectedIndex >= 0 && appLauncher.selectedIndex < appsModel.count) {
-                                let selectedApp = appsModel.get(appLauncher.selectedIndex);
+                            let targetIdx = appLauncher.selectedIndex >= 0 ? appLauncher.selectedIndex : 0;
+                            if (targetIdx < appsModel.count) {
+                                let selectedApp = appsModel.get(targetIdx);
                                 if (selectedApp) {
                                     appLauncher.executeApp(selectedApp.appId);
+                                    GlobalStates.commandPaletteVisible = false;
+                                }
+                            } else if (appLauncher.filteredApps.length > 0) {
+                                let fallbackApp = appLauncher.filteredApps[0];
+                                if (fallbackApp) {
+                                    appLauncher.executeApp(fallbackApp.id);
                                     GlobalStates.commandPaletteVisible = false;
                                 }
                             }

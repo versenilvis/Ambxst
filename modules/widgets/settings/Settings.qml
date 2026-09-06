@@ -20,6 +20,18 @@ FloatingWindow {
     minimumSize: Qt.size(750, 750)
     maximumSize: Qt.size(750, 750)
 
+    Shortcut {
+        sequence: "Escape"
+        enabled: root.visible
+        onActivated: {
+            if (GlobalStates.themeHasChanges)
+                GlobalStates.discardThemeChanges();
+            if (GlobalStates.shellHasChanges)
+                GlobalStates.discardShellChanges();
+            GlobalStates.settingsVisible = false;
+        }
+    }
+
     Rectangle {
         id: background
         anchors.fill: parent

@@ -38,6 +38,12 @@ Item {
             case "dashboard-controls": toggleDashboardTab(1); break;
             case "dashboard-clipboard": toggleCommandPalette(1); break;
             case "dashboard-emoji": toggleCommandPalette(2); break;
+            case "dashboard-audio":
+            case "audio":
+            case "dashboard-settings":
+            case "settings":
+                toggleCommandPalette(4);
+                break;
             case "dashboard-notes": toggleDashboardWithPrefix(Config.prefix.notes + " "); break;
             
             // System

@@ -19,6 +19,17 @@ Rectangle {
     property int currentSection: 0 
     property int selectedIndex: 0
     property string searchQuery: ""
+    property bool showSearch: true
+
+    function selectNext() {
+        if (filteredSections && selectedIndex < filteredSections.length - 1)
+            selectedIndex++;
+    }
+
+    function selectPrevious() {
+        if (selectedIndex > 0)
+            selectedIndex--;
+    }
 
     onFilteredSectionsChanged: selectedIndex = 0
     onCurrentSectionChanged: contentArea.previousSection = currentSection
@@ -27,7 +38,10 @@ Rectangle {
     Timer {
         id: focusRestoreTimer
         interval: 50
-        onTriggered: searchInput.focusInput()
+        onTriggered: {
+            if (root.showSearch)
+                searchInput.focusInput();
+        }
     }
 
     onSelectedIndexChanged: {
@@ -44,7 +58,8 @@ Rectangle {
 
     // Focus the search input (called from parent Dashboard)
     function focusSearchInput() {
-        searchInput.focusInput();
+        if (root.showSearch)
+            searchInput.focusInput();
     }
 
     SettingsIndex { id: searchIndex }
@@ -177,9 +192,10 @@ Rectangle {
                 SearchInput {
                     id: searchInput
                     width: parent.width
-                    height: 36
+                    height: visible ? 36 : 0
+                    visible: root.showSearch
                     placeholderText: "Search..."
-                    iconText: Icons.magnifyingGlass
+                    iconText: ""
                     clearOnEscape: true
 
                     onSearchTextChanged: text => {
@@ -296,7 +312,7 @@ Rectangle {
                                     // Icon on the left (font icon)
                                     Text {
                                         id: iconText
-                                        text: sidebarButton.modelData.isIcon ? sidebarButton.modelData.icon : ""
+                                        text: (sidebarButton.modelData.isIcon && sidebarButton.modelData.icon) ? sidebarButton.modelData.icon : ""
                                         font.family: Icons.font
                                         font.pixelSize: 20
                                         color: sidebarButton.isActive ? Styling.srItem("overprimary") : Styling.srItem("common")

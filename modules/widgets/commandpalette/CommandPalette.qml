@@ -13,6 +13,7 @@ import qs.config
 import qs.modules.widgets.dashboard.widgets
 import qs.modules.widgets.dashboard.clipboard
 import qs.modules.widgets.dashboard.emoji
+import qs.modules.widgets.dashboard.controls
 
 FloatingWindow {
     id: root
@@ -29,7 +30,8 @@ FloatingWindow {
         { name: "Apps", icon: Icons.apps },
         { name: "Clipboard", icon: Icons.clipboard },
         { name: "Emoji", icon: Icons.emoji },
-        { name: "Files", icon: Icons.file }
+        { name: "Files", icon: Icons.file },
+        { name: "Settings", icon: Icons.gear }
     ]
 
     // Footer hints are per tab: the palette tells you what Enter does *here*
@@ -37,7 +39,8 @@ FloatingWindow {
         [{ key: "↑↓", label: "navigate" }, { key: "↵", label: "open" }, { key: "clip", label: "jump to clipboard" }],
         [{ key: "↵", label: "copy & close" }, { key: "⌘↵", label: "open" }, { key: "⌘P", label: "pin" }],
         [{ key: "↵", label: "copy & type" }, { key: "↑↓←→", label: "navigate" }],
-        [{ key: "↑↓", label: "navigate" }, { key: "↵", label: "open" }]
+        [{ key: "↑↓", label: "navigate" }, { key: "↵", label: "open" }],
+        [{ key: "↑↓", label: "navigate" }, { key: "↵", label: "select" }, { key: "esc", label: "close" }]
     ]
 
     Shortcut {
@@ -77,7 +80,7 @@ FloatingWindow {
         }
     }
 
-    readonly property var searchPlaceholders: ["Search applications…", "Search clipboard…", "Search emoji…", "Search files…"]
+    readonly property var searchPlaceholders: ["Search applications…", "Search clipboard…", "Search emoji…", "Search files…", "Search settings & options…"]
 
     // Route the shared field's text to whichever tab is showing. Apps also mirrors
     // into GlobalStates because its launcher already reads from there.
@@ -88,6 +91,9 @@ FloatingWindow {
         }
         if (item && item.searchText !== undefined) {
             item.searchText = text;
+        }
+        if (item && item.searchQuery !== undefined) {
+            item.searchQuery = text;
         }
     }
 
@@ -105,6 +111,8 @@ FloatingWindow {
             return emojiLoader.item;
         if (root.currentTab === 3)
             return filesLoader.item;
+        if (root.currentTab === 4)
+            return settingsLoader.item;
         return null;
     }
 
@@ -148,6 +156,17 @@ FloatingWindow {
                 if (widgetsLoader.item)
                     widgetsLoader.item.clearSearch();
                 GlobalStates.commandPaletteTab = 2;
+            } else if (text === "settings " || text === "setting " || text === "config ") {
+                if (widgetsLoader.item)
+                    widgetsLoader.item.clearSearch();
+                GlobalStates.commandPaletteTab = 4;
+            } else if (text === "audio " || text === "sound " || text === "vol ") {
+                if (widgetsLoader.item)
+                    widgetsLoader.item.clearSearch();
+                GlobalStates.commandPaletteTab = 4;
+                if (settingsLoader.item) {
+                    settingsLoader.item.currentSection = 2;
+                }
             }
         }
     }
@@ -361,6 +380,31 @@ FloatingWindow {
                 }
 
                 Rectangle {
+                    implicitWidth: 22
+                    implicitHeight: 22
+                    radius: Styling.radius(-10)
+                    color: "transparent"
+                    border.width: 1
+                    border.color: settingsHeaderArea.containsMouse ? Colors.outline : Colors.surfaceContainer
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: Icons.gear
+                        font.family: Icons.font
+                        font.pixelSize: 12
+                        color: settingsHeaderArea.containsMouse ? Colors.overBackground : Colors.outlineVariant
+                    }
+
+                    MouseArea {
+                        id: settingsHeaderArea
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: GlobalStates.commandPaletteTab = (root.currentTab === 4 ? 0 : 4)
+                    }
+                }
+
+                Rectangle {
                     implicitWidth: escLabel.implicitWidth + 14
                     implicitHeight: 22
                     radius: Styling.radius(-10)
@@ -451,6 +495,18 @@ FloatingWindow {
                     }
                     onLoaded: {
                         if (root.currentTab === 3)
+                            root.focusCurrentTab();
+                    }
+                }
+
+                Loader {
+                    id: settingsLoader
+                    active: root.currentTab === 4 || settingsLoader.status === Loader.Ready
+                    sourceComponent: SettingsTab {
+                        showSearch: false
+                    }
+                    onLoaded: {
+                        if (root.currentTab === 4)
                             root.focusCurrentTab();
                     }
                 }
@@ -589,6 +645,43 @@ FloatingWindow {
                             isActive: GameModeService.toggled
                             tooltipText: GameModeService.toggled ? "Game Mode: On" : "Game Mode: Off"
                             onClicked: GameModeService.toggle()
+                        }
+
+                        ControlButton {
+                            Layout.preferredWidth: 28
+                            Layout.preferredHeight: 28
+                            iconName: {
+                                if (Audio.muted)
+                                    return Icons.speakerSlash;
+                                const vol = Audio.volume;
+                                if (vol < 0.01)
+                                    return Icons.speakerX;
+                                if (vol < 0.19)
+                                    return Icons.speakerNone;
+                                if (vol < 0.49)
+                                    return Icons.speakerLow;
+                                return Icons.speakerHigh;
+                            }
+                            isActive: !Audio.muted
+                            tooltipText: Audio.muted ? "Audio: Muted" : ("Audio: " + Math.round(Audio.volume * 100) + "%")
+                            onClicked: Audio.toggleMute()
+                        }
+
+                        Rectangle {
+                            Layout.preferredWidth: 1
+                            Layout.preferredHeight: 16
+                            Layout.leftMargin: 2
+                            Layout.rightMargin: 2
+                            color: Colors.surfaceContainer
+                        }
+
+                        ControlButton {
+                            Layout.preferredWidth: 28
+                            Layout.preferredHeight: 28
+                            iconName: Icons.gear
+                            isActive: root.currentTab === 4
+                            tooltipText: root.currentTab === 4 ? "Back to Apps" : "Settings"
+                            onClicked: GlobalStates.commandPaletteTab = (root.currentTab === 4 ? 0 : 4)
                         }
                     }
                 }
