@@ -18,21 +18,49 @@ Singleton {
     property WifiAccessPoint wifiConnectTarget: null
     readonly property list<WifiAccessPoint> wifiNetworks: []
     readonly property WifiAccessPoint active: wifiNetworks.find(n => n.active) ?? null
-    readonly property list<var> friendlyWifiNetworks: [...wifiNetworks].sort((a, b) => {
-        if (a.active && !b.active)
-            return -1;
-        if (!a.active && b.active)
-            return 1;
-        return b.strength - a.strength;
-    })
+    property var friendlyWifiNetworks: []
     property string wifiStatus: "disconnected"
 
     property string networkName: ""
     property int networkStrength: 0
 
-    // Control functions
+    // helper functions for networks list management
+    function clearWifiNetworks(): void {
+        while (root.wifiNetworks.length > 0) {
+            const ap = root.wifiNetworks.pop();
+            if (ap)
+                ap.destroy();
+        }
+        friendlyWifiNetworks = [];
+    }
+
+    function updateFriendlyNetworks(): void {
+        if (!wifiEnabled) {
+            friendlyWifiNetworks = [];
+            return;
+        }
+        friendlyWifiNetworks = [...wifiNetworks].sort((a, b) => {
+            if (a.active && !b.active)
+                return -1;
+            if (!a.active && b.active)
+                return 1;
+            return b.strength - a.strength;
+        });
+    }
+
+    // control functions
     function enableWifi(enabled = true): void {
+        root.wifiEnabled = enabled;
+        if (!enabled) {
+            root.wifiStatus = "disabled";
+            root.wifiScanning = false;
+            root.networkName = "";
+            root.networkStrength = 0;
+            rescanProcess.running = false;
+            clearWifiNetworks();
+        }
         const cmd = enabled ? "on" : "off";
+        enableWifiProc.running = false;
         enableWifiProc.command = ["nmcli", "radio", "wifi", cmd];
         enableWifiProc.running = true;
     }
@@ -42,6 +70,8 @@ Singleton {
     }
 
     function rescanWifi(): void {
+        if (!wifiEnabled)
+            return;
         wifiScanning = true;
         rescanProcess.running = true;
     }
@@ -104,7 +134,14 @@ Singleton {
     Process {
         id: enableWifiProc
         running: false
-        onExited: root.update()
+        onExited: {
+            if (root.wifiEnabled) {
+                root.update();
+                getNetworks.running = true;
+            } else {
+                wifiStatusProcess.running = true;
+            }
+        }
     }
 
     Process {
@@ -164,6 +201,12 @@ Singleton {
                 getNetworks.running = true;
             }
         }
+        onExited: (exitCode, exitStatus) => {
+            root.wifiScanning = false;
+            if (exitCode === 0 && root.wifiEnabled) {
+                getNetworks.running = true;
+            }
+        }
     }
 
     Process {
@@ -174,12 +217,17 @@ Singleton {
         }
     }
 
-    // Status update
+    // status update
     function update() {
         updateConnectionType.startCheck();
         wifiStatusProcess.running = true;
-        updateNetworkName.running = true;
-        updateNetworkStrength.running = true;
+        if (root.wifiEnabled) {
+            updateNetworkName.running = true;
+            updateNetworkStrength.running = true;
+        } else {
+            root.networkName = "";
+            root.networkStrength = 0;
+        }
     }
 
     Connections {
@@ -231,6 +279,10 @@ Singleton {
                     }
                 }
             });
+            if (!root.wifiEnabled) {
+                wifiStatus = "disabled";
+                hasWifi = false;
+            }
             root.wifiStatus = wifiStatus;
             root.ethernet = hasEthernet;
             root.wifi = hasWifi;
@@ -250,8 +302,8 @@ Singleton {
 
     Process {
         id: updateNetworkStrength
-        running: true
-        command: ["sh", "-c", "nmcli -f IN-USE,SIGNAL,SSID device wifi | awk '/^\\*/{if (NR!=1) {print $2}}'"]
+        running: false
+        command: ["sh", "-c", "nmcli -f IN-USE,SIGNAL,SSID device wifi list --rescan no | awk '/^\\*/{if (NR!=1) {print $2}}'"]
         stdout: SplitParser {
             onRead: data => {
                 root.networkStrength = parseInt(data) || 0;
@@ -269,15 +321,20 @@ Singleton {
         })
         stdout: SplitParser {
             onRead: data => {
-                root.wifiEnabled = data.trim() === "enabled";
+                const isEnabled = data.trim() === "enabled";
+                root.wifiEnabled = isEnabled;
+                if (!isEnabled) {
+                    root.wifiStatus = "disabled";
+                    root.clearWifiNetworks();
+                }
             }
         }
     }
 
     Process {
         id: getNetworks
-        running: true
-        command: ["nmcli", "-g", "ACTIVE,SIGNAL,FREQ,SSID,BSSID,SECURITY", "d", "w"]
+        running: false
+        command: ["nmcli", "-g", "ACTIVE,SIGNAL,FREQ,SSID,BSSID,SECURITY", "d", "w", "list", "--rescan", "no"]
         environment: ({
             LANG: "C",
             LC_ALL: "C"
@@ -342,6 +399,7 @@ Singleton {
                     }));
                 }
             }
+            root.updateFriendlyNetworks();
         }
     }
 

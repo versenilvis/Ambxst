@@ -111,12 +111,18 @@ RowLayout {
         }
     }
 
-    // Toggle switch
+    // toggle switch
     Switch {
         id: toggleSwitch
         visible: root.showToggle
         checked: root.toggleChecked
-        onCheckedChanged: root.toggleChanged(checked)
+        onToggled: root.toggleChanged(checked)
+
+        Binding {
+            target: toggleSwitch
+            property: "checked"
+            value: root.toggleChecked
+        }
 
         indicator: Rectangle {
             implicitWidth: 40

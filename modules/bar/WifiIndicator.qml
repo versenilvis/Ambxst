@@ -118,7 +118,7 @@ Item {
 
         // Rescan when opening
         onIsOpenChanged: {
-            if (isOpen) {
+            if (isOpen && NetworkService.wifiEnabled) {
                 NetworkService.rescanWifi();
             }
         }
@@ -132,7 +132,7 @@ Item {
                 statusText: NetworkService.wifiConnecting ? "Connecting..." : (NetworkService.wifiStatus === "limited" ? "Limited" : "")
                 statusColor: NetworkService.wifiStatus === "limited" ? Colors.warning : Styling.srItem("overprimary")
                 showToggle: true
-                toggleChecked: NetworkService.wifiStatus !== "disabled"
+                toggleChecked: NetworkService.wifiEnabled
 
                 actions: [
                     {

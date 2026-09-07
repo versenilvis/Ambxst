@@ -17,7 +17,9 @@ Item {
     readonly property real sideMargin: (width - contentWidth) / 2
 
     Component.onCompleted: {
-        NetworkService.rescanWifi();
+        if (NetworkService.wifiEnabled) {
+            NetworkService.rescanWifi();
+        }
     }
 
     // Network list - fills entire width for scroll/drag
@@ -41,7 +43,7 @@ Item {
                 statusText: NetworkService.wifiConnecting ? "Connecting..." : (NetworkService.wifiStatus === "limited" ? "Limited" : "")
                 statusColor: NetworkService.wifiStatus === "limited" ? Colors.warning : Styling.srItem("overprimary")
                 showToggle: true
-                toggleChecked: NetworkService.wifiStatus !== "disabled"
+                toggleChecked: NetworkService.wifiEnabled
 
                 actions: [
                     {
