@@ -80,47 +80,44 @@ Item {
     property int selectedOptionIndex: 0
     property bool keyboardNavigation: false
 
-    onExpandedItemIndexChanged:
-    // Close expanded options when selection changes to a different item is handled in onSelectedIndexChanged
-    {}
+    onExpandedItemIndexChanged: {
+        if (expandedItemIndex >= 0) {
+            Qt.callLater(() => {
+                adjustScrollForExpandedItem(expandedItemIndex);
+            });
+        }
+    }
 
     function adjustScrollForExpandedItem(index) {
-        if (index < 0 || index >= itemsModel.count)
+        if (index < 0 || index >= itemsModel.count || !resultsList)
             return;
 
-        // Calculate Y position of the item
         var itemY = 0;
         for (var i = 0; i < index; i++) {
-            itemY += 48; // All items before are collapsed (base height)
+            itemY += 56;
         }
 
-        // Calculate expanded item height
         var itemData = itemsModel.get(index).itemData;
         var optionsCount = 4;
-        if (itemData.isFile || itemData.isImage || ClipboardUtils.isUrl(itemData.preview)) {
+        if (itemData && (itemData.isFile || itemData.isImage || ClipboardUtils.isUrl(itemData.preview))) {
             optionsCount++;
         }
         var listHeight = 36 * Math.min(3, optionsCount);
-        var expandedHeight = 48 + 4 + listHeight + 8;
+        var expandedHeight = 56 + 4 + listHeight + 8;
 
-        // Calculate max valid scroll position
         var maxContentY = Math.max(0, resultsList.contentHeight - resultsList.height);
-
-        // Current viewport bounds
-        var viewportTop = resultsList.contentY;
+        var viewportTop = resultsList.targetContentY;
         var viewportBottom = viewportTop + resultsList.height;
-
-        // Only scroll if item is not fully visible
         var itemBottom = itemY + expandedHeight;
 
         if (itemY < viewportTop) {
-            // Item top is above viewport - scroll up to show it
+            resultsList.targetContentY = itemY;
             resultsList.contentY = itemY;
         } else if (itemBottom > viewportBottom) {
-            // Item bottom is below viewport - scroll down to show it
-            resultsList.contentY = Math.min(itemBottom - resultsList.height, maxContentY);
+            var newY = Math.min(itemBottom - resultsList.height, maxContentY);
+            resultsList.targetContentY = newY;
+            resultsList.contentY = newY;
         }
-    // Otherwise, item is already fully visible - no scroll needed
     }
 
     property int previewImageSize: 200
@@ -272,6 +269,10 @@ Item {
             resultsList.positionViewAtIndex(0, ListView.Beginning);
         }
 
+        if (resultsList && selectedIndex >= 0 && resultsList.currentIndex !== selectedIndex) {
+            resultsList.currentIndex = selectedIndex;
+        }
+
         // Close expanded options when selection changes to a different item
         if (expandedItemIndex >= 0 && selectedIndex !== expandedItemIndex) {
             expandedItemIndex = -1;
@@ -279,16 +280,21 @@ Item {
             keyboardNavigation = false;
         }
 
-        // Reset content state when selection changes
-        root.currentItemId = "";
-        root.currentFullContent = "";
+        // Reset link preview loading state
         root.loadingLinkPreview = false;
+        fetchFullContentTimer.restart();
+    }
 
-        if (root.selectedIndex >= 0 && root.selectedIndex < root.allItems.length) {
-            let item = root.allItems[root.selectedIndex];
-            if (!item.isImage) {
-                // Obtener contenido completo para texto
-                ClipboardService.getFullContent(item.id);
+    Timer {
+        id: fetchFullContentTimer
+        interval: 70
+        repeat: false
+        onTriggered: {
+            if (root.selectedIndex >= 0 && root.selectedIndex < root.allItems.length) {
+                let item = root.allItems[root.selectedIndex];
+                if (item && !item.isImage) {
+                    ClipboardService.getFullContent(item.id);
+                }
             }
         }
     }
@@ -319,6 +325,7 @@ Item {
 
         if (resultsList) {
             resultsList.enableScrollAnimation = false;
+            resultsList.targetContentY = 0;
             resultsList.contentY = 0;
             if (allItems.length > 0) {
                 selectedIndex = 0;
@@ -350,6 +357,7 @@ Item {
         updateFilteredItems(true);
         if (resultsList) {
             resultsList.enableScrollAnimation = false;
+            resultsList.targetContentY = 0;
             resultsList.contentY = 0;
             resultsList.positionViewAtBeginning();
             Qt.callLater(() => {
@@ -482,6 +490,23 @@ Item {
         var newItems = ClipboardService.items.slice();
         allItems = newItems;
 
+        if (!forceTop && itemsModel.count > 0 && newItems.length > itemsModel.count) {
+            var isAppend = true;
+            if (itemsModel.get(0).itemId !== newItems[0].id) {
+                isAppend = false;
+            }
+            if (isAppend) {
+                var startIdx = itemsModel.count;
+                for (var k = startIdx; k < newItems.length; k++) {
+                    itemsModel.append({
+                        itemId: newItems[k].id,
+                        itemData: newItems[k]
+                    });
+                }
+                return;
+            }
+        }
+
         itemsModel.clear();
         for (var k = 0; k < newItems.length; k++) {
             itemsModel.append({
@@ -555,6 +580,10 @@ Item {
                     resultsList.currentIndex = root.selectedIndex;
                 }
             }
+        }
+
+        if (root.selectedIndex >= resultsList.count - 5 && ClipboardService.hasMoreItems) {
+            ClipboardService.loadMore();
         }
     }
 
@@ -963,12 +992,13 @@ Item {
                     visible: ClipboardService.items.length > 0
                     clip: true
                     interactive: !root.deleteMode && root.expandedItemIndex === -1
-                    cacheBuffer: 96
+                    cacheBuffer: 800
                     reuseItems: false
                     boundsBehavior: Flickable.StopAtBounds
 
                     // Propiedad para detectar si está en movimiento (drag o flick)
                     property bool isScrolling: dragging || flicking
+                    property real targetContentY: contentY
 
                     model: itemsModel
                     currentIndex: root.selectedIndex
@@ -977,12 +1007,16 @@ Item {
 
                     onHeightChanged: {
                         if (height > 0 && !root.hasNavigatedFromSearch) {
+                            targetContentY = 0;
                             contentY = 0;
                             positionViewAtBeginning();
                         }
                     }
 
                     onContentYChanged: {
+                        if (moving) {
+                            targetContentY = contentY;
+                        }
                         if (contentHeight > 0 && contentY + height >= contentHeight - 120) {
                             ClipboardService.loadMore();
                         }
@@ -1002,19 +1036,19 @@ Item {
                         }
 
                         if (currentIndex === 0) {
+                            resultsList.targetContentY = 0;
                             resultsList.contentY = 0;
                             return;
                         }
 
-                        // Manual smooth auto-scroll (simplified for variable height items)
                         if (currentIndex > 0 && resultsList.height > 0) {
                             var itemY = 0;
                             for (var i = 0; i < currentIndex && i < itemsModel.count; i++) {
-                                var itemData = itemsModel.get(i).itemData;
                                 var itemHeight = 56;
                                 if (i === root.expandedItemIndex && !root.deleteMode && !root.aliasMode) {
+                                    var itemData = itemsModel.get(i).itemData;
                                     var optionsCount = 4;
-                                    if (itemData.isFile || itemData.isImage || ClipboardUtils.isUrl(itemData.preview)) {
+                                    if (itemData && (itemData.isFile || itemData.isImage || ClipboardUtils.isUrl(itemData.preview))) {
                                         optionsCount++;
                                     }
                                     var listHeight = 36 * Math.min(3, optionsCount);
@@ -1025,37 +1059,38 @@ Item {
 
                             var currentItemHeight = 56;
                             if (currentIndex === root.expandedItemIndex && !root.deleteMode && !root.aliasMode && currentIndex < itemsModel.count) {
-                                var itemData = itemsModel.get(currentIndex).itemData;
-                                var optionsCount = 4;
-                                if (itemData.isFile || itemData.isImage || ClipboardUtils.isUrl(itemData.preview)) {
-                                    optionsCount++;
+                                var curData = itemsModel.get(currentIndex).itemData;
+                                var curOptions = 4;
+                                if (curData && (curData.isFile || curData.isImage || ClipboardUtils.isUrl(curData.preview))) {
+                                    curOptions++;
                                 }
-                                var listHeight = 36 * Math.min(3, optionsCount);
-                                currentItemHeight = 56 + 4 + listHeight + 8;
+                                var curListHeight = 36 * Math.min(3, curOptions);
+                                currentItemHeight = 56 + 4 + curListHeight + 8;
                             }
 
-                            var viewportTop = resultsList.contentY;
+                            var viewportTop = resultsList.targetContentY;
                             var viewportBottom = viewportTop + resultsList.height;
 
                             if (itemY < viewportTop) {
-                                // Item is above viewport, scroll up
+                                resultsList.targetContentY = itemY;
                                 resultsList.contentY = itemY;
                             } else if (itemY + currentItemHeight > viewportBottom) {
-                                // Item is below viewport, scroll down
-                                resultsList.contentY = itemY + currentItemHeight - resultsList.height;
+                                resultsList.targetContentY = itemY + currentItemHeight - resultsList.height;
+                                resultsList.contentY = resultsList.targetContentY;
                             }
                         }
                     }
 
                     highlight: Item {
                         width: resultsList.width
-                        visible: resultsList.currentIndex >= 0
+                        visible: root.selectedIndex >= 0 && resultsList.currentIndex >= 0
+
                         height: {
                             let baseHeight = 56;
                             if (resultsList.currentIndex >= 0 && resultsList.currentIndex === root.expandedItemIndex && !root.deleteMode && !root.aliasMode) {
                                 var itemData = itemsModel.get(resultsList.currentIndex).itemData;
                                 var optionsCount = 4;
-                                if (itemData.isFile || itemData.isImage || ClipboardUtils.isUrl(itemData.preview)) {
+                                if (itemData && (itemData.isFile || itemData.isImage || ClipboardUtils.isUrl(itemData.preview))) {
                                     optionsCount++;
                                 }
                                 var listHeight = 36 * Math.min(3, optionsCount);
@@ -1064,7 +1099,6 @@ Item {
                             return baseHeight;
                         }
 
-                        // Calculate Y position based on index, not item position
                         y: {
                             var yPos = 0;
                             for (var i = 0; i < resultsList.currentIndex && i < itemsModel.count; i++) {
@@ -1072,7 +1106,7 @@ Item {
                                 if (i === root.expandedItemIndex && !root.deleteMode && !root.aliasMode) {
                                     var itemData = itemsModel.get(i).itemData;
                                     var optionsCount = 4;
-                                    if (itemData.isFile || itemData.isImage || ClipboardUtils.isUrl(itemData.preview)) {
+                                    if (itemData && (itemData.isFile || itemData.isImage || ClipboardUtils.isUrl(itemData.preview))) {
                                         optionsCount++;
                                     }
                                     var listHeight = 36 * Math.min(3, optionsCount);
@@ -1121,15 +1155,6 @@ Item {
                                 }
                             }
                             radius: Styling.radius(4)
-                            visible: root.selectedIndex >= 0
-
-                            Behavior on color {
-                                enabled: Config.animDuration > 0
-                                ColorAnimation {
-                                    duration: Config.animDuration / 2
-                                    easing.type: Easing.OutQuart
-                                }
-                            }
                         }
                     }
 
@@ -1157,14 +1182,6 @@ Item {
                         }
                         color: "transparent"
                         radius: 16
-
-                        Behavior on y {
-                            enabled: Config.animDuration > 0
-                            NumberAnimation {
-                                duration: Config.animDuration / 2
-                                easing.type: Easing.OutCubic
-                            }
-                        }
 
                         Behavior on height {
                             enabled: Config.animDuration > 0
@@ -2220,6 +2237,14 @@ Item {
                                         elide: Text.ElideRight
                                         maximumLineCount: 1
                                         wrapMode: Text.NoWrap
+
+                                        Behavior on color {
+                                            enabled: Config.animDuration > 0
+                                            ColorAnimation {
+                                                duration: 100
+                                                easing.type: Easing.OutQuad
+                                            }
+                                        }
                                     }
                                 }
 
