@@ -5,18 +5,37 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# auto-detect and fix stale or missing hyprland instance signature
-detected_signature=""
-hypr_dir="/run/user/$(id -u)/hypr"
-if [ -d "$hypr_dir" ]; then
-	latest_socket=$(find "$hypr_dir" -name ".socket.sock" -type s -printf "%T@ %p\n" 2>/dev/null | sort -n | tail -1 | cut -d' ' -f2-)
-	if [ -n "$latest_socket" ]; then
-		detected_signature=$(basename "$(dirname "$latest_socket")")
+# fast path for run command via ipc pipe
+if [ "${1:-}" = "run" ]; then
+	cmd="${2:-}"
+	if [ -z "$cmd" ]; then
+		echo "Error: No command specified for run"
+		exit 1
+	fi
+
+	pipe="/tmp/ambxst_ipc.pipe"
+	lock_file="${XDG_RUNTIME_DIR:-/tmp}/ambxst-ipc-listener.lock"
+
+	if [ -p "$pipe" ] && ! flock -n "$lock_file" true 2>/dev/null; then
+		printf '%s\n' "$cmd" >"$pipe"
+		exit 0
 	fi
 fi
 
-if [ -n "$detected_signature" ]; then
-	export HYPRLAND_INSTANCE_SIGNATURE="$detected_signature"
+# auto-detect signature only when unset
+if [ -z "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then
+	detected_signature=""
+	hypr_dir="/run/user/$(id -u)/hypr"
+	if [ -d "$hypr_dir" ]; then
+		latest_socket=$(find "$hypr_dir" -name ".socket.sock" -type s -printf "%T@ %p\n" 2>/dev/null | sort -n | tail -1 | cut -d' ' -f2-)
+		if [ -n "$latest_socket" ]; then
+			detected_signature=$(basename "$(dirname "$latest_socket")")
+		fi
+	fi
+
+	if [ -n "$detected_signature" ]; then
+		export HYPRLAND_INSTANCE_SIGNATURE="$detected_signature"
+	fi
 fi
 
 # Use environment variables if set by flake, otherwise fall back to PATH
@@ -152,24 +171,25 @@ refresh)
 	exec nix profile upgrade Ambxst --refresh --impure
 	;;
 run)
-	CMD="${2:-}"
-	PIPE="/tmp/ambxst_ipc.pipe"
+	cmd="${2:-}"
+	pipe="/tmp/ambxst_ipc.pipe"
+	lock_file="${XDG_RUNTIME_DIR:-/tmp}/ambxst-ipc-listener.lock"
 
-	if [ -z "$CMD" ]; then
+	if [ -z "$cmd" ]; then
 		echo "Error: No command specified for run"
 		exit 1
 	fi
 
-	# Fast path: Write directly to pipe only if it exists and has an active reader
-	if [ -p "$PIPE" ] && fuser "$PIPE" >/dev/null 2>&1; then
-		echo "$CMD" >"$PIPE" 2>/dev/null &
+	# fast path write directly to pipe
+	if [ -p "$pipe" ] && ! flock -n "$lock_file" true 2>/dev/null; then
+		printf '%s\n' "$cmd" >"$pipe"
 		exit 0
 	fi
 
-	# Fallback path: Use native QS IPC directly
+	# fallback path use native qs ipc directly
 	PID=$(find_ambxst_pid)
 	if [ -n "$PID" ]; then
-		exec qs ipc --pid "$PID" call ambxst run "$CMD"
+		exec qs ipc --pid "$PID" call ambxst run "$cmd"
 	fi
 
 	echo "Error: Ambxst is not running"
