@@ -1448,7 +1448,6 @@ Item {
                                             color: cancelButton.isHighlighted ? Colors.overErrorContainer : Colors.overError
                                             font.pixelSize: 14
                                             font.family: Icons.font
-                                            textFormat: Text.RichText
 
                                             Behavior on color {
                                                 enabled: Config.animDuration > 0
@@ -1486,7 +1485,6 @@ Item {
                                             color: confirmButton.isHighlighted ? Colors.overErrorContainer : Colors.overError
                                             font.pixelSize: 14
                                             font.family: Icons.font
-                                            textFormat: Text.RichText
 
                                             Behavior on color {
                                                 enabled: Config.animDuration > 0
@@ -1604,7 +1602,6 @@ Item {
                                             color: aliasCancelButton.isHighlighted ? Colors.overSecondaryContainer : Colors.overSecondary
                                             font.pixelSize: 14
                                             font.family: Icons.font
-                                            textFormat: Text.RichText
 
                                             Behavior on color {
                                                 enabled: Config.animDuration > 0
@@ -1642,7 +1639,6 @@ Item {
                                             color: aliasConfirmButton.isHighlighted ? Colors.overSecondaryContainer : Colors.overSecondary
                                             font.pixelSize: 14
                                             font.family: Icons.font
-                                            textFormat: Text.RichText
 
                                             Behavior on color {
                                                 enabled: Config.animDuration > 0
@@ -1704,17 +1700,19 @@ Item {
                             }
                         }
 
-                        // Expandable options list (similar to SchemeSelector/FullPlayer)
-                        RowLayout {
+                        // expandable options list loaded on demand
+                        Loader {
+                            id: optionsLoader
                             anchors.left: parent.left
                             anchors.right: parent.right
                             anchors.bottom: parent.bottom
                             anchors.leftMargin: 8
                             anchors.rightMargin: 8
                             anchors.bottomMargin: 8
-                            spacing: 4
-                            visible: isExpanded && !isInDeleteMode && !isInAliasMode
-                            opacity: (isExpanded && !isInDeleteMode && !isInAliasMode) ? 1 : 0
+                            property var clipItem: modelData
+                            active: isExpanded && !isInDeleteMode && !isInAliasMode
+                            visible: active
+                            opacity: active ? 1 : 0
 
                             Behavior on opacity {
                                 enabled: Config.animDuration > 0
@@ -1724,288 +1722,282 @@ Item {
                                 }
                             }
 
-                            ClippingRectangle {
-                                Layout.fillWidth: true
-                                Layout.preferredHeight: {
-                                    var count = 4; // Copy, Pin, Alias, Delete
-                                    if (modelData.isFile || ClipboardUtils.isUrl(modelData.preview)) {
-                                        count++; // Add Open
-                                    }
-                                    return 36 * Math.min(3, count);
-                                }
-                                color: Colors.background
-                                radius: Styling.radius(0)
+                            sourceComponent: RowLayout {
+                                spacing: 4
 
-                                Behavior on Layout.preferredHeight {
-                                    enabled: Config.animDuration > 0
-                                    NumberAnimation {
-                                        duration: Config.animDuration
-                                        easing.type: Easing.OutQuart
-                                    }
-                                }
-
-                                ListView {
-                                    id: optionsListView
-                                    anchors.fill: parent
-                                    clip: true
-                                    interactive: true
-                                    boundsBehavior: Flickable.StopAtBounds
-
-                                    // Propiedad para detectar si está en movimiento
-                                    property bool isScrolling: dragging || flicking
-
-                                    model: {
-                                        var options = [
-                                            {
-                                                text: "Copy",
-                                                icon: Icons.copy,
-                                                highlightColor: Styling.srItem("overprimary"),
-                                                textColor: Styling.srItem("primary"),
-                                                action: function () {
-                                                    root.copyToClipboard(modelData.id);
-                                                    GlobalStates.commandPaletteVisible = false;
-                                                }
-                                            }
-                                        ];
-
-                                        // Add Open option for files, images, and URLs
-                                        if (modelData.isFile || modelData.isImage || ClipboardUtils.isUrl(modelData.preview)) {
-                                            options.push({
-                                                text: "Open",
-                                                icon: Icons.popOpen,
-                                                highlightColor: Styling.srItem("overprimary"),
-                                                textColor: Styling.srItem("primary"),
-                                                action: function () {
-                                                    root.openItem(modelData.id);
-                                                }
-                                            });
+                                ClippingRectangle {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: {
+                                        var count = 4;
+                                        if (optionsLoader.clipItem && (optionsLoader.clipItem.isFile || ClipboardUtils.isUrl(optionsLoader.clipItem.preview))) {
+                                            count++;
                                         }
-
-                                        options.push({
-                                            text: modelData.pinned ? "Unpin" : "Pin",
-                                            icon: modelData.pinned ? Icons.unpin : Icons.pin,
-                                            highlightColor: Styling.srItem("overprimary"),
-                                            textColor: Styling.srItem("primary"),
-                                            action: function () {
-                                                root.pendingItemIdToSelect = modelData.id;
-                                                ClipboardService.togglePin(modelData.id);
-                                                root.expandedItemIndex = -1;
-                                            }
-                                        }, {
-                                            text: "Alias",
-                                            icon: Icons.edit,
-                                            highlightColor: Colors.secondary,
-                                            textColor: Styling.srItem("secondary"),
-                                            action: function () {
-                                                root.enterAliasMode(modelData.id);
-                                                root.expandedItemIndex = -1;
-                                            }
-                                        }, {
-                                            text: "Delete",
-                                            icon: Icons.trash,
-                                            highlightColor: Colors.error,
-                                            textColor: Styling.srItem("error"),
-                                            action: function () {
-                                                root.enterDeleteMode(modelData.id);
-                                                root.expandedItemIndex = -1;
-                                            }
-                                        });
-
-                                        return options;
+                                        return 36 * Math.min(3, count);
                                     }
-                                    currentIndex: root.selectedOptionIndex
-                                    highlightFollowsCurrentItem: true
-                                    highlightRangeMode: ListView.ApplyRange
-                                    preferredHighlightBegin: 0
-                                    preferredHighlightEnd: height
-
-                                    highlight: StyledRect {
-                                        variant: {
-                                            if (optionsListView.currentIndex >= 0 && optionsListView.currentIndex < optionsListView.count) {
-                                                var item = optionsListView.model[optionsListView.currentIndex];
-                                                if (item && item.highlightColor) {
-                                                    if (item.highlightColor === Colors.error)
-                                                        return "error";
-                                                    if (item.highlightColor === Colors.secondary)
-                                                        return "secondary";
-                                                    return "primary";
-                                                }
-                                            }
-                                            return "primary";
-                                        }
-                                        radius: Styling.radius(0)
-                                        visible: optionsListView.currentIndex >= 0
-                                        z: -1
-
-                                        Behavior on opacity {
-                                            enabled: Config.animDuration > 0
-                                            NumberAnimation {
-                                                duration: Config.animDuration / 2
-                                                easing.type: Easing.OutQuart
-                                            }
-                                        }
-                                    }
-
-                                    highlightMoveDuration: Config.animDuration > 0 ? Config.animDuration / 2 : 0
-                                    highlightMoveVelocity: -1
-                                    highlightResizeDuration: Config.animDuration / 2
-                                    highlightResizeVelocity: -1
-
-                                    delegate: Item {
-                                        required property var modelData
-                                        required property int index
-
-                                        property alias itemData: delegateData.modelData
-
-                                        QtObject {
-                                            id: delegateData
-                                            property var modelData: parent ? parent.modelData : null
-                                        }
-
-                                        width: optionsListView.width
-                                        height: 36
-
-                                        Rectangle {
-                                            anchors.fill: parent
-                                            color: "transparent"
-
-                                            RowLayout {
-                                                anchors.fill: parent
-                                                anchors.margins: 8
-                                                spacing: 8
-
-                                                Text {
-                                                    text: modelData && modelData.icon ? modelData.icon : ""
-                                                    font.family: Icons.font
-                                                    font.pixelSize: 14
-                                                    font.weight: Font.Bold
-                                                    textFormat: Text.RichText
-                                                    color: {
-                                                        if (optionsListView.currentIndex === index && modelData && modelData.textColor) {
-                                                            return modelData.textColor;
-                                                        }
-                                                        return Colors.overSurface;
-                                                    }
-
-                                                    Behavior on color {
-                                                        enabled: Config.animDuration > 0
-                                                        ColorAnimation {
-                                                            duration: Config.animDuration / 2
-                                                            easing.type: Easing.OutQuart
-                                                        }
-                                                    }
-                                                }
-
-                                                Text {
-                                                    Layout.fillWidth: true
-                                                    text: modelData && modelData.text ? modelData.text : ""
-                                                    font.family: Config.theme.font
-                                                    font.pixelSize: Config.theme.fontSize
-                                                    font.weight: optionsListView.currentIndex === index ? Font.Bold : Font.Normal
-                                                    color: {
-                                                        if (optionsListView.currentIndex === index && modelData && modelData.textColor) {
-                                                            return modelData.textColor;
-                                                        }
-                                                        return Colors.overSurface;
-                                                    }
-                                                    elide: Text.ElideRight
-                                                    maximumLineCount: 1
-
-                                                    Behavior on color {
-                                                        enabled: Config.animDuration > 0
-                                                        ColorAnimation {
-                                                            duration: Config.animDuration / 2
-                                                            easing.type: Easing.OutQuart
-                                                        }
-                                                    }
-                                                }
-                                            }
-
-                                            MouseArea {
-                                                anchors.fill: parent
-                                                hoverEnabled: !optionsListView.isScrolling
-                                                cursorShape: Qt.PointingHandCursor
-
-                                                onEntered: {
-                                                    if (optionsListView.isScrolling)
-                                                        return;
-                                                    optionsListView.currentIndex = index;
-                                                    root.selectedOptionIndex = index;
-                                                    root.keyboardNavigation = false;
-                                                }
-
-                                                onClicked: {
-                                                    if (optionsListView.isScrolling)
-                                                        return;
-                                                    if (modelData && modelData.action) {
-                                                        modelData.action();
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-
-                                // MouseArea to handle wheel events for scrolling
-                                MouseArea {
-                                    anchors.fill: parent
-                                    propagateComposedEvents: true
-                                    acceptedButtons: Qt.NoButton
-
-                                    onWheel: wheel => {
-                                        if (optionsListView.contentHeight > optionsListView.height) {
-                                            const delta = wheel.angleDelta.y;
-                                            optionsListView.contentY = Math.max(0, Math.min(optionsListView.contentHeight - optionsListView.height, optionsListView.contentY - delta));
-                                            wheel.accepted = true;
-                                        } else {
-                                            wheel.accepted = false;
-                                        }
-                                    }
-                                }
-                            }
-
-                            ScrollBar {
-                                Layout.preferredWidth: 8
-                                Layout.preferredHeight: {
-                                    var count = 4;
-                                    if (modelData.isFile || modelData.isImage || ClipboardUtils.isUrl(modelData.preview)) {
-                                        count++;
-                                    }
-                                    var listHeight = 36 * Math.min(3, count);
-                                    return Math.max(0, listHeight - 32);
-                                }
-                                Layout.alignment: Qt.AlignVCenter
-                                orientation: Qt.Vertical
-                                visible: {
-                                    var count = 4;
-                                    if (modelData.isFile || modelData.isImage || ClipboardUtils.isUrl(modelData.preview)) {
-                                        count++;
-                                    }
-                                    return count > 3;
-                                }
-
-                                position: optionsListView.contentY / optionsListView.contentHeight
-                                size: optionsListView.height / optionsListView.contentHeight
-
-                                background: Rectangle {
                                     color: Colors.background
                                     radius: Styling.radius(0)
+
+                                    Behavior on Layout.preferredHeight {
+                                        enabled: Config.animDuration > 0
+                                        NumberAnimation {
+                                            duration: Config.animDuration
+                                            easing.type: Easing.OutQuart
+                                        }
+                                    }
+
+                                    ListView {
+                                        id: optionsListView
+                                        anchors.fill: parent
+                                        clip: true
+                                        interactive: true
+                                        boundsBehavior: Flickable.StopAtBounds
+
+                                        property bool isScrolling: dragging || flicking
+
+                                        model: {
+                                            var options = [
+                                                {
+                                                    text: "Copy",
+                                                    icon: Icons.copy,
+                                                    highlightColor: Styling.srItem("overprimary"),
+                                                    textColor: Styling.srItem("primary"),
+                                                    action: function () {
+                                                        root.copyToClipboard(optionsLoader.clipItem.id);
+                                                        GlobalStates.commandPaletteVisible = false;
+                                                    }
+                                                }
+                                            ];
+
+                                            if (optionsLoader.clipItem && (optionsLoader.clipItem.isFile || optionsLoader.clipItem.isImage || ClipboardUtils.isUrl(optionsLoader.clipItem.preview))) {
+                                                options.push({
+                                                    text: "Open",
+                                                    icon: Icons.popOpen,
+                                                    highlightColor: Styling.srItem("overprimary"),
+                                                    textColor: Styling.srItem("primary"),
+                                                    action: function () {
+                                                        root.openItem(optionsLoader.clipItem.id);
+                                                    }
+                                                });
+                                            }
+
+                                            options.push({
+                                                text: (optionsLoader.clipItem && optionsLoader.clipItem.pinned) ? "Unpin" : "Pin",
+                                                icon: (optionsLoader.clipItem && optionsLoader.clipItem.pinned) ? Icons.unpin : Icons.pin,
+                                                highlightColor: Styling.srItem("overprimary"),
+                                                textColor: Styling.srItem("primary"),
+                                                action: function () {
+                                                    root.pendingItemIdToSelect = optionsLoader.clipItem.id;
+                                                    ClipboardService.togglePin(optionsLoader.clipItem.id);
+                                                    root.expandedItemIndex = -1;
+                                                }
+                                            }, {
+                                                text: "Alias",
+                                                icon: Icons.edit,
+                                                highlightColor: Colors.secondary,
+                                                textColor: Styling.srItem("secondary"),
+                                                action: function () {
+                                                    root.enterAliasMode(optionsLoader.clipItem.id);
+                                                    root.expandedItemIndex = -1;
+                                                }
+                                            }, {
+                                                text: "Delete",
+                                                icon: Icons.trash,
+                                                highlightColor: Colors.error,
+                                                textColor: Styling.srItem("error"),
+                                                action: function () {
+                                                    root.enterDeleteMode(optionsLoader.clipItem.id);
+                                                    root.expandedItemIndex = -1;
+                                                }
+                                            });
+
+                                            return options;
+                                        }
+                                        currentIndex: root.selectedOptionIndex
+                                        highlightFollowsCurrentItem: true
+                                        highlightRangeMode: ListView.ApplyRange
+                                        preferredHighlightBegin: 0
+                                        preferredHighlightEnd: height
+
+                                        highlight: StyledRect {
+                                            variant: {
+                                                if (optionsListView.currentIndex >= 0 && optionsListView.currentIndex < optionsListView.count) {
+                                                    var item = optionsListView.model[optionsListView.currentIndex];
+                                                    if (item && item.highlightColor) {
+                                                        if (item.highlightColor === Colors.error)
+                                                            return "error";
+                                                        if (item.highlightColor === Colors.secondary)
+                                                            return "secondary";
+                                                        return "primary";
+                                                    }
+                                                }
+                                                return "primary";
+                                            }
+                                            radius: Styling.radius(0)
+                                            visible: optionsListView.currentIndex >= 0
+                                            z: -1
+
+                                            Behavior on opacity {
+                                                enabled: Config.animDuration > 0
+                                                NumberAnimation {
+                                                    duration: Config.animDuration / 2
+                                                    easing.type: Easing.OutQuart
+                                                }
+                                            }
+                                        }
+
+                                        highlightMoveDuration: Config.animDuration > 0 ? Config.animDuration / 2 : 0
+                                        highlightMoveVelocity: -1
+                                        highlightResizeDuration: Config.animDuration / 2
+                                        highlightResizeVelocity: -1
+
+                                        delegate: Item {
+                                            required property var modelData
+                                            required property int index
+
+                                            width: optionsListView.width
+                                            height: 36
+
+                                            Rectangle {
+                                                anchors.fill: parent
+                                                color: "transparent"
+
+                                                RowLayout {
+                                                    anchors.fill: parent
+                                                    anchors.margins: 8
+                                                    spacing: 8
+
+                                                    Text {
+                                                        text: modelData && modelData.icon ? modelData.icon : ""
+                                                        font.family: Icons.font
+                                                        font.pixelSize: 14
+                                                        font.weight: Font.Bold
+                                                        color: {
+                                                            if (optionsListView.currentIndex === index && modelData && modelData.textColor) {
+                                                                return modelData.textColor;
+                                                            }
+                                                            return Colors.overSurface;
+                                                        }
+
+                                                        Behavior on color {
+                                                            enabled: Config.animDuration > 0
+                                                            ColorAnimation {
+                                                                duration: Config.animDuration / 2
+                                                                easing.type: Easing.OutQuart
+                                                            }
+                                                        }
+                                                    }
+
+                                                    Text {
+                                                        Layout.fillWidth: true
+                                                        text: modelData && modelData.text ? modelData.text : ""
+                                                        font.family: Config.theme.font
+                                                        font.pixelSize: Config.theme.fontSize
+                                                        font.weight: optionsListView.currentIndex === index ? Font.Bold : Font.Normal
+                                                        color: {
+                                                            if (optionsListView.currentIndex === index && modelData && modelData.textColor) {
+                                                                return modelData.textColor;
+                                                            }
+                                                            return Colors.overSurface;
+                                                        }
+                                                        elide: Text.ElideRight
+                                                        maximumLineCount: 1
+
+                                                        Behavior on color {
+                                                            enabled: Config.animDuration > 0
+                                                            ColorAnimation {
+                                                                duration: Config.animDuration / 2
+                                                                easing.type: Easing.OutQuart
+                                                            }
+                                                        }
+                                                    }
+                                                }
+
+                                                MouseArea {
+                                                    anchors.fill: parent
+                                                    hoverEnabled: !optionsListView.isScrolling
+                                                    cursorShape: Qt.PointingHandCursor
+
+                                                    onEntered: {
+                                                        if (optionsListView.isScrolling)
+                                                            return;
+                                                        optionsListView.currentIndex = index;
+                                                        root.selectedOptionIndex = index;
+                                                        root.keyboardNavigation = false;
+                                                    }
+
+                                                    onClicked: {
+                                                        if (optionsListView.isScrolling)
+                                                            return;
+                                                        if (modelData && modelData.action) {
+                                                            modelData.action();
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    // MouseArea to handle wheel events for scrolling
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        propagateComposedEvents: true
+                                        acceptedButtons: Qt.NoButton
+
+                                        onWheel: wheel => {
+                                            if (optionsListView.contentHeight > optionsListView.height) {
+                                                const delta = wheel.angleDelta.y;
+                                                optionsListView.contentY = Math.max(0, Math.min(optionsListView.contentHeight - optionsListView.height, optionsListView.contentY - delta));
+                                                wheel.accepted = true;
+                                            } else {
+                                                wheel.accepted = false;
+                                            }
+                                        }
+                                    }
                                 }
 
-                                contentItem: Rectangle {
-                                    color: Styling.srItem("overprimary")
-                                    radius: Styling.radius(0)
-                                }
+                                ScrollBar {
+                                    Layout.preferredWidth: 8
+                                    Layout.preferredHeight: {
+                                        var count = 4;
+                                        if (optionsLoader.clipItem && (optionsLoader.clipItem.isFile || optionsLoader.clipItem.isImage || ClipboardUtils.isUrl(optionsLoader.clipItem.preview))) {
+                                            count++;
+                                        }
+                                        var listHeight = 36 * Math.min(3, count);
+                                        return Math.max(0, listHeight - 32);
+                                    }
+                                    Layout.alignment: Qt.AlignVCenter
+                                    orientation: Qt.Vertical
+                                    visible: {
+                                        var count = 4;
+                                        if (optionsLoader.clipItem && (optionsLoader.clipItem.isFile || optionsLoader.clipItem.isImage || ClipboardUtils.isUrl(optionsLoader.clipItem.preview))) {
+                                            count++;
+                                        }
+                                        return count > 3;
+                                    }
 
-                                property bool scrollBarPressed: false
+                                    position: optionsListView.contentY / optionsListView.contentHeight
+                                    size: optionsListView.height / optionsListView.contentHeight
 
-                                onPressedChanged: {
-                                    scrollBarPressed = pressed;
-                                }
+                                    background: Rectangle {
+                                        color: Colors.background
+                                        radius: Styling.radius(0)
+                                    }
 
-                                onPositionChanged: {
-                                    if (scrollBarPressed && optionsListView.contentHeight > optionsListView.height) {
-                                        optionsListView.contentY = position * optionsListView.contentHeight;
+                                    contentItem: Rectangle {
+                                        color: Styling.srItem("overprimary")
+                                        radius: Styling.radius(0)
+                                    }
+
+                                    property bool scrollBarPressed: false
+
+                                    onPressedChanged: {
+                                        scrollBarPressed = pressed;
+                                    }
+
+                                    onPositionChanged: {
+                                        if (scrollBarPressed && optionsListView.contentHeight > optionsListView.height) {
+                                            optionsListView.contentY = position * optionsListView.contentHeight;
+                                        }
                                     }
                                 }
                             }
@@ -2120,7 +2112,6 @@ Item {
                                         color: iconBackground.item
                                         font.family: Icons.font
                                         font.pixelSize: 16
-                                        textFormat: Text.RichText
                                     }
                                 }
 
@@ -2205,7 +2196,6 @@ Item {
                                         font.family: Icons.font
                                         font.pixelSize: 8
                                         color: Colors.overPrimary
-                                        textFormat: Text.RichText
                                     }
                                 }
                             }
@@ -2230,6 +2220,7 @@ Item {
                                     Text {
                                         width: parent.width
                                         text: displayText
+                                        textFormat: Text.PlainText
                                         color: textColor
                                         font.family: Config.theme.font
                                         font.pixelSize: Config.theme.fontSize
@@ -2827,6 +2818,7 @@ Item {
                                     Text {
                                         width: parent.width
                                         text: root.linkPreviewData && root.linkPreviewData.title ? root.linkPreviewData.title : ""
+                                        textFormat: Text.PlainText
                                         font.family: Config.theme.font
                                         font.pixelSize: Config.theme.fontSize + 1
                                         font.weight: Font.Bold
@@ -2841,8 +2833,10 @@ Item {
                                     Text {
                                         width: parent.width
                                         text: root.linkPreviewData && root.linkPreviewData.description ? root.linkPreviewData.description : ""
+                                        textFormat: Text.PlainText
                                         font.family: Config.theme.font
                                         font.pixelSize: Config.theme.fontSize
+                                        font.weight: Font.Normal
                                         color: Colors.outline
                                         wrapMode: Text.Wrap
                                         maximumLineCount: 2
