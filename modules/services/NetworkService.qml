@@ -121,13 +121,27 @@ Singleton {
         Quickshell.execDetached(["xdg-open", "https://nmcheck.gnome.org/"]);
     }
 
-    // Helper function for wifi icon based on strength
+    // helper function for wifi icon based on strength
     function wifiIconForStrength(strength: int): string {
+        if (!root.wifiEnabled)
+            return Icons.wifiOff;
+        if (root.ethernet)
+            return Icons.ethernet;
+        if (!root.wifi && root.networkName === "")
+            return Icons.wifiOff;
+
+        if (strength <= 0) {
+            if (root.active && root.active.strength > 0)
+                strength = root.active.strength;
+            else
+                return Icons.wifiMedium;
+        }
+
         if (strength > 80) return Icons.wifiHigh;
         if (strength > 55) return Icons.wifiMedium;
         if (strength > 30) return Icons.wifiLow;
         if (strength > 0) return Icons.wifiNone;
-        return Icons.wifiOff;
+        return Icons.wifiMedium;
     }
 
     // Processes
@@ -220,13 +234,23 @@ Singleton {
     // status update
     function update() {
         updateConnectionType.startCheck();
+        wifiStatusProcess.running = false;
         wifiStatusProcess.running = true;
-        if (root.wifiEnabled) {
-            updateNetworkName.running = true;
-            updateNetworkStrength.running = true;
+        updateNetworkName.running = false;
+        updateNetworkName.running = true;
+        updateNetworkStrength.running = false;
+        updateNetworkStrength.running = true;
+    }
+
+    onWifiEnabledChanged: {
+        if (wifiEnabled) {
+            root.update();
+            getNetworks.running = false;
+            getNetworks.running = true;
         } else {
             root.networkName = "";
             root.networkStrength = 0;
+            root.clearWifiNetworks();
         }
     }
 
@@ -246,6 +270,7 @@ Singleton {
         running: true
         function startCheck() {
             buffer = "";
+            updateConnectionType.running = false;
             updateConnectionType.running = true;
         }
         stdout: SplitParser {
@@ -286,6 +311,10 @@ Singleton {
             root.wifiStatus = wifiStatus;
             root.ethernet = hasEthernet;
             root.wifi = hasWifi;
+            if (hasWifi && root.networkStrength <= 0) {
+                updateNetworkStrength.running = false;
+                updateNetworkStrength.running = true;
+            }
         }
     }
 
@@ -303,11 +332,26 @@ Singleton {
     Process {
         id: updateNetworkStrength
         running: false
-        command: ["sh", "-c", "nmcli -f IN-USE,SIGNAL,SSID device wifi list --rescan no | awk '/^\\*/{if (NR!=1) {print $2}}'"]
+        command: ["nmcli", "-t", "-f", "IN-USE,SIGNAL", "device", "wifi", "list", "--rescan", "no"]
         stdout: SplitParser {
             onRead: data => {
-                root.networkStrength = parseInt(data) || 0;
+                if (data.startsWith("*")) {
+                    const parts = data.split(":");
+                    const signal = parseInt(parts[1]) || 0;
+                    if (signal > 0)
+                        root.networkStrength = signal;
+                }
             }
+        }
+    }
+
+    Timer {
+        interval: 15000
+        running: root.wifiEnabled && root.wifi
+        repeat: true
+        onTriggered: {
+            updateNetworkStrength.running = false;
+            updateNetworkStrength.running = true;
         }
     }
 
@@ -326,6 +370,9 @@ Singleton {
                 if (!isEnabled) {
                     root.wifiStatus = "disabled";
                     root.clearWifiNetworks();
+                } else if (root.networkStrength <= 0) {
+                    updateNetworkStrength.running = false;
+                    updateNetworkStrength.running = true;
                 }
             }
         }
