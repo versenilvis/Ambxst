@@ -21,6 +21,12 @@ Item {
 
     implicitHeight: contentColumn.implicitHeight + 16
 
+    onExpandedChanged: {
+        if (!expanded && root.network) {
+            root.network.askingPassword = false;
+        }
+    }
+
     onShowPropertiesChanged: {
         if (showProperties && savedPassword === "") {
             NetworkService.getWifiPassword(root.network.ssid, (pwd) => {
@@ -185,7 +191,7 @@ Item {
 
                 onAccepted: {
                     if (text.length > 0) {
-                        NetworkService.changePassword(root.network, text);
+                        NetworkService.connectToWifiNetwork(root.network, text);
                         text = "";
                     }
                 }
@@ -363,7 +369,13 @@ Item {
                     }
 
                     contentItem: Text {
-                        text: root.network?.active ? "Disconnect" : "Connect"
+                        text: {
+                            if (root.network?.active)
+                                return "Disconnect";
+                            if (NetworkService.wifiConnecting && NetworkService.wifiConnectTarget === root.network)
+                                return "Connecting...";
+                            return "Connect";
+                        }
                         font.family: Config.theme.font
                         font.pixelSize: Styling.fontSize(-1)
                         color: root.network?.active ? Colors.overSurfaceVariant : Styling.srItem("primary")
@@ -375,7 +387,12 @@ Item {
                         if (root.network?.active) {
                             NetworkService.disconnectWifiNetwork();
                         } else {
-                            NetworkService.connectToWifiNetwork(root.network);
+                            if (passwordInput.visible && passwordInput.text.length > 0) {
+                                NetworkService.connectToWifiNetwork(root.network, passwordInput.text);
+                                passwordInput.text = "";
+                            } else {
+                                NetworkService.connectToWifiNetwork(root.network);
+                            }
                         }
                     }
                 }

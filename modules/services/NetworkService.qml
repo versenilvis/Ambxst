@@ -76,28 +76,80 @@ Singleton {
         rescanProcess.running = true;
     }
 
-    function connectToWifiNetwork(accessPoint: WifiAccessPoint): void {
+    function connectToWifiNetwork(accessPoint: WifiAccessPoint, password = ""): void {
         accessPoint.askingPassword = false;
         root.wifiConnectTarget = accessPoint;
-        connectProc.command = ["nmcli", "dev", "wifi", "connect", accessPoint.ssid];
+        if (password && password.length > 0) {
+            connectProc.environment = {
+                LANG: "C",
+                LC_ALL: "C",
+                SSID: accessPoint.ssid,
+                PASSWORD: password
+            };
+            connectProc.command = ["bash", "-c", 'nmcli dev wifi connect "$SSID" password "$PASSWORD"'];
+        } else {
+            connectProc.environment = {
+                LANG: "C",
+                LC_ALL: "C",
+                SSID: accessPoint.ssid
+            };
+            connectProc.command = ["bash", "-c", 'nmcli dev wifi connect "$SSID"'];
+        }
+        connectProc.running = false;
         connectProc.running = true;
     }
 
     function disconnectWifiNetwork(): void {
-        if (active) {
-            disconnectProc.command = ["nmcli", "connection", "down", active.ssid];
-            disconnectProc.running = true;
-        }
+        disconnectProc.command = ["bash", "-c", `
+            nmcli -t -f UUID,TYPE connection show --active | while IFS=: read -r uuid type; do
+                if [ "$type" = "802-11-wireless" ]; then
+                    nmcli connection down uuid "$uuid"
+                fi
+            done
+        `];
+        disconnectProc.running = true;
     }
 
     function deleteWifiNetwork(ssid: string): void {
-        deleteProc.command = ["nmcli", "connection", "delete", ssid];
+        deleteProc.environment = {
+            LANG: "C",
+            LC_ALL: "C",
+            SSID: ssid
+        };
+        deleteProc.command = ["bash", "-c", `
+            nmcli -t -f UUID,TYPE connection show | while IFS=: read -r uuid type; do
+                if [ "$type" = "802-11-wireless" ]; then
+                    s=$(nmcli -t -f 802-11-wireless.ssid connection show "$uuid" 2>/dev/null | cut -d: -f2)
+                    if [ "$s" = "$SSID" ]; then
+                        nmcli connection delete uuid "$uuid"
+                    fi
+                fi
+            done
+        `];
         deleteProc.running = true;
     }
 
     function getWifiPassword(ssid: string, callback): void {
         const proc = Quickshell.createChildProcess({
-            command: ["sh", "-c", `nmcli -t -s -f 802-11-wireless-security.psk connection show "${ssid}" | cut -d: -f2`],
+            environment: {
+                LANG: "C",
+                LC_ALL: "C",
+                SSID: ssid
+            },
+            command: ["bash", "-c", `
+                nmcli -t -f UUID,TYPE connection show | while IFS=: read -r uuid type; do
+                    if [ "$type" = "802-11-wireless" ]; then
+                        s=$(nmcli -t -f 802-11-wireless.ssid connection show "$uuid" 2>/dev/null | cut -d: -f2)
+                        if [ "$s" = "$SSID" ]; then
+                            p=$(nmcli -t -s -f 802-11-wireless-security.psk connection show "$uuid" 2>/dev/null | cut -d: -f2-)
+                            if [ -n "$p" ]; then
+                                echo "$p"
+                                break
+                            fi
+                        fi
+                    fi
+                done
+            `],
             onExited: (exitCode) => {
                 if (exitCode === 0) {
                     callback(proc.stdout.readAll().trim());
@@ -111,10 +163,7 @@ Singleton {
     }
 
     function changePassword(network: WifiAccessPoint, password: string): void {
-        network.askingPassword = false;
-        changePasswordProc.environment = { "PASSWORD": password };
-        changePasswordProc.command = ["bash", "-c", `nmcli connection modify "${network.ssid}" wifi-sec.psk "$PASSWORD"`];
-        changePasswordProc.running = true;
+        connectToWifiNetwork(network, password);
     }
 
     function openPublicWifiPortal() {
@@ -168,20 +217,27 @@ Singleton {
         stdout: SplitParser {
             onRead: line => {
                 getNetworks.running = true;
+                root.update();
             }
         }
         stderr: SplitParser {
             onRead: line => {
-                if (line.includes("Secrets were required") && root.wifiConnectTarget) {
+                if ((line.includes("Secrets were required") || line.includes("no-secrets") || line.includes("No agents were available")) && root.wifiConnectTarget) {
                     root.wifiConnectTarget.askingPassword = true;
                 }
             }
         }
         onExited: (exitCode, exitStatus) => {
             if (root.wifiConnectTarget) {
-                root.wifiConnectTarget.askingPassword = (exitCode !== 0);
-                root.wifiConnectTarget = null;
+                if (exitCode !== 0) {
+                    root.wifiConnectTarget.askingPassword = true;
+                } else {
+                    root.wifiConnectTarget.askingPassword = false;
+                    root.wifiConnectTarget = null;
+                }
             }
+            getNetworks.running = true;
+            root.update();
         }
     }
 
@@ -189,20 +245,16 @@ Singleton {
         id: disconnectProc
         running: false
         stdout: SplitParser {
-            onRead: getNetworks.running = true
+            onRead: {
+                getNetworks.running = true;
+                root.update();
+            }
         }
     }
 
     Process {
         id: changePasswordProc
         running: false
-        onExited: {
-            connectProc.running = false;
-            if (root.wifiConnectTarget) {
-                connectProc.command = ["nmcli", "dev", "wifi", "connect", root.wifiConnectTarget.ssid];
-                connectProc.running = true;
-            }
-        }
     }
 
     Process {
