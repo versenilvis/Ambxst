@@ -43,32 +43,6 @@ FloatingWindow {
         [{ key: "↑↓", label: "navigate" }, { key: "↵", label: "select" }, { key: "esc", label: "close" }]
     ]
 
-    // background warmup timers to load heavy tabs without blocking boot
-    property bool clipboardWarmedUp: false
-    property bool emojiWarmedUp: false
-    property bool extraWarmedUp: false
-
-    Timer {
-        interval: 1500
-        running: true
-        repeat: false
-        onTriggered: root.clipboardWarmedUp = true
-    }
-
-    Timer {
-        interval: 3000
-        running: true
-        repeat: false
-        onTriggered: root.emojiWarmedUp = true
-    }
-
-    Timer {
-        interval: 4500
-        running: true
-        repeat: false
-        onTriggered: root.extraWarmedUp = true
-    }
-
     Shortcut {
         sequence: "Escape"
         onActivated: GlobalStates.commandPaletteVisible = false
@@ -493,7 +467,7 @@ FloatingWindow {
 
                 Loader {
                     id: clipboardLoader
-                    active: root.clipboardWarmedUp || root.currentTab === 1 || clipboardLoader.status === Loader.Ready
+                    active: root.currentTab === 1 || clipboardLoader.status === Loader.Ready
                     sourceComponent: ClipboardTab {
                         leftPanelWidth: 270
                         showSearch: false
@@ -503,7 +477,7 @@ FloatingWindow {
                         }
                     }
                     onLoaded: {
-                        if (root.currentTab === 1 && root.visible) {
+                        if (root.currentTab === 1) {
                             root.focusCurrentTab();
                             if (clipboardLoader.item && typeof clipboardLoader.item.resetToTop === "function") {
                                 clipboardLoader.item.resetToTop();
@@ -514,38 +488,38 @@ FloatingWindow {
 
                 Loader {
                     id: emojiLoader
-                    active: root.emojiWarmedUp || root.currentTab === 2 || emojiLoader.status === Loader.Ready
+                    active: root.currentTab === 2 || emojiLoader.status === Loader.Ready
                     sourceComponent: EmojiTab {
                         leftPanelWidth: 270
                         showSearch: false
                         onBackspaceOnEmpty: GlobalStates.commandPaletteTab = 0
                     }
                     onLoaded: {
-                        if (root.currentTab === 2 && root.visible)
+                        if (root.currentTab === 2)
                             root.focusCurrentTab();
                     }
                 }
 
                 Loader {
                     id: filesLoader
-                    active: root.extraWarmedUp || root.currentTab === 3 || filesLoader.status === Loader.Ready
+                    active: root.currentTab === 3 || filesLoader.status === Loader.Ready
                     sourceComponent: FilesTab {
                         showSearch: false
                     }
                     onLoaded: {
-                        if (root.currentTab === 3 && root.visible)
+                        if (root.currentTab === 3)
                             root.focusCurrentTab();
                     }
                 }
 
                 Loader {
                     id: settingsLoader
-                    active: root.extraWarmedUp || root.currentTab === 4 || settingsLoader.status === Loader.Ready
+                    active: root.currentTab === 4 || settingsLoader.status === Loader.Ready
                     sourceComponent: SettingsTab {
                         showSearch: false
                     }
                     onLoaded: {
-                        if (root.currentTab === 4 && root.visible)
+                        if (root.currentTab === 4)
                             root.focusCurrentTab();
                     }
                 }
