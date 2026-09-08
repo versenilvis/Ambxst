@@ -14,9 +14,9 @@ if [ "${1:-}" = "run" ]; then
 	fi
 
 	pipe="/tmp/ambxst_ipc.pipe"
-	lock_file="${XDG_RUNTIME_DIR:-/tmp}/ambxst-ipc-listener.lock"
+	pid_file="${XDG_RUNTIME_DIR:-/tmp}/ambxst-ipc-listener.pid"
 
-	if [ -p "$pipe" ] && ! flock -n "$lock_file" true 2>/dev/null; then
+	if [ -p "$pipe" ] && [ -f "$pid_file" ] && kill -0 "$(cat "$pid_file" 2>/dev/null)" 2>/dev/null; then
 		printf '%s\n' "$cmd" >"$pipe"
 		exit 0
 	fi
@@ -173,7 +173,7 @@ refresh)
 run)
 	cmd="${2:-}"
 	pipe="/tmp/ambxst_ipc.pipe"
-	lock_file="${XDG_RUNTIME_DIR:-/tmp}/ambxst-ipc-listener.lock"
+	pid_file="${XDG_RUNTIME_DIR:-/tmp}/ambxst-ipc-listener.pid"
 
 	if [ -z "$cmd" ]; then
 		echo "Error: No command specified for run"
@@ -181,7 +181,7 @@ run)
 	fi
 
 	# fast path write directly to pipe
-	if [ -p "$pipe" ] && ! flock -n "$lock_file" true 2>/dev/null; then
+	if [ -p "$pipe" ] && [ -f "$pid_file" ] && kill -0 "$(cat "$pid_file" 2>/dev/null)" 2>/dev/null; then
 		printf '%s\n' "$cmd" >"$pipe"
 		exit 0
 	fi
@@ -227,12 +227,16 @@ reload)
 		fi
 	fi
 	pkill -f ambxst-daemon || true
+	pkill -f "ipc_listener.sh" || true
 	rm -f "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/ambxst-daemon.sock"
+	rm -f /tmp/ambxst_ipc.pipe "${XDG_RUNTIME_DIR:-/tmp}/ambxst-ipc-listener.pid"
 	echo "Starting Ambxst..."
 	# Relaunch the script in background
 	nohup "${SCRIPT_DIR}/cli.sh" >/tmp/ambxst_reload_start.log 2>&1 &
 	;;
 quit)
+	pkill -f "ipc_listener.sh" || true
+	rm -f /tmp/ambxst_ipc.pipe "${XDG_RUNTIME_DIR:-/tmp}/ambxst-ipc-listener.pid"
 	PIDS=$(find_ambxst_pids)
 	if [ -n "$PIDS" ]; then
 		echo "Stopping Ambxst (PID $(echo "$PIDS" | tr '\n' ' '))..."
