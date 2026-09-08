@@ -154,9 +154,9 @@ dispatch_dpms() {
 		fi
 		printf '%s\n' "$now" >"$stamp_file"
 		if [ "$state" = "on" ]; then
-			hyprctl dispatch dpms on 2>/dev/null || hyprctl eval 'hl.dsp.dpms(true)'
+			hyprctl eval 'hl.dsp.dpms(true)' 2>/dev/null || hyprctl dispatch dpms on 2>/dev/null
 		else
-			hyprctl dispatch dpms off 2>/dev/null || hyprctl eval 'hl.dsp.dpms(false)'
+			hyprctl eval 'hl.dsp.dpms(false)' 2>/dev/null || hyprctl dispatch dpms off 2>/dev/null
 		fi
 	) 9>"$lock_file"
 }

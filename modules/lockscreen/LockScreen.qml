@@ -25,8 +25,21 @@ WlSessionLockSurface {
     property string currentUsername: "user"
     property bool enableScreencopy: false
 
-    // Always transparent - blur background handles the visuals
-    color: "transparent"
+    color: Colors.background
+
+    // click anywhere to focus password field
+    MouseArea {
+        anchors.fill: parent
+        z: 0
+        focus: true
+        Keys.forwardTo: [passwordInput]
+        Keys.onPressed: event => {
+            if (!passwordInput.activeFocus) {
+                passwordInput.forceActiveFocus();
+            }
+        }
+        onPressed: passwordInput.forceActiveFocus()
+    }
 
     Loader {
         id: screencopyLoader
@@ -495,6 +508,7 @@ WlSessionLockSurface {
                         passwordInput.text = "";
                         authenticating = false;
                         passwordInputBox.showError = false;
+                        passwordInput.forceActiveFocus();
                     }
                 }
             }
@@ -585,11 +599,15 @@ WlSessionLockSurface {
                 errorMessage = "";
                 authenticating = false;
             } else {
-                // Error de autenticación
+                // error de autenticacion
                 errorMessage = "Authentication failed";
                 console.warn("PAM auth failed with result:", result);
                 if (Config.animDuration > 0) {
                     wrongPasswordAnim.start();
+                } else {
+                    passwordInput.text = "";
+                    authenticating = false;
+                    passwordInput.forceActiveFocus();
                 }
             }
         }
@@ -666,6 +684,50 @@ WlSessionLockSurface {
         repeat: false
         onTriggered: {
             enableScreencopy = false;
+        }
+    }
+
+    // auto-focus recovery after sleep or monitor wake
+    Connections {
+        target: GlobalStates
+        function onLockscreenVisibleChanged() {
+            if (GlobalStates.lockscreenVisible) {
+                startAnim = true;
+                passwordInput.forceActiveFocus();
+                focusKeepTimer.restart();
+            }
+        }
+    }
+
+    Timer {
+        id: focusKeepTimer
+        interval: 150
+        repeat: false
+        onTriggered: passwordInput.forceActiveFocus()
+    }
+
+    Timer {
+        interval: 1000
+        running: GlobalStates.lockscreenVisible && !authenticating && !passwordInput.activeFocus
+        repeat: true
+        onTriggered: passwordInput.forceActiveFocus()
+    }
+
+    // pam timeout watchdog
+    Timer {
+        id: pamTimeoutWatchdog
+        interval: 8000
+        running: authenticating
+        repeat: false
+        onTriggered: {
+            if (authenticating) {
+                console.warn("pam authentication timed out, resetting lock input");
+                authenticating = false;
+                errorMessage = "Authentication timed out";
+                authPasswordHolder.password = "";
+                passwordInput.text = "";
+                passwordInput.forceActiveFocus();
+            }
         }
     }
 }
