@@ -552,8 +552,8 @@ pub fn spawn_watcher(
                     }
 
                     debounce_task = Some(tokio::spawn(async move {
-                        // Wait for spammy events to settle and payload to be ready
-                        tokio::time::sleep(tokio::time::Duration::from_millis(150)).await;
+                        // wait for spammy events to settle and payload to be ready
+                        tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
                         
                         match check_and_insert(&mgr).await {
                             Ok(inserted) => {
