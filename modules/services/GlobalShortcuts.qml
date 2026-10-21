@@ -45,7 +45,7 @@ Item {
             case "dashboard-widgets": toggleCommandPalette(0); break;
             case "dashboard-controls": toggleDashboardTab(1); break;
             case "dashboard-clipboard": toggleCommandPalette(1); break;
-            case "dashboard-emoji": toggleCommandPalette(2); break;
+            case "dashboard-emoji": GlobalStates.emojiVisible = !GlobalStates.emojiVisible; break;
             case "dashboard-audio":
             case "audio":
             case "dashboard-settings":
@@ -283,9 +283,9 @@ Item {
     GlobalShortcut {
         appid: root.appId
         name: "dashboard-emoji"
-        description: "Open command palette (emoji)"
+        description: "Open emoji picker"
 
-        onPressed: toggleCommandPalette(2)
+        onPressed: GlobalStates.emojiVisible = !GlobalStates.emojiVisible
     }
 
 

@@ -21,6 +21,7 @@ import qs.modules.desktop
 import qs.modules.lockscreen
 import qs.modules.dock
 import qs.modules.globals
+import qs.modules.widgets.dashboard.emoji
 import qs.config
 import "modules/tools"
 
@@ -201,6 +202,13 @@ ShellRoot {
 
     CommandPalette {
         id: commandPalette
+    }
+
+    // Emoji Picker floating window
+    Loader {
+        id: emojiWindowLoader
+        active: GlobalStates.emojiVisible
+        source: "modules/widgets/dashboard/emoji/EmojiWindow.qml"
     }
 
     // Screenshot Tool

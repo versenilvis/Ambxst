@@ -1,10 +1,9 @@
+pragma ComponentBehavior: Bound
 import QtQuick
-import QtQuick.Effects
 import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
-import Quickshell.Widgets
 import qs.modules.theme
 import qs.modules.components
 import qs.modules.globals
@@ -14,488 +13,381 @@ import qs.config
 Rectangle {
     id: root
     focus: true
+    color: "transparent"
 
-    // Prefix support
-    property string prefixIcon: ""
-    signal backspaceOnEmpty
-
-    property int leftPanelWidth: 0
-
+    property bool showSearch: false
     property string searchText: ""
-    // The command palette supplies one shared search field; when it does,
-    // this tab hides its own so there is only ever one place to type.
-    property bool showSearch: true
+    property string prefixIcon: ""
+    signal backspaceOnEmpty()
 
-    // The palette owns the visible search field, so it forwards navigation keys
-    // here; re-emit them on the (hidden) internal input that already has all the
-    // list-navigation wiring attached.
-    function navUp() { searchInput.upPressed(); }
-    function navDown() { searchInput.downPressed(); }
-    function navLeft() { searchInput.leftPressed(); }
-    function navRight() { searchInput.rightPressed(); }
-    function navAccept() { searchInput.accepted(); }
+    property int cellSize: 42
+    property int cellSpacing: 6
+    property int columns: Math.max(8, Math.floor((width - 24) / (cellSize + cellSpacing)))
 
-    property bool showResults: searchText.length > 0
-    property int selectedIndex: -1
-    property int selectedRecentIndex: -1
-    property int lastSelectedRecentIndex: -1
-    property bool isRecentFocused: false
-    property bool hasNavigatedFromSearch: false
-    property bool clearButtonFocused: false
-    property bool clearButtonConfirmState: false
-    property var emojiData: []
+    property var allEmojis: []
     property var recentEmojis: []
-    property var filteredEmojis: []
+    property var groupMap: ({})
+    property var rowsData: []
+    property var flatVisibleEmojis: []
+    property int focusedFlatIndex: 0
+    property string activeCategoryId: recentEmojis.length > 0 ? "recent" : "Smileys & Emotion"
 
-    // Skin tone support
-    property var skinTones: [
-        {
-            name: "Light",
-            modifier: "🏻",
-            emoji: "👋🏻"
-        },
-        {
-            name: "Medium-Light",
-            modifier: "🏼",
-            emoji: "👋🏼"
-        },
-        {
-            name: "Medium",
-            modifier: "🏽",
-            emoji: "👋🏽"
-        },
-        {
-            name: "Medium-Dark",
-            modifier: "🏾",
-            emoji: "👋🏾"
-        },
-        {
-            name: "Dark",
-            modifier: "🏿",
-            emoji: "👋🏿"
+    readonly property var currentSelectedEmoji: (focusedFlatIndex >= 0 && focusedFlatIndex < flatVisibleEmojis.length) ? flatVisibleEmojis[focusedFlatIndex] : null
+
+    onFocusedFlatIndexChanged: {
+        if (flatVisibleEmojis && focusedFlatIndex >= 0 && focusedFlatIndex < flatVisibleEmojis.length) {
+            var em = flatVisibleEmojis[focusedFlatIndex];
+            if (em && em.categoryId && em.categoryId !== activeCategoryId) {
+                activeCategoryId = em.categoryId;
+            }
         }
+    }
+
+    // Skin tone picker state
+    property var activeSkinToneEmoji: null
+    property point skinTonePopupPos: Qt.point(0, 0)
+
+    readonly property var skinTones: [
+        { name: "Default", modifier: "" },
+        { name: "Light", modifier: "🏻" },
+        { name: "Medium-Light", modifier: "🏼" },
+        { name: "Medium", modifier: "🏽" },
+        { name: "Medium-Dark", modifier: "🏾" },
+        { name: "Dark", modifier: "🏿" }
     ]
 
-    // Options menu state (expandable list)
-    property int expandedItemIndex: -1
-    property int selectedOptionIndex: 0
-    property bool keyboardNavigation: false
+    // Categories with Phosphor SVG icons matching theme
+    readonly property var categories: [
+        { id: "recent", name: "Recent", icon: Icons.clock },
+        { id: "Smileys & Emotion", name: "Smileys", icon: Icons.emoji },
+        { id: "People & Body", name: "People", icon: Icons.user },
+        { id: "Animals & Nature", name: "Nature", icon: Icons.cactus },
+        { id: "Food & Drink", name: "Food", icon: Icons.caffeine },
+        { id: "Travel & Places", name: "Travel", icon: Icons.paperPlane },
+        { id: "Activities", name: "Activities", icon: Icons.gamepad },
+        { id: "Objects", name: "Objects", icon: Icons.cube },
+        { id: "Symbols", name: "Symbols", icon: Icons.at },
+        { id: "Flags", name: "Flags", icon: Icons.globe }
+    ]
 
-    function getSkinToneName(modifier) {
-        for (var i = 0; i < skinTones.length; i++) {
-            if (skinTones[i].modifier === modifier) {
-                return skinTones[i].name.toLowerCase();
-            }
+    function navUp() { moveSelection(0, -1); }
+    function navDown() { moveSelection(0, 1); }
+    function navLeft() { moveSelection(-1, 0); }
+    function navRight() { moveSelection(1, 0); }
+    function navAccept() { acceptSelection(); }
+
+    function focusSearchInput() {
+        if (showSearch && searchInput) {
+            searchInput.focusInput();
+        } else {
+            root.forceActiveFocus();
         }
-        return "default";
-    }
-
-    ListModel {
-        id: emojisModel
-    }
-
-    ListModel {
-        id: recentModel
-    }
-
-    function adjustScrollForExpandedItem(index) {
-        if (index < 0 || index >= emojisModel.count)
-            return;
-
-        // Calculate Y position of the item
-        var itemY = 0;
-        for (var i = 0; i < index && i < emojisModel.count; i++) {
-            var h = 48;
-            if (i === root.expandedItemIndex) {
-                var item = emojisModel.get(i);
-                if (item) {
-                    var itemData = item.emojiData;
-                    if (itemData && itemData.skin_tone_support) {
-                        var optionsCount = root.skinTones.length;
-                        var listHeight = 36 * Math.min(3, optionsCount);
-                        h = 48 + 4 + listHeight + 8;
-                    }
-                }
-            }
-            itemY += h;
-        }
-
-        // Calculate expanded item height
-        var currentItemHeight = 48;
-        var item = emojisModel.get(index);
-        if (item) {
-            var itemData = item.emojiData;
-            if (itemData && itemData.skin_tone_support) {
-                var optionsCount = root.skinTones.length;
-                var listHeight = 36 * Math.min(3, optionsCount);
-                currentItemHeight = 48 + 4 + listHeight + 8;
-            }
-        }
-
-        // Calculate max valid scroll position
-        var maxContentY = Math.max(0, emojiList.contentHeight - emojiList.height);
-
-        // Current viewport bounds
-        var viewportTop = emojiList.contentY;
-        var viewportBottom = viewportTop + emojiList.height;
-
-        // Only scroll if item is not fully visible
-        var itemBottom = itemY + currentItemHeight;
-
-        if (itemY < viewportTop) {
-            // Item top is above viewport - scroll up to show it
-            emojiList.contentY = itemY;
-        } else if (itemBottom > viewportBottom) {
-            // Item bottom is below viewport - scroll down to show it
-            emojiList.contentY = Math.min(itemBottom - emojiList.height, maxContentY);
-        }
-    }
-
-    onSelectedIndexChanged: {
-        if (selectedIndex === -1 && emojiList.count > 0) {
-            emojiList.positionViewAtIndex(0, ListView.Beginning);
-        }
-
-        // Close expanded options when selection changes to a different item
-        if (expandedItemIndex >= 0 && selectedIndex !== expandedItemIndex) {
-            expandedItemIndex = -1;
-            selectedOptionIndex = 0;
-            keyboardNavigation = false;
-        }
-    }
-
-    onExpandedItemIndexChanged: {
-        // Close expanded options when selection changes to a different item is handled in onSelectedIndexChanged
     }
 
     onSearchTextChanged: {
-        performSearch();
+        rebuildRows();
     }
 
-    function clearSearch() {
-        searchText = "";
-        selectedIndex = -1;
-        selectedRecentIndex = -1;
-        lastSelectedRecentIndex = -1;
-        isRecentFocused = false;
-        hasNavigatedFromSearch = false;
-        clearButtonFocused = false;
-        clearButtonConfirmState = false;
-        searchInput.focusInput();
-
-        loadInitialEmojis();
-        emojiList.enableScrollAnimation = false;
-        emojiList.contentY = 0;
-        Qt.callLater(() => {
-            emojiList.enableScrollAnimation = true;
-        });
+    onColumnsChanged: {
+        rebuildRows();
     }
 
-    function resetClearButton() {
-        clearButtonConfirmState = false;
+    function moveSelection(dx, dy) {
+        if (flatVisibleEmojis.length === 0) return;
+        var cols = Math.max(1, root.columns);
+        var current = focusedFlatIndex;
+        var next = current + dx + (dy * cols);
+
+        if (next < 0) next = 0;
+        if (next >= flatVisibleEmojis.length) next = flatVisibleEmojis.length - 1;
+
+        focusedFlatIndex = next;
+        scrollToFocused();
+    }
+
+    function acceptSelection() {
+        if (focusedFlatIndex >= 0 && focusedFlatIndex < flatVisibleEmojis.length) {
+            copyEmoji(flatVisibleEmojis[focusedFlatIndex]);
+        }
+    }
+
+    function scrollToFocused() {
+        if (focusedFlatIndex < 0 || focusedFlatIndex >= flatVisibleEmojis.length) return;
+        for (var i = 0; i < rowsData.length; i++) {
+            var item = rowsData[i];
+            if (item.type === "row" && focusedFlatIndex >= item.startIndex && focusedFlatIndex < item.startIndex + item.emojis.length) {
+                emojiListView.positionViewAtIndex(i, ListView.Contain);
+                break;
+            }
+        }
+    }
+
+    function jumpToCategory(catId) {
+        activeCategoryId = catId;
+        for (var i = 0; i < rowsData.length; i++) {
+            var item = rowsData[i];
+            if (item.type === "header" && item.categoryId === catId) {
+                emojiListView.positionViewAtIndex(i, ListView.Beginning);
+                for (var j = i + 1; j < rowsData.length; j++) {
+                    if (rowsData[j].type === "row" && rowsData[j].emojis && rowsData[j].emojis.length > 0) {
+                        focusedFlatIndex = rowsData[j].startIndex;
+                        break;
+                    }
+                }
+                break;
+            }
+        }
+    }
+
+    function updateCategoryFromScroll() {
+        if (root.searchText.trim().length > 0 || rowsData.length === 0) return;
+        var topRowIdx = emojiListView.indexAt(20, emojiListView.contentY + 20);
+        if (topRowIdx >= 0 && topRowIdx < rowsData.length) {
+            var item = rowsData[topRowIdx];
+            if (item && item.categoryId && item.categoryId !== activeCategoryId) {
+                activeCategoryId = item.categoryId;
+            }
+        }
+    }
+
+    function copyEmoji(emojiObj, modifier) {
+        var char = emojiObj.emoji;
+        if (modifier && modifier.length > 0) {
+            char += modifier;
+        }
+
+        activeSkinToneEmoji = null;
+        addToRecent(emojiObj, char);
+        ClipboardService.copyAndTypeEmoji(char);
+
+        GlobalStates.emojiVisible = false;
+        GlobalStates.commandPaletteVisible = false;
+    }
+
+    function addToRecent(emojiObj, usedChar) {
+        var baseEmoji = emojiObj.emoji;
+        var updated = [];
+        
+        var newEntry = {
+            emoji: usedChar || baseEmoji,
+            baseEmoji: baseEmoji,
+            name: emojiObj.name,
+            slug: emojiObj.slug,
+            group: emojiObj.group,
+            search: emojiObj.search,
+            skin_tone_support: emojiObj.skin_tone_support
+        };
+
+        updated.push(newEntry);
+
+        for (var i = 0; i < recentEmojis.length; i++) {
+            if (recentEmojis[i].emoji !== newEntry.emoji && updated.length < 30) {
+                updated.push(recentEmojis[i]);
+            }
+        }
+
+        recentEmojis = updated;
+        saveRecentEmojis();
+        rebuildRows();
     }
 
     function clearRecentEmojis() {
         recentEmojis = [];
         saveRecentEmojis();
-        updateRecentModel();
-        clearButtonConfirmState = false;
-        clearButtonFocused = false;
-        searchInput.focusInput();
+        rebuildRows();
     }
 
-    function focusSearchInput() {
-        searchInput.focusInput();
-    }
+    function rebuildRows() {
+        var rows = [];
+        var flat = [];
+        var cols = Math.max(1, root.columns);
+        var q = searchText.trim().toLowerCase();
 
-    function performSearch() {
-        if (searchText.length === 0) {
-            loadInitialEmojis();
-            selectedIndex = -1;
-            selectedRecentIndex = -1;
-            emojiList.contentY = 0;
-            return;
-        }
+        if (q.length > 0) {
+            // Search mode with multi-keyword support and relevance ranking
+            var terms = q.split(/\s+/).filter(Boolean);
+            var titleMatches = [];
+            var keywordMatches = [];
 
-        updateFilteredEmojis();
-    }
+            for (var i = 0; i < allEmojis.length; i++) {
+                var em = allEmojis[i];
+                var nameLow = em.name.toLowerCase();
+                var slugLow = em.slug.toLowerCase();
+                var searchLow = em.search;
 
-    function updateFilteredEmojis() {
-        var filtered = [];
-        var searchLower = searchText.toLowerCase();
+                var matchesAll = true;
+                for (var t = 0; t < terms.length; t++) {
+                    var term = terms[t];
+                    if (!searchLow.includes(term) && !em.emoji.includes(term)) {
+                        matchesAll = false;
+                        break;
+                    }
+                }
 
-        if (searchText.length > 0) {
-            for (var i = 0; i < emojiData.length; i++) {
-                var emoji = emojiData[i];
-                var emojiText = emoji.emoji;
-                var searchTerms = emoji.search;
-                var name = emoji.name;
-                var slug = emoji.slug;
-                var group = emoji.group;
+                if (matchesAll) {
+                    if (em.emoji.includes(q) || nameLow.includes(q) || slugLow.includes(q)) {
+                        titleMatches.push(em);
+                    } else {
+                        keywordMatches.push(em);
+                    }
+                }
+            }
 
-                if (emojiText.includes(searchText) || searchTerms.toLowerCase().includes(searchLower) || name.toLowerCase().includes(searchLower) || slug.toLowerCase().includes(searchLower) || group.toLowerCase().includes(searchLower)) {
-                    filtered.push(emoji);
+            var filtered = titleMatches.concat(keywordMatches);
+
+            rows.push({
+                type: "header",
+                categoryId: "search",
+                title: `Search Results (${filtered.length})`,
+                canClear: false
+            });
+
+            for (var r = 0; r < filtered.length; r += cols) {
+                var chunk = filtered.slice(r, r + cols);
+                var rowStartIndex = flat.length;
+                for (var c = 0; c < chunk.length; c++) {
+                    chunk[c].flatIndex = flat.length;
+                    chunk[c].categoryId = chunk[c].group || "Smileys & Emotion";
+                    flat.push(chunk[c]);
+                }
+                rows.push({
+                    type: "row",
+                    categoryId: chunk[0].categoryId,
+                    startIndex: rowStartIndex,
+                    emojis: chunk
+                });
+            }
+        } else {
+            // Categorized mode
+            // 1. Recently used
+            if (recentEmojis.length > 0) {
+                rows.push({
+                    type: "header",
+                    categoryId: "recent",
+                    title: "Recently Used",
+                    canClear: true
+                });
+
+                for (var r = 0; r < recentEmojis.length; r += cols) {
+                    var chunk = recentEmojis.slice(r, r + cols);
+                    var rowStartIndex = flat.length;
+                    for (var c = 0; c < chunk.length; c++) {
+                        var e = chunk[c];
+                        e.flatIndex = flat.length;
+                        e.categoryId = "recent";
+                        flat.push(e);
+                    }
+                    rows.push({
+                        type: "row",
+                        categoryId: "recent",
+                        startIndex: rowStartIndex,
+                        emojis: chunk
+                    });
+                }
+            }
+
+            // 2. Categories
+            for (var g = 1; g < categories.length; g++) {
+                var cat = categories[g];
+                var list = groupMap[cat.id] || [];
+                if (list.length === 0) continue;
+
+                rows.push({
+                    type: "header",
+                    categoryId: cat.id,
+                    title: cat.name,
+                    canClear: false
+                });
+
+                for (var r = 0; r < list.length; r += cols) {
+                    var chunk = list.slice(r, r + cols);
+                    var rowStartIndex = flat.length;
+                    for (var c = 0; c < chunk.length; c++) {
+                        var e = chunk[c];
+                        e.flatIndex = flat.length;
+                        e.categoryId = cat.id;
+                        flat.push(e);
+                    }
+                    rows.push({
+                        type: "row",
+                        categoryId: cat.id,
+                        startIndex: rowStartIndex,
+                        emojis: chunk
+                    });
                 }
             }
         }
 
-        filteredEmojis = filtered;
-        emojiList.enableScrollAnimation = false;
-        emojiList.contentY = 0;
-
-        emojisModel.clear();
-        for (var i = 0; i < filtered.length; i++) {
-            emojisModel.append({
-                emojiId: filtered[i].search,
-                emojiData: filtered[i]
-            });
-        }
-
-        Qt.callLater(() => {
-            emojiList.enableScrollAnimation = true;
-        });
-
-        if (searchText.length > 0 && filteredEmojis.length > 0 && !isRecentFocused) {
-            selectedIndex = 0;
-            emojiList.currentIndex = 0;
-        } else if (searchText.length === 0 && !hasNavigatedFromSearch) {
-            selectedIndex = -1;
-            selectedRecentIndex = -1;
-        }
-    }
-
-    function updateRecentModel() {
-        recentModel.clear();
-        for (var i = 0; i < recentEmojis.length; i++) {
-            recentModel.append({
-                emojiId: recentEmojis[i].search,
-                emojiData: recentEmojis[i]
-            });
-        }
-    }
-
-    function loadEmojiData() {
-        emojiProcess.command = ["bash", "-c", "cat " + Qt.resolvedUrl("../../../../assets/emojis.json").toString().replace("file://", "")];
-        emojiProcess.running = true;
-    }
-
-    function loadInitialEmojis() {
-        var initial = [];
-        for (var i = 0; i < Math.min(50, emojiData.length); i++) {
-            initial.push(emojiData[i]);
-        }
-
-        emojisModel.clear();
-        for (var i = 0; i < initial.length; i++) {
-            emojisModel.append({
-                emojiId: initial[i].search,
-                emojiData: initial[i]
-            });
-        }
-
-        filteredEmojis = initial;
-    }
-
-    function loadRecentEmojis() {
-        recentProcess.command = ["bash", "-c", "cat " + Quickshell.dataDir + "/emojis.json 2>/dev/null || echo '[]'"];
-        recentProcess.running = true;
-    }
-
-    function saveRecentEmojis() {
-        var jsonData = JSON.stringify(recentEmojis, null, 2);
-        saveProcess.command = ["bash", "-c", "echo '" + jsonData.replace(/'/g, "'\\''") + "' > " + Quickshell.dataDir + "/emojis.json"];
-        saveProcess.running = true;
-    }
-
-    function addToRecent(emoji) {
-        recentEmojis = recentEmojis.filter(function (item) {
-            return item.emoji !== emoji.emoji;
-        });
-
-        emoji.usage = (emoji.usage || 0) + 1;
-        emoji.lastUsed = Date.now();
-        recentEmojis.unshift(emoji);
-
-        if (recentEmojis.length > 50) {
-            recentEmojis = recentEmojis.slice(0, 50);
-        }
-
-        recentEmojis.sort(function (a, b) {
-            if (a.usage !== b.usage) {
-                return b.usage - a.usage;
+        flatVisibleEmojis = flat;
+        rowsData = rows;
+        if (flat.length > 0) {
+            if (focusedFlatIndex < 0 || focusedFlatIndex >= flat.length) {
+                focusedFlatIndex = 0;
             }
-            return b.lastUsed - a.lastUsed;
-        });
-
-        updateRecentModel();
-        saveRecentEmojis();
-    }
-
-    function copyEmoji(emoji, skinToneModifier) {
-        var emojiToCopy = emoji.emoji;
-        if (skinToneModifier && skinToneModifier !== "") {
-            emojiToCopy = emoji.emoji + skinToneModifier;
-        }
-
-        // Create emoji object with skin tone applied for recent storage
-        var emojiForRecent = {
-            emoji: emojiToCopy,
-            name: emoji.name + (skinToneModifier ? " (" + getSkinToneName(skinToneModifier) + ")" : ""),
-            slug: emoji.slug,
-            group: emoji.group,
-            search: emoji.name + " " + emoji.slug + (skinToneModifier ? " " + getSkinToneName(skinToneModifier) : ""),
-            skin_tone_support: emoji.skin_tone_support
-        };
-
-        root.addToRecent(emojiForRecent);
-        ClipboardService.copyAndTypeEmoji(emojiToCopy);
-        GlobalStates.commandPaletteVisible = false;
-    }
-
-    function onDownPressed() {
-        if (!hasNavigatedFromSearch && !isRecentFocused) {
-            hasNavigatedFromSearch = true;
-            if (filteredEmojis.length > 0) {
-                isRecentFocused = false;
-                selectedRecentIndex = -1;
-                recentList.currentIndex = -1;
+            if (flat[focusedFlatIndex] && flat[focusedFlatIndex].categoryId) {
+                activeCategoryId = flat[focusedFlatIndex].categoryId;
             }
-        }
-
-        if (!isRecentFocused && emojiList.count > 0) {
-            if (selectedIndex === -1) {
-                selectedIndex = 0;
-                emojiList.currentIndex = 0;
-            } else if (selectedIndex < emojiList.count - 1) {
-                selectedIndex++;
-                emojiList.currentIndex = selectedIndex;
-            }
-        } else if (isRecentFocused && recentEmojis.length > 0) {
-            if (selectedRecentIndex === -1) {
-                selectedRecentIndex = 0;
-                recentList.currentIndex = 0;
-                lastSelectedRecentIndex = 0;
-            } else if (selectedRecentIndex < recentEmojis.length - 1) {
-                selectedRecentIndex++;
-                recentList.currentIndex = selectedRecentIndex;
-                lastSelectedRecentIndex = selectedRecentIndex;
-            }
+        } else {
+            activeCategoryId = recentEmojis.length > 0 ? "recent" : "Smileys & Emotion";
         }
     }
 
-    function onUpPressed() {
-        if (isRecentFocused) {
-            if (selectedRecentIndex > 0) {
-                selectedRecentIndex--;
-                recentList.currentIndex = selectedRecentIndex;
-                lastSelectedRecentIndex = selectedRecentIndex;
-            } else if (selectedRecentIndex === 0) {
-                isRecentFocused = false;
-                selectedRecentIndex = -1;
-                recentList.currentIndex = -1;
-                hasNavigatedFromSearch = false;
-            }
-        } else if (selectedIndex > 0) {
-            selectedIndex--;
-            emojiList.currentIndex = selectedIndex;
-        } else if (selectedIndex === 0) {
-            selectedIndex = -1;
-            emojiList.currentIndex = -1;
-            hasNavigatedFromSearch = false;
-        }
-    }
-
-    function onLeftPressed() {
-        if (isRecentFocused && recentEmojis.length > 0) {
-            isRecentFocused = false;
-            selectedRecentIndex = -1;
-            recentList.currentIndex = -1;
-            if (filteredEmojis.length > 0) {
-                if (selectedIndex === -1) {
-                    selectedIndex = 0;
-                }
-                emojiList.currentIndex = selectedIndex;
-            }
-        }
-    }
-
-    function onRightPressed() {
-        if (!isRecentFocused && recentEmojis.length > 0 && searchText.length === 0) {
-            isRecentFocused = true;
-            selectedIndex = -1;
-            emojiList.currentIndex = -1;
-            if (lastSelectedRecentIndex >= 0 && lastSelectedRecentIndex < recentEmojis.length) {
-                selectedRecentIndex = lastSelectedRecentIndex;
-            } else {
-                selectedRecentIndex = 0;
-                lastSelectedRecentIndex = selectedRecentIndex;
-            }
-            recentList.currentIndex = selectedRecentIndex;
-        }
-    }
-
-    implicitWidth: 400
-    implicitHeight: mainLayout.implicitHeight
-    color: "transparent"
-
-    Behavior on height {
-        enabled: Config.animDuration > 0
-        NumberAnimation {
-            duration: Config.animDuration
-            easing.type: Easing.OutQuart
-        }
-    }
-
+    // Load emojis.json reliably
     Process {
         id: emojiProcess
-        running: false
-
+        running: true
+        command: ["cat", Quickshell.env("HOME") + "/Ambxst/assets/emojis.json"]
         stdout: StdioCollector {
             waitForEnd: true
-
             onStreamFinished: {
                 try {
                     var jsonData = JSON.parse(text.trim());
                     var data = [];
-                    for (var emoji in jsonData) {
-                        if (jsonData.hasOwnProperty(emoji)) {
-                            var emojiInfo = jsonData[emoji];
-                            data.push({
-                                emoji: emoji,
-                                name: emojiInfo.name,
-                                slug: emojiInfo.slug,
-                                group: emojiInfo.group,
-                                search: emojiInfo.name + " " + emojiInfo.slug,
-                                skin_tone_support: emojiInfo.skin_tone_support || false
-                            });
+                    var groups = {};
+                    for (var em in jsonData) {
+                        if (jsonData.hasOwnProperty(em)) {
+                            var info = jsonData[em];
+                            var kwList = (info.keywords && Array.isArray(info.keywords)) ? info.keywords.join(" ") : "";
+                            var searchStr = ((info.name || "") + " " + (info.slug || "") + " " + (info.group || "") + " " + kwList).toLowerCase();
+                            var obj = {
+                                emoji: em,
+                                name: info.name || "",
+                                slug: info.slug || "",
+                                group: info.group || "Other",
+                                search: searchStr,
+                                skin_tone_support: info.skin_tone_support || false
+                            };
+                            data.push(obj);
+                            if (!groups[obj.group]) {
+                                groups[obj.group] = [];
+                            }
+                            groups[obj.group].push(obj);
                         }
                     }
-                    emojiData = data;
-                    loadInitialEmojis();
+                    root.allEmojis = data;
+                    root.groupMap = groups;
+                    root.rebuildRows();
                 } catch (e) {
-                    console.error("Failed to parse emojis.json:", e);
-                    emojiData = [];
-                    loadInitialEmojis();
+                    console.warn("EmojiTab: failed to parse emojis.json", e);
                 }
             }
         }
     }
 
+    // Load recents
     Process {
         id: recentProcess
-        running: false
-
+        running: true
+        command: ["bash", "-c", "cat " + Quickshell.dataDir + "/emojis.json 2>/dev/null || echo '[]'"]
         stdout: StdioCollector {
             waitForEnd: true
-
             onStreamFinished: {
                 try {
-                    recentEmojis = JSON.parse(text.trim());
-                    updateRecentModel();
+                    root.recentEmojis = JSON.parse(text.trim());
                 } catch (e) {
-                    recentEmojis = [];
-                    updateRecentModel();
+                    root.recentEmojis = [];
                 }
+                root.rebuildRows();
             }
         }
     }
@@ -505,746 +397,109 @@ Rectangle {
         running: false
     }
 
-    Item {
-        id: mainLayout
+    function saveRecentEmojis() {
+        var jsonStr = JSON.stringify(recentEmojis, null, 2);
+        saveProcess.command = ["bash", "-c", "mkdir -p '" + Quickshell.dataDir + "' && cat << 'EOF' > '" + Quickshell.dataDir + "/emojis.json'\n" + jsonStr + "\nEOF"];
+        saveProcess.running = true;
+    }
+
+    ColumnLayout {
         anchors.fill: parent
+        spacing: 6
 
-        RowLayout {
-            anchors.fill: parent
-            spacing: 8
+        // Optional internal search (when showSearch is true)
+        Item {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 44
+            visible: root.showSearch
 
-            Item {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
+            SearchInput {
+                id: searchInput
+                anchors.fill: parent
+                text: root.searchText
+                placeholderText: "Search emojis..."
+                prefixIcon: root.prefixIcon
 
-                Row {
-                    id: searchRow
-                    width: parent.width
-                    height: root.showSearch ? 48 : 0
-                    visible: root.showSearch
-                    anchors.top: parent.top
-                    spacing: 8
-
-                    SearchInput {
-                        id: searchInput
-                        width: parent.width - clearButton.width - parent.spacing
-                        height: parent.height
-                        text: root.searchText
-                        placeholderText: "Search emojis..."
-                        prefixIcon: root.prefixIcon
-
-                        onSearchTextChanged: text => {
-                            root.searchText = text;
-                        }
-
-                        onBackspaceOnEmpty: {
-                            root.backspaceOnEmpty();
-                        }
-
-                        onAccepted: {
-                            if (root.expandedItemIndex >= 0) {
-                                // Execute selected option when menu is expanded
-                                let emoji = root.filteredEmojis[root.expandedItemIndex];
-                                if (emoji) {
-                                    var skinTone = root.skinTones[root.selectedOptionIndex];
-                                    if (skinTone) {
-                                        root.copyEmoji(emoji, skinTone.modifier);
-                                    }
-                                }
-                            } else if (isRecentFocused && selectedRecentIndex >= 0 && selectedRecentIndex < recentEmojis.length) {
-                                var selectedEmoji = recentEmojis[selectedRecentIndex];
-                                if (selectedEmoji) {
-                                    root.copyEmoji(selectedEmoji);
-                                }
-                            } else if (!isRecentFocused && selectedIndex >= 0 && selectedIndex < filteredEmojis.length) {
-                                var selectedEmoji = filteredEmojis[selectedIndex];
-                                if (selectedEmoji) {
-                                    root.copyEmoji(selectedEmoji);
-                                }
-                            }
-                        }
-
-                        onShiftAccepted: {
-                            if (!root.deleteMode && !root.aliasMode) {
-                                if (root.selectedIndex >= 0 && root.selectedIndex < root.filteredEmojis.length) {
-                                    var selectedEmoji = root.filteredEmojis[root.selectedIndex];
-                                    if (selectedEmoji && selectedEmoji.skin_tone_support) {
-                                        // Toggle expanded state
-                                        if (root.expandedItemIndex === root.selectedIndex) {
-                                            root.expandedItemIndex = -1;
-                                            root.selectedOptionIndex = 0;
-                                            root.keyboardNavigation = false;
-                                        } else {
-                                            root.expandedItemIndex = root.selectedIndex;
-                                            root.selectedOptionIndex = 0;
-                                            root.keyboardNavigation = true;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        onEscapePressed: {
-                            if (root.expandedItemIndex >= 0) {
-                                root.expandedItemIndex = -1;
-                                root.selectedOptionIndex = 0;
-                                root.keyboardNavigation = false;
-                            } else if (root.searchText.length === 0) {
-                                GlobalStates.commandPaletteVisible = false;
-                            } else {
-                                root.clearSearch();
-                            }
-                        }
-
-                        onDownPressed: {
-                            if (root.expandedItemIndex >= 0) {
-                                // Navigate options when menu is expanded
-                                var emoji = root.filteredEmojis[root.expandedItemIndex];
-                                if (emoji && emoji.skin_tone_support) {
-                                    var maxOptions = root.skinTones.length;
-                                    if (root.selectedOptionIndex < maxOptions - 1) {
-                                        root.selectedOptionIndex++;
-                                        root.keyboardNavigation = true;
-                                    }
-                                }
-                            } else {
-                                root.onDownPressed();
-                            }
-                        }
-
-                        onUpPressed: {
-                            if (root.expandedItemIndex >= 0) {
-                                // Navigate options when menu is expanded
-                                if (root.selectedOptionIndex > 0) {
-                                    root.selectedOptionIndex--;
-                                    root.keyboardNavigation = true;
-                                }
-                                // Stay on first option if already at index 0
-                            } else {
-                                root.onUpPressed();
-                            }
-                        }
-
-                        onLeftPressed: {
-                            root.onLeftPressed();
-                        }
-
-                        onRightPressed: {
-                            root.onRightPressed();
-                        }
-                    }
-
-                    StyledRect {
-                        id: clearButton
-                        width: root.clearButtonConfirmState ? 140 : 48
-                        height: 48
-                        radius: searchInput.radius
-                        variant: {
-                            if (root.clearButtonConfirmState) {
-                                return "error";
-                            } else if (root.clearButtonFocused || clearButtonMouseArea.containsMouse) {
-                                return "focus";
-                            } else {
-                                return "pane";
-                            }
-                        }
-                        focus: root.clearButtonFocused
-                        activeFocusOnTab: true
-
-                        Behavior on width {
-                            enabled: Config.animDuration > 0
-                            NumberAnimation {
-                                duration: Config.animDuration
-                                easing.type: Easing.OutQuart
-                            }
-                        }
-
-                        onActiveFocusChanged: {
-                            if (activeFocus) {
-                                root.clearButtonFocused = true;
-                            } else {
-                                root.clearButtonFocused = false;
-                                root.resetClearButton();
-                            }
-                        }
-
-                        MouseArea {
-                            id: clearButtonMouseArea
-                            anchors.fill: parent
-                            hoverEnabled: true
-
-                            onClicked: {
-                                if (root.clearButtonConfirmState) {
-                                    root.clearRecentEmojis();
-                                } else {
-                                    root.clearButtonConfirmState = true;
-                                }
-                            }
-                        }
-
-                        Row {
-                            id: clearButtonContent
-                            anchors.fill: parent
-                            anchors.margins: 8
-                            spacing: 8
-
-                            Text {
-                                width: 32
-                                height: parent.height
-                                text: root.clearButtonConfirmState ? Icons.xeyes : Icons.broom
-                                font.family: Icons.font
-                                font.pixelSize: 20
-                                color: root.clearButtonConfirmState ? clearButton.item : Styling.srItem("overprimary")
-                                horizontalAlignment: Text.AlignHCenter
-                                verticalAlignment: Text.AlignVCenter
-                                textFormat: Text.RichText
-                            }
-
-                            Text {
-                                width: parent.width - 32 - parent.spacing
-                                height: parent.height
-                                text: "Clear recent?"
-                                font.family: Config.theme.font
-                                font.weight: Font.Bold
-                                font.pixelSize: Config.theme.fontSize
-                                color: clearButton.item
-                                opacity: root.clearButtonConfirmState ? 1.0 : 0.0
-                                visible: opacity > 0
-                                verticalAlignment: Text.AlignVCenter
-
-                                Behavior on opacity {
-                                    enabled: Config.animDuration > 0
-                                    NumberAnimation {
-                                        duration: Config.animDuration / 2
-                                        easing.type: Easing.OutQuart
-                                    }
-                                }
-                            }
-                        }
-
-                        Keys.onPressed: event => {
-                            if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-                                if (root.clearButtonConfirmState) {
-                                    root.clearRecentEmojis();
-                                } else {
-                                    root.clearButtonConfirmState = true;
-                                }
-                                event.accepted = true;
-                            } else if (event.key === Qt.Key_Escape) {
-                                root.resetClearButton();
-                                root.clearButtonFocused = false;
-                                searchInput.focusInput();
-                                event.accepted = true;
-                            } else if (event.key === Qt.Key_Tab && (event.modifiers & Qt.ShiftModifier)) {
-                                root.resetClearButton();
-                                root.clearButtonFocused = false;
-                                searchInput.focusInput();
-                                event.accepted = true;
-                            }
-                        }
-                    }
+                onSearchTextChanged: text => {
+                    root.searchText = text;
                 }
 
-                ListView {
-                    id: emojiList
-                    width: parent.width
-                    anchors.top: searchRow.bottom
-                    anchors.bottom: parent.bottom
-                    anchors.topMargin: 8
-                    anchors.bottomMargin: 0
-                    clip: true
+                onBackspaceOnEmpty: {
+                    root.backspaceOnEmpty();
+                }
 
-                    cacheBuffer: 96
-                    reuseItems: true
+                onAccepted: {
+                    root.acceptSelection();
+                }
 
-                    model: emojisModel
-                    currentIndex: root.selectedIndex
+                onDownPressed: {
+                    root.navDown();
+                }
 
-                    property bool enableScrollAnimation: true
+                onUpPressed: {
+                    root.navUp();
+                }
 
-                    Behavior on contentY {
-                        enabled: Config.animDuration > 0 && emojiList.enableScrollAnimation && !emojiList.moving
-                        NumberAnimation {
-                            duration: Config.animDuration / 2
-                            easing.type: Easing.OutCubic
-                        }
+                onLeftPressed: {
+                    root.navLeft();
+                }
+
+                onRightPressed: {
+                    root.navRight();
+                }
+
+                onEscapePressed: {
+                    if (root.searchText.length > 0) {
+                        root.searchText = "";
+                    } else {
+                        GlobalStates.emojiVisible = false;
+                        GlobalStates.commandPaletteVisible = false;
                     }
+                }
+            }
+        }
 
-                    onCurrentIndexChanged: {
-                        if (currentIndex !== root.selectedIndex && !root.isRecentFocused) {
-                            root.selectedIndex = currentIndex;
-                        }
+        // Category Navigation Bar with Phosphor theme icons
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 34
+            color: "transparent"
+            visible: root.searchText.trim().length === 0
 
-                        if (currentIndex >= 0 && !root.isRecentFocused) {
-                            var itemY = 0;
-                            for (var i = 0; i < currentIndex && i < emojisModel.count; i++) {
-                                var itemHeight = 48;
-                                if (i === root.expandedItemIndex && !root.deleteMode && !root.aliasMode) {
-                                    var item = emojisModel.get(i);
-                                    if (item) {
-                                        var itemData = item.emojiData;
-                                        if (itemData && itemData.skin_tone_support) {
-                                            var optionsCount = root.skinTones.length;
-                                            var listHeight = 36 * Math.min(3, optionsCount);
-                                            itemHeight = 48 + 4 + listHeight + 8;
-                                        }
-                                    }
-                                }
-                                itemY += itemHeight;
-                            }
+            Row {
+                anchors.centerIn: parent
+                spacing: 6
 
-                            var currentItemHeight = 48;
-                            if (currentIndex === root.expandedItemIndex && !root.deleteMode && !root.aliasMode && currentIndex < emojisModel.count) {
-                                var item = emojisModel.get(currentIndex);
-                                if (item) {
-                                    var itemData = item.emojiData;
-                                    if (itemData && itemData.skin_tone_support) {
-                                        var optionsCount = root.skinTones.length;
-                                        var listHeight = 36 * Math.min(3, optionsCount);
-                                        currentItemHeight = 48 + 4 + listHeight + 8;
-                                    }
-                                }
-                            }
+                Repeater {
+                    model: root.categories
 
-                            var viewportTop = emojiList.contentY;
-                            var viewportBottom = viewportTop + emojiList.height;
-
-                            if (itemY < viewportTop) {
-                                emojiList.contentY = itemY;
-                            } else if (itemY + currentItemHeight > viewportBottom) {
-                                emojiList.contentY = itemY + currentItemHeight - emojiList.height;
-                            }
-                        }
-                    }
-
-                    delegate: Rectangle {
-                        required property string emojiId
-                        required property var emojiData
+                    Rectangle {
+                        id: catChip
+                        required property var modelData
                         required property int index
 
-                        property var modelData: emojiData
+                        width: 38
+                        height: 28
+                        radius: Styling.radius(-8)
 
-                        width: emojiList.width
-                        height: {
-                            let baseHeight = 48;
-                            if (index === root.expandedItemIndex && !root.deleteMode && !root.aliasMode && modelData.skin_tone_support) {
-                                var optionsCount = root.skinTones.length;
-                                var listHeight = 36 * Math.min(3, optionsCount);
-                                return baseHeight + 4 + listHeight + 8; // base + spacing + list + bottom margin
-                            }
-                            return baseHeight;
-                        }
-                        color: "transparent"
-                        radius: 16
+                        readonly property bool active: root.activeCategoryId === catChip.modelData.id
 
-                        Behavior on y {
+                        color: catChip.active ? Styling.srItem("primary") : (catMouse.containsMouse ? Colors.surfaceContainerHigh : "transparent")
+
+                        Behavior on color {
                             enabled: Config.animDuration > 0
-                            NumberAnimation {
+                            ColorAnimation {
                                 duration: Config.animDuration / 2
-                                easing.type: Easing.OutCubic
-                            }
-                        }
-
-                        Behavior on height {
-                            enabled: Config.animDuration > 0
-                            NumberAnimation {
-                                duration: Config.animDuration
                                 easing.type: Easing.OutQuart
                             }
                         }
 
-                        property color textColor: {
-                            if (root.selectedIndex === index && !root.isRecentFocused) {
-                                if (root.expandedItemIndex === index) {
-                                    return Styling.srItem("pane");
-                                }
-                                return Styling.srItem("primary");
-                            } else {
-                                return Colors.overSurface;
-                            }
-                        }
-
-                        MouseArea {
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            preventStealing: false
-                            propagateComposedEvents: true
-                            acceptedButtons: Qt.LeftButton | Qt.RightButton
-
-                            onEntered: {
-                                if (root.isRecentFocused) {
-                                    root.isRecentFocused = false;
-                                    root.selectedRecentIndex = -1;
-                                    recentList.currentIndex = -1;
-                                }
-                                root.selectedIndex = index;
-                                emojiList.currentIndex = index;
-                            }
-
-                            onClicked: mouse => {
-                                if (mouse.button === Qt.LeftButton) {
-                                    if (modelData.skin_tone_support) {
-                                        // For emojis with skin tone support, expand options on left click
-                                        if (root.expandedItemIndex === index) {
-                                            root.expandedItemIndex = -1;
-                                            root.selectedOptionIndex = 0;
-                                            root.keyboardNavigation = false;
-                                            // Update selection to current hover position after closing
-                                            root.selectedIndex = index;
-                                            emojiList.currentIndex = index;
-                                        } else {
-                                            root.expandedItemIndex = index;
-                                            root.selectedIndex = index;
-                                            emojiList.currentIndex = index;
-                                            root.selectedOptionIndex = 0;
-                                            root.keyboardNavigation = false;
-                                        }
-                                    } else {
-                                        // For regular emojis, copy directly
-                                        root.copyEmoji(modelData);
-                                    }
-                                } else if (mouse.button === Qt.RightButton) {
-                                    if (modelData.skin_tone_support) {
-                                        // Toggle expanded state for skin tone selection
-                                        if (root.expandedItemIndex === index) {
-                                            root.expandedItemIndex = -1;
-                                            root.selectedOptionIndex = 0;
-                                            root.keyboardNavigation = false;
-                                            // Update selection to current hover position after closing
-                                            root.selectedIndex = index;
-                                            emojiList.currentIndex = index;
-                                        } else {
-                                            root.expandedItemIndex = index;
-                                            root.selectedIndex = index;
-                                            emojiList.currentIndex = index;
-                                            root.selectedOptionIndex = 0;
-                                            root.keyboardNavigation = false;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        Row {
-                            anchors.left: parent.left
-                            anchors.right: parent.right
-                            anchors.top: parent.top
-                            anchors.margins: 8
-                            height: 32
-                            spacing: 8
-
-                            StyledRect {
-                                id: emojiIconBackground
-                                width: emojiIcon.implicitWidth + 6
-                                height: 32
-                                radius: Styling.radius(-4)
-                                variant: root.selectedIndex === index && !root.isRecentFocused ? "overprimary" : "common"
-
-                                Text {
-                                    id: emojiIcon
-                                    anchors.centerIn: parent
-                                    color: emojiIconBackground.item
-                                    text: modelData.emoji
-                                    font.pixelSize: 24
-                                    horizontalAlignment: Text.AlignHCenter
-                                    verticalAlignment: Text.AlignVCenter
-                                }
-                            }
-
-                            Text {
-                                width: parent.width - emojiIcon.implicitWidth - 6 - parent.spacing - 16
-                                height: parent.height
-                                text: modelData.name ? (modelData.name.charAt(0).toUpperCase() + modelData.name.slice(1)) : (modelData.search || "")
-                                color: textColor
-                                font.family: Config.theme.font
-                                font.weight: Font.Bold
-                                font.pixelSize: Config.theme.fontSize
-                                elide: Text.ElideRight
-                                verticalAlignment: Text.AlignVCenter
-                            }
-                        }
-
-                        // Expandable options list (for skin tones)
-                        RowLayout {
-                            anchors.left: parent.left
-                            anchors.right: parent.right
-                            anchors.bottom: parent.bottom
-                            anchors.leftMargin: 8
-                            anchors.rightMargin: 8
-                            anchors.bottomMargin: 8
-                            spacing: 4
-                            visible: index === root.expandedItemIndex && !root.deleteMode && !root.aliasMode && modelData.skin_tone_support
-                            opacity: (index === root.expandedItemIndex && !root.deleteMode && !root.aliasMode && modelData.skin_tone_support) ? 1 : 0
-
-                            Behavior on opacity {
-                                enabled: Config.animDuration > 0
-                                NumberAnimation {
-                                    duration: Config.animDuration
-                                    easing.type: Easing.OutQuart
-                                }
-                            }
-
-                            ClippingRectangle {
-                                Layout.fillWidth: true
-                                Layout.preferredHeight: {
-                                    var optionsCount = root.skinTones.length;
-                                    return 36 * Math.min(3, optionsCount);
-                                }
-                                color: Colors.background
-                                radius: Styling.radius(0)
-
-                                Behavior on Layout.preferredHeight {
-                                    enabled: Config.animDuration > 0
-                                    NumberAnimation {
-                                        duration: Config.animDuration
-                                        easing.type: Easing.OutQuart
-                                    }
-                                }
-
-                                ListView {
-                                    id: skinToneOptionsListView
-                                    anchors.fill: parent
-                                    clip: true
-                                    interactive: true
-                                    boundsBehavior: Flickable.StopAtBounds
-                                    model: {
-                                        var options = [];
-                                        for (var i = 0; i < root.skinTones.length; i++) {
-                                            options.push({
-                                                text: root.skinTones[i].name,
-                                                emoji: modelData.emoji + root.skinTones[i].modifier,
-                                                modifier: root.skinTones[i].modifier
-                                            });
-                                        }
-                                        return options;
-                                    }
-                                    currentIndex: root.selectedOptionIndex
-                                    highlightFollowsCurrentItem: true
-                                    highlightRangeMode: ListView.ApplyRange
-                                    preferredHighlightBegin: 0
-                                    preferredHighlightEnd: height
-
-                                    highlight: StyledRect {
-                                        variant: "primary"
-                                        radius: Styling.radius(0)
-                                        visible: skinToneOptionsListView.currentIndex >= 0
-                                        z: -1
-
-                                        Behavior on opacity {
-                                            enabled: Config.animDuration > 0
-                                            NumberAnimation {
-                                                duration: Config.animDuration / 2
-                                                easing.type: Easing.OutQuart
-                                            }
-                                        }
-                                    }
-
-                                    highlightMoveDuration: Config.animDuration > 0 ? Config.animDuration / 2 : 0
-                                    highlightMoveVelocity: -1
-                                    highlightResizeDuration: Config.animDuration / 2
-                                    highlightResizeVelocity: -1
-
-                                    delegate: Item {
-                                        required property var modelData
-                                        required property int index
-
-                                        width: skinToneOptionsListView.width
-                                        height: 36
-
-                                        Rectangle {
-                                            anchors.fill: parent
-                                            color: "transparent"
-
-                                            RowLayout {
-                                                anchors.fill: parent
-                                                anchors.margins: 8
-                                                spacing: 8
-
-                                                Text {
-                                                    text: modelData.emoji
-                                                    font.pixelSize: 20
-                                                    horizontalAlignment: Text.AlignHCenter
-                                                    verticalAlignment: Text.AlignVCenter
-                                                }
-
-                                                Text {
-                                                    Layout.fillWidth: true
-                                                    text: modelData.text
-                                                    font.family: Config.theme.font
-                                                    font.pixelSize: Config.theme.fontSize
-                                                    font.weight: skinToneOptionsListView.currentIndex === index ? Font.Bold : Font.Normal
-                                                    color: {
-                                                        if (skinToneOptionsListView.currentIndex === index) {
-                                                            return Styling.srItem("primary");
-                                                        }
-                                                        return Colors.overSurface;
-                                                    }
-                                                    elide: Text.ElideRight
-                                                    maximumLineCount: 1
-
-                                                    Behavior on color {
-                                                        enabled: Config.animDuration > 0
-                                                        ColorAnimation {
-                                                            duration: Config.animDuration / 2
-                                                            easing.type: Easing.OutQuart
-                                                        }
-                                                    }
-                                                }
-                                            }
-
-                                            MouseArea {
-                                                anchors.fill: parent
-                                                hoverEnabled: true
-                                                cursorShape: Qt.PointingHandCursor
-
-                                                onEntered: {
-                                                    skinToneOptionsListView.currentIndex = index;
-                                                    root.selectedOptionIndex = index;
-                                                    root.keyboardNavigation = false;
-                                                }
-
-                                                onClicked: {
-                                                    if (modelData) {
-                                                        root.copyEmoji(root.filteredEmojis[root.expandedItemIndex], modelData.modifier);
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-
-                                // MouseArea to handle wheel events for scrolling
-                                MouseArea {
-                                    anchors.fill: parent
-                                    propagateComposedEvents: true
-                                    acceptedButtons: Qt.NoButton
-
-                                    onWheel: wheel => {
-                                        if (skinToneOptionsListView.contentHeight > skinToneOptionsListView.height) {
-                                            const delta = wheel.angleDelta.y;
-                                            skinToneOptionsListView.contentY = Math.max(0, Math.min(skinToneOptionsListView.contentHeight - skinToneOptionsListView.height, skinToneOptionsListView.contentY - delta));
-                                            wheel.accepted = true;
-                                        } else {
-                                            wheel.accepted = false;
-                                        }
-                                    }
-                                }
-                            }
-
-                            ScrollBar {
-                                Layout.preferredWidth: 8
-                                Layout.preferredHeight: {
-                                    var optionsCount = root.skinTones.length;
-                                    var listHeight = 36 * Math.min(3, optionsCount);
-                                    return Math.max(0, listHeight - 32);
-                                }
-                                Layout.alignment: Qt.AlignVCenter
-                                orientation: Qt.Vertical
-                                visible: {
-                                    var optionsCount = root.skinTones.length;
-                                    return optionsCount > 3;
-                                }
-
-                                position: skinToneOptionsListView.contentY / skinToneOptionsListView.contentHeight
-                                size: skinToneOptionsListView.height / skinToneOptionsListView.contentHeight
-
-                                background: Rectangle {
-                                    color: Colors.background
-                                    radius: Styling.radius(0)
-                                }
-
-                                contentItem: Rectangle {
-                                    color: Styling.srItem("overprimary")
-                                    radius: Styling.radius(0)
-                                }
-
-                                property bool scrollBarPressed: false
-
-                                onPressedChanged: {
-                                    scrollBarPressed = pressed;
-                                }
-
-                                onPositionChanged: {
-                                    if (scrollBarPressed && skinToneOptionsListView.contentHeight > skinToneOptionsListView.height) {
-                                        skinToneOptionsListView.contentY = position * skinToneOptionsListView.contentHeight;
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    highlight: Item {
-                        width: emojiList.width
-                        height: {
-                            let baseHeight = 48;
-                            if (emojiList.currentIndex === root.expandedItemIndex && emojiList.currentIndex >= 0 && emojiList.currentIndex < emojisModel.count) {
-                                var item = emojisModel.get(emojiList.currentIndex);
-                                if (item) {
-                                    var itemData = item.emojiData;
-                                    if (itemData && itemData.skin_tone_support) {
-                                        var optionsCount = root.skinTones.length;
-                                        var listHeight = 36 * Math.min(3, optionsCount);
-                                        return baseHeight + 4 + listHeight + 8;
-                                    }
-                                }
-                            }
-                            return baseHeight;
-                        }
-
-                        // Calculate Y position based on index, not item position
-                        y: {
-                            var yPos = 0;
-                            for (var i = 0; i < emojiList.currentIndex && i < emojisModel.count; i++) {
-                                var itemHeight = 48;
-                                if (i === root.expandedItemIndex) {
-                                    var itemData = emojisModel.get(i).emojiData;
-                                    if (itemData && itemData.skin_tone_support) {
-                                        var optionsCount = root.skinTones.length;
-                                        var listHeight = 36 * Math.min(3, optionsCount);
-                                        itemHeight = 48 + 4 + listHeight + 8;
-                                    }
-                                }
-                                yPos += itemHeight;
-                            }
-                            return yPos;
-                        }
-
-                        Behavior on y {
-                            enabled: Config.animDuration > 0
-                            NumberAnimation {
-                                duration: Config.animDuration / 2
-                                easing.type: Easing.OutCubic
-                            }
-                        }
-
-                        Behavior on height {
-                            enabled: Config.animDuration > 0
-                            NumberAnimation {
-                                duration: Config.animDuration
-                                easing.type: Easing.OutQuart
-                            }
-                        }
-
-                        onHeightChanged: {
-                            // Adjust scroll immediately when height changes due to expansion
-                            if (root.expandedItemIndex >= 0 && height > 48) {
-                                Qt.callLater(() => {
-                                    adjustScrollForExpandedItem(root.expandedItemIndex);
-                                });
-                            }
-                        }
-
-                        StyledRect {
-                            anchors.fill: parent
-                            variant: {
-                                if (root.expandedItemIndex >= 0 && root.selectedIndex === root.expandedItemIndex) {
-                                    return "pane";
-                                } else {
-                                    return "primary";
-                                }
-                            }
-                            radius: Styling.radius(4)
-                            visible: root.selectedIndex >= 0 && !root.isRecentFocused
+                        Text {
+                            anchors.centerIn: parent
+                            text: catChip.modelData.icon
+                            font.family: Icons.font
+                            font.pixelSize: 15
+                            color: catChip.active ? Styling.srItem("overprimary") : (catMouse.containsMouse ? Colors.overBackground : Colors.outline)
 
                             Behavior on color {
                                 enabled: Config.animDuration > 0
@@ -1254,200 +509,176 @@ Rectangle {
                                 }
                             }
                         }
-                    }
 
-                    highlightFollowsCurrentItem: false
+                        MouseArea {
+                            id: catMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.jumpToCategory(catChip.modelData.id)
+                        }
+
+                        StyledToolTip {
+                            visible: catMouse.containsMouse
+                            tooltipText: catChip.modelData.name
+                            delay: 200
+                        }
+                    }
+                }
+            }
+        }
+
+        // Emojis Virtualized ListView (Rows)
+        ListView {
+            id: emojiListView
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            clip: true
+            boundsBehavior: Flickable.StopAtBounds
+            spacing: 4
+
+            model: root.rowsData
+
+            onContentYChanged: {
+                if (emojiListView.moving || emojiListView.dragging) {
+                    root.updateCategoryFromScroll();
                 }
             }
 
-            Rectangle {
-                Layout.preferredWidth: 2
-                Layout.fillHeight: true
-                radius: Styling.radius(0)
-                color: Colors.surface
-                visible: root.searchText.length === 0 && root.recentEmojis.length > 0
-            }
+            delegate: Item {
+                id: rowDelegate
+                required property var modelData
+                required property int index
 
-            Item {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                visible: root.searchText.length === 0 && root.recentEmojis.length > 0
+                readonly property var rowItem: modelData
 
+                width: emojiListView.width
+                height: rowItem.type === "header" ? 30 : root.cellSize
+
+                // 1. Header Delegate
                 Item {
                     anchors.fill: parent
-                    visible: recentEmojis.length > 0 && searchText.length === 0
+                    visible: rowDelegate.rowItem.type === "header"
 
-                    ListView {
-                        id: recentList
-                        anchors.fill: parent
-                        orientation: ListView.Vertical
-                        spacing: 0
-                        clip: true
-                        cacheBuffer: 96
-                        reuseItems: false
+                    Text {
+                        anchors.left: parent.left
+                        anchors.leftMargin: 6
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: rowDelegate.rowItem.title || ""
+                        font.family: Config.defaultFont
+                        font.pixelSize: 12
+                        font.weight: Font.Bold
+                        color: Colors.outline
+                    }
 
-                        model: recentModel
-                        currentIndex: root.selectedRecentIndex
+                    // Clear button for Recent
+                    Button {
+                        id: clearBtn
+                        anchors.right: parent.right
+                        anchors.rightMargin: 6
+                        anchors.verticalCenter: parent.verticalCenter
+                        visible: !!rowDelegate.rowItem.canClear
+                        width: 22
+                        height: 22
 
-                        property bool enableScrollAnimation: true
-
-                        Behavior on contentY {
-                            enabled: Config.animDuration > 0 && recentList.enableScrollAnimation && !recentList.moving
-                            NumberAnimation {
-                                duration: Config.animDuration / 2
-                                easing.type: Easing.OutCubic
-                            }
+                        background: Rectangle {
+                            radius: Styling.radius(4)
+                            color: clearBtn.hovered ? Colors.errorContainer : "transparent"
                         }
 
-                        onCurrentIndexChanged: {
-                            if (currentIndex !== root.selectedRecentIndex && root.isRecentFocused) {
-                                root.selectedRecentIndex = currentIndex;
-                                root.lastSelectedRecentIndex = currentIndex;
-                            }
-
-                            if (currentIndex >= 0 && root.isRecentFocused) {
-                                var itemY = currentIndex * 48;
-                                var viewportTop = recentList.contentY;
-                                var viewportBottom = viewportTop + recentList.height;
-
-                                if (itemY < viewportTop) {
-                                    recentList.contentY = itemY;
-                                } else if (itemY + 48 > viewportBottom) {
-                                    recentList.contentY = itemY + 48 - recentList.height;
-                                }
-                            }
+                        contentItem: Text {
+                            text: Icons.trash
+                            font.family: Icons.font
+                            font.pixelSize: 12
+                            color: clearBtn.hovered ? Colors.error : Colors.outline
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
                         }
+
+                        onClicked: root.clearRecentEmojis()
+
+                        StyledToolTip {
+                            visible: clearBtn.hovered
+                            tooltipText: "Clear recent"
+                            delay: 200
+                        }
+                    }
+                }
+
+                // 2. Row Delegate (Emoji Grid Row)
+                Row {
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.left: parent.left
+                    anchors.leftMargin: 4
+                    spacing: root.cellSpacing
+                    visible: rowDelegate.rowItem.type === "row"
+
+                    Repeater {
+                        model: rowDelegate.rowItem.emojis || []
 
                         delegate: Rectangle {
-                            required property string emojiId
-                            required property var emojiData
+                            id: cellItem
+                            required property var modelData
                             required property int index
 
-                            property var modelData: emojiData
+                            readonly property var emData: modelData
 
-                            width: recentList.width
-                            height: 48
-                            color: "transparent"
-                            radius: Styling.radius(-4)
+                            width: root.cellSize
+                            height: root.cellSize
+                            radius: Styling.radius(6)
 
-                            property color textColor: {
-                                if (root.selectedRecentIndex === index && root.isRecentFocused) {
-                                    return Styling.srItem("primary");
-                                } else {
-                                    return Colors.overSurface;
-                                }
+                            readonly property bool isSelected: root.focusedFlatIndex === cellItem.emData.flatIndex
+
+                            color: {
+                                if (isSelected) return Styling.srItem("primary");
+                                if (cellMouse.containsMouse) return Colors.surfaceContainerHigh;
+                                return "transparent";
+                            }
+
+                            border.color: isSelected ? Styling.srItem("overprimary") : "transparent"
+                            border.width: isSelected ? 1 : 0
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: cellItem.emData ? cellItem.emData.emoji : ""
+                                font.pixelSize: 22
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                            }
+
+                            // Skin tone indicator dot
+                            Rectangle {
+                                anchors.top: parent.top
+                                anchors.right: parent.right
+                                anchors.margins: 3
+                                width: 4
+                                height: 4
+                                radius: 2
+                                color: Styling.srItem("primary")
+                                visible: !!cellItem.emData.skin_tone_support && !cellItem.isSelected
                             }
 
                             MouseArea {
+                                id: cellMouse
                                 anchors.fill: parent
                                 hoverEnabled: true
-                                preventStealing: false
-                                propagateComposedEvents: true
+                                cursorShape: Qt.PointingHandCursor
+                                acceptedButtons: Qt.LeftButton | Qt.RightButton
 
                                 onEntered: {
-                                    if (!root.isRecentFocused) {
-                                        root.isRecentFocused = true;
-                                        root.selectedIndex = -1;
-                                        emojiList.currentIndex = -1;
-                                    }
-                                    root.selectedRecentIndex = index;
-                                    root.lastSelectedRecentIndex = index;
-                                    recentList.currentIndex = index;
+                                    root.focusedFlatIndex = cellItem.emData.flatIndex;
                                 }
 
-                                onClicked: {
-                                    root.copyEmoji(modelData);
-                                }
-                            }
-
-                            Row {
-                                anchors.fill: parent
-                                anchors.margins: 8
-                                spacing: 8
-
-                                StyledRect {
-                                    id: recentEmojiIconBackground
-                                    width: recentEmojiIcon.implicitWidth + 6
-                                    height: 32
-                                    radius: Styling.radius(-4)
-                                    variant: root.selectedRecentIndex === index && root.isRecentFocused ? "overprimary" : "common"
-
-                                    Text {
-                                        id: recentEmojiIcon
-                                        anchors.centerIn: parent
-                                        color: recentEmojiIconBackground.item
-                                        text: modelData.emoji
-                                        font.pixelSize: 24
-                                        horizontalAlignment: Text.AlignHCenter
-                                        verticalAlignment: Text.AlignVCenter
+                                onClicked: mouse => {
+                                    if (mouse.button === Qt.RightButton && cellItem.emData.skin_tone_support) {
+                                        var mapped = cellItem.mapToItem(root, 0, 0);
+                                        root.skinTonePopupPos = Qt.point(mapped.x, mapped.y);
+                                        root.activeSkinToneEmoji = cellItem.emData;
+                                    } else {
+                                        root.copyEmoji(cellItem.emData);
                                     }
                                 }
-
-                                Text {
-                                    width: parent.width - recentEmojiIcon.implicitWidth - 6 - parent.spacing - 16
-                                    height: parent.height
-                                    text: modelData.name ? (modelData.name.charAt(0).toUpperCase() + modelData.name.slice(1)) : (modelData.search || "")
-                                    color: textColor
-                                    font.family: Config.theme.font
-                                    font.weight: Font.Bold
-                                    font.pixelSize: Config.theme.fontSize
-                                    elide: Text.ElideRight
-                                    verticalAlignment: Text.AlignVCenter
-                                }
                             }
-                        }
-
-                        highlight: Item {
-                            width: recentList.width
-                            height: 48
-
-                            // Calculate Y position based on index, not item position
-                            y: recentList.currentIndex * 48
-
-                            Behavior on y {
-                                enabled: Config.animDuration > 0
-                                NumberAnimation {
-                                    duration: Config.animDuration / 2
-                                    easing.type: Easing.OutCubic
-                                }
-                            }
-
-                            StyledRect {
-                                anchors.fill: parent
-                                variant: "primary"
-                                radius: Styling.radius(4)
-                                visible: root.isRecentFocused
-                            }
-                        }
-
-                        highlightFollowsCurrentItem: false
-                    }
-                }
-
-                Item {
-                    anchors.fill: parent
-                    visible: recentEmojis.length === 0 && searchText.length === 0
-
-                    Column {
-                        anchors.centerIn: parent
-                        spacing: 12
-
-                        Text {
-                            text: Icons.countdown
-                            font.family: Icons.font
-                            font.pixelSize: 48
-                            color: Colors.surfaceBright
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            textFormat: Text.RichText
-                        }
-
-                        Text {
-                            text: "No recent emojis"
-                            font.family: Config.theme.font
-                            font.pixelSize: Config.theme.fontSize
-                            font.weight: Font.Bold
-                            color: Colors.outline
-                            anchors.horizontalCenter: parent.horizontalCenter
                         }
                     }
                 }
@@ -1455,26 +686,94 @@ Rectangle {
         }
     }
 
-    Keys.onPressed: event => {
-        if (event.key === Qt.Key_Escape) {
-            GlobalStates.commandPaletteVisible = false;
-            event.accepted = true;
-        }
-    }
+    // Skin Tone Selector Popup
+    Rectangle {
+        id: skinTonePopup
+        visible: root.activeSkinToneEmoji != null
+        x: Math.min(Math.max(8, root.skinTonePopupPos.x - 40), root.width - width - 8)
+        y: Math.max(8, root.skinTonePopupPos.y - height - 6)
+        width: skinToneRow.width + 12
+        height: 44
+        radius: Styling.radius(8)
+        color: Colors.surfaceContainerHigh
+        border.color: Colors.surface
+        border.width: 1
+        z: 999
 
-    Component.onCompleted: {
-        loadEmojiData();
-        loadRecentEmojis();
-        Qt.callLater(() => {
-            focusSearchInput();
-        });
+        layer.enabled: true
+        layer.effect: Shadow {}
+
+        Row {
+            id: skinToneRow
+            anchors.centerIn: parent
+            spacing: 4
+
+            Repeater {
+                model: root.skinTones
+
+                Rectangle {
+                    required property var modelData
+                    width: 32
+                    height: 32
+                    radius: Styling.radius(4)
+                    color: skinToneMouse.containsMouse ? Styling.srItem("primary") : "transparent"
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: root.activeSkinToneEmoji ? (root.activeSkinToneEmoji.baseEmoji || root.activeSkinToneEmoji.emoji) + modelData.modifier : ""
+                        font.pixelSize: 18
+                    }
+
+                    MouseArea {
+                        id: skinToneMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        onClicked: {
+                            if (root.activeSkinToneEmoji) {
+                                root.copyEmoji(root.activeSkinToneEmoji, modelData.modifier);
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     MouseArea {
         anchors.fill: parent
-        z: -1
-        onClicked: {
-            focusSearchInput();
+        z: 998
+        visible: root.activeSkinToneEmoji != null
+        onClicked: root.activeSkinToneEmoji = null
+    }
+
+    Keys.onPressed: event => {
+        if (event.key === Qt.Key_Escape) {
+            if (activeSkinToneEmoji != null) {
+                activeSkinToneEmoji = null;
+                event.accepted = true;
+            } else if (searchText.length > 0) {
+                searchText = "";
+                event.accepted = true;
+            } else {
+                GlobalStates.emojiVisible = false;
+                GlobalStates.commandPaletteVisible = false;
+                event.accepted = true;
+            }
+        } else if (event.key === Qt.Key_Left) {
+            navLeft();
+            event.accepted = true;
+        } else if (event.key === Qt.Key_Right) {
+            navRight();
+            event.accepted = true;
+        } else if (event.key === Qt.Key_Up) {
+            navUp();
+            event.accepted = true;
+        } else if (event.key === Qt.Key_Down) {
+            navDown();
+            event.accepted = true;
+        } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+            navAccept();
+            event.accepted = true;
         }
     }
 }

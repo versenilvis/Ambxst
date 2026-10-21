@@ -12,7 +12,6 @@ import qs.modules.services
 import qs.config
 import qs.modules.widgets.dashboard.widgets
 import qs.modules.widgets.dashboard.clipboard
-import qs.modules.widgets.dashboard.emoji
 import qs.modules.widgets.dashboard.controls
 
 FloatingWindow {
@@ -29,7 +28,6 @@ FloatingWindow {
     readonly property var tabModel: [
         { name: "Apps", icon: Icons.apps },
         { name: "Clipboard", icon: Icons.clipboard },
-        { name: "Emoji", icon: Icons.emoji },
         { name: "Settings", icon: Icons.gear }
     ]
 
@@ -43,7 +41,6 @@ FloatingWindow {
             { key: "Tab", label: launcherFilesMode ? "switch to apps" : "switch to files" }
         ],
         [{ key: "↵", label: "copy & close" }, { key: "⌘↵", label: "open" }, { key: "⌘P", label: "pin" }],
-        [{ key: "↵", label: "copy & type" }, { key: "↑↓←→", label: "navigate" }],
         [{ key: "↑↓", label: "navigate" }, { key: "↵", label: "select" }, { key: "esc", label: "close" }]
     ]
 
@@ -87,7 +84,6 @@ FloatingWindow {
     readonly property var searchPlaceholders: [
         launcherFilesMode ? "Search files… (Tab for apps)" : "Search apps… (Tab for files)",
         "Search clipboard…",
-        "Search emoji…",
         "Search settings & options…"
     ]
 
@@ -117,8 +113,6 @@ FloatingWindow {
         if (root.currentTab === 1)
             return clipboardLoader.item;
         if (root.currentTab === 2)
-            return emojiLoader.item;
-        if (root.currentTab === 3)
             return settingsLoader.item;
         return null;
     }
@@ -321,29 +315,21 @@ FloatingWindow {
                     // Bare arrows switch tabs only while nothing is typed, so they
                     // never fight the text cursor once the user starts searching.
                     Keys.onLeftPressed: event => {
-                        const t = root.currentTabItem();
                         if (sharedSearch.text.length === 0) {
                             root.cycleTab(-1);
-                        } else if (root.currentTab === 2 && t && t.navLeft) {
-                            t.navLeft();
+                            event.accepted = true;
                         } else {
                             event.accepted = false;
-                            return;
                         }
-                        event.accepted = true;
                     }
 
                     Keys.onRightPressed: event => {
-                        const t = root.currentTabItem();
                         if (sharedSearch.text.length === 0) {
                             root.cycleTab(1);
-                        } else if (root.currentTab === 2 && t && t.navRight) {
-                            t.navRight();
+                            event.accepted = true;
                         } else {
                             event.accepted = false;
-                            return;
                         }
-                        event.accepted = true;
                     }
                 }
 
@@ -501,7 +487,7 @@ FloatingWindow {
                         anchors.fill: parent
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
-                        onClicked: GlobalStates.commandPaletteTab = (root.currentTab === 3 ? 0 : 3)
+                        onClicked: GlobalStates.commandPaletteTab = (root.currentTab === 2 ? 0 : 2)
                     }
                 }
 
@@ -579,26 +565,13 @@ FloatingWindow {
                 }
 
                 Loader {
-                    id: emojiLoader
-                    active: root.currentTab === 2 || emojiLoader.status === Loader.Ready
-                    sourceComponent: EmojiTab {
-                        showSearch: false
-                        onBackspaceOnEmpty: GlobalStates.commandPaletteTab = 0
-                    }
-                    onLoaded: {
-                        if (root.currentTab === 2)
-                            root.focusCurrentTab();
-                    }
-                }
-
-                Loader {
                     id: settingsLoader
-                    active: root.currentTab === 3 || settingsLoader.status === Loader.Ready
+                    active: root.currentTab === 2 || settingsLoader.status === Loader.Ready
                     sourceComponent: SettingsTab {
                         showSearch: false
                     }
                     onLoaded: {
-                        if (root.currentTab === 3)
+                        if (root.currentTab === 2)
                             root.focusCurrentTab();
                     }
                 }
@@ -771,9 +744,9 @@ FloatingWindow {
                             Layout.preferredWidth: 28
                             Layout.preferredHeight: 28
                             iconName: Icons.gear
-                            isActive: root.currentTab === 3
-                            tooltipText: root.currentTab === 3 ? "Back to Apps" : "Settings"
-                            onClicked: GlobalStates.commandPaletteTab = (root.currentTab === 3 ? 0 : 3)
+                            isActive: root.currentTab === 2
+                            tooltipText: root.currentTab === 2 ? "Back to Apps" : "Settings"
+                            onClicked: GlobalStates.commandPaletteTab = (root.currentTab === 2 ? 0 : 2)
                         }
                     }
                 }
