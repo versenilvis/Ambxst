@@ -11,7 +11,11 @@ FocusScope {
 
     property alias actions: repeater.model
     property string layout: "row" // "row" or "grid"
+    property string textPosition: "right" // "right" or "bottom"
     property int buttonSize: 48
+    property int buttonWidth: buttonSize
+    property int buttonHeight: buttonSize
+    property int highlightRadius: Styling.radius(4)
     property int iconSize: 20
     property int spacing: 4
     property int columns: 3 // para layout grid
@@ -98,7 +102,7 @@ FocusScope {
         StyledRect {
             id: highlight
             variant: (repeater.count > 0 && repeater.itemAt(root.currentIndex) && repeater.itemAt(root.currentIndex).actionModel.variant) ? repeater.itemAt(root.currentIndex).actionModel.variant : "primary"
-            radius: Styling.radius(4)
+            radius: root.highlightRadius
             z: 0 // Por debajo de los botones
             visible: repeater.count > 0
 
@@ -203,8 +207,21 @@ FocusScope {
                     readonly property bool isSeparator: (modelData.type === "separator")
                     property var actionModel: modelData
 
-                    implicitWidth: isSeparator ? (root.layout === "row" ? 2 : root.buttonSize) : (root.buttonSize + (hasText ? textMetrics.width + root.textSpacing : 0))
-                    implicitHeight: isSeparator ? (root.layout === "row" ? root.buttonSize : 2) : root.buttonSize
+                    implicitWidth: {
+                        if (isSeparator) {
+                            return root.layout === "row" ? 2 : root.buttonWidth;
+                        }
+                        if (root.textPosition === "bottom") {
+                            return Math.max(root.buttonWidth, hasText ? textMetrics.width + 16 : root.buttonWidth);
+                        }
+                        return root.buttonWidth + (hasText ? textMetrics.width + root.textSpacing : 0);
+                    }
+                    implicitHeight: {
+                        if (isSeparator) {
+                            return root.layout === "row" ? root.buttonHeight : 2;
+                        }
+                        return root.buttonHeight;
+                    }
                     z: 1
 
                     readonly property bool hasText: {
@@ -219,7 +236,7 @@ FocusScope {
                         id: textMetrics
                         text: delegateWrapper.hasText ? modelData.text : ""
                         font.family: Config.defaultFont
-                        font.pixelSize: root.iconSize * 0.7
+                        font.pixelSize: root.textPosition === "bottom" ? Math.max(root.iconSize * 0.55, 10) : root.iconSize * 0.7
                         font.weight: Font.DemiBold
                     }
 
@@ -251,53 +268,111 @@ FocusScope {
 
                         background: Rectangle {
                             color: "transparent"
-                            radius: Styling.radius(4)
+                            radius: root.highlightRadius
                         }
 
                         contentItem: Item {
                             anchors.fill: parent
 
-                            // 1. Icono centrado en el área base del botón (siempre fijo a la izquierda)
-                            Text {
-                                width: root.buttonSize
-                                height: parent.height
-                                anchors.left: parent.left
-                                text: modelData.icon || ""
-                                textFormat: Text.RichText
-                                font.family: Icons.font
-                                font.pixelSize: root.iconSize
-                                color: actionButton.pressed ? Styling.srItem("overprimary") : (index === root.currentIndex ? (highlight.targetItem ? highlight.item : Styling.srItem("primary")) : Colors.overBackground)
-                                horizontalAlignment: Text.AlignHCenter
-                                verticalAlignment: Text.AlignVCenter
+                            // Text positioned below icon
+                            Column {
+                                anchors.centerIn: parent
+                                spacing: 2
+                                visible: root.textPosition === "bottom"
 
-                                Behavior on color {
-                                    enabled: Config.animDuration > 0
-                                    ColorAnimation {
-                                        duration: Config.animDuration / 2
-                                        easing.type: Easing.OutQuart
+                                Text {
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    text: modelData.icon || ""
+                                    textFormat: Text.RichText
+                                    font.family: Icons.font
+                                    font.pixelSize: root.iconSize
+                                    color: actionButton.pressed ? Styling.srItem("overprimary") : (index === root.currentIndex ? (highlight.targetItem ? highlight.item : Styling.srItem("primary")) : (modelData.active ? Styling.srItem("primary") : Colors.overBackground))
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+
+                                    Behavior on color {
+                                        enabled: Config.animDuration > 0
+                                        ColorAnimation {
+                                            duration: Config.animDuration / 2
+                                            easing.type: Easing.OutQuart
+                                        }
                                     }
+                                }
+
+                                Text {
+                                    visible: delegateWrapper.hasText
+                                    text: visible ? modelData.text : ""
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    font.family: Config.defaultFont
+                                    font.pixelSize: Math.max(root.iconSize * 0.55, 10)
+                                    font.weight: Font.DemiBold
+                                    color: actionButton.pressed ? Styling.srItem("overprimary") : (index === root.currentIndex ? (highlight.targetItem ? highlight.item : Styling.srItem("primary")) : (modelData.active ? Styling.srItem("primary") : Colors.overBackground))
+                                    horizontalAlignment: Text.AlignHCenter
+
+                                    Behavior on color {
+                                        enabled: Config.animDuration > 0
+                                        ColorAnimation {
+                                            duration: Config.animDuration / 2
+                                            easing.type: Easing.OutQuart
+                                        }
+                                    }
+                                }
+
+                                Rectangle {
+                                    visible: !!modelData.active && index !== root.currentIndex
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    width: 4
+                                    height: 4
+                                    radius: 2
+                                    color: Styling.srItem("primary")
                                 }
                             }
 
-                            // 2. Texto alineado a la derecha del área base del botón
-                            Text {
-                                visible: delegateWrapper.hasText
-                                text: visible ? modelData.text : ""
-                                anchors.left: parent.left
-                                anchors.leftMargin: root.buttonSize // Empieza justo después del área del icono
-                                anchors.verticalCenter: parent.verticalCenter
+                            // Text positioned to the right of icon (default / legacy)
+                            Item {
+                                anchors.fill: parent
+                                visible: root.textPosition !== "bottom"
 
-                                font.family: Config.defaultFont
-                                font.pixelSize: root.iconSize * 0.7
-                                font.weight: Font.DemiBold
-                                color: actionButton.pressed ? Styling.srItem("overprimary") : (index === root.currentIndex ? (highlight.targetItem ? highlight.item : Styling.srItem("primary")) : Colors.overBackground)
-                                verticalAlignment: Text.AlignVCenter
+                                Text {
+                                    width: root.buttonWidth
+                                    height: parent.height
+                                    anchors.left: parent.left
+                                    text: modelData.icon || ""
+                                    textFormat: Text.RichText
+                                    font.family: Icons.font
+                                    font.pixelSize: root.iconSize
+                                    color: actionButton.pressed ? Styling.srItem("overprimary") : (index === root.currentIndex ? (highlight.targetItem ? highlight.item : Styling.srItem("primary")) : (modelData.active ? Styling.srItem("primary") : Colors.overBackground))
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
 
-                                Behavior on color {
-                                    enabled: Config.animDuration > 0
-                                    ColorAnimation {
-                                        duration: Config.animDuration / 2
-                                        easing.type: Easing.OutQuart
+                                    Behavior on color {
+                                        enabled: Config.animDuration > 0
+                                        ColorAnimation {
+                                            duration: Config.animDuration / 2
+                                            easing.type: Easing.OutQuart
+                                        }
+                                    }
+                                }
+
+                                Text {
+                                    visible: delegateWrapper.hasText
+                                    text: visible ? modelData.text : ""
+                                    anchors.left: parent.left
+                                    anchors.leftMargin: root.buttonWidth
+                                    anchors.verticalCenter: parent.verticalCenter
+
+                                    font.family: Config.defaultFont
+                                    font.pixelSize: root.iconSize * 0.7
+                                    font.weight: Font.DemiBold
+                                    color: actionButton.pressed ? Styling.srItem("overprimary") : (index === root.currentIndex ? (highlight.targetItem ? highlight.item : Styling.srItem("primary")) : (modelData.active ? Styling.srItem("primary") : Colors.overBackground))
+                                    verticalAlignment: Text.AlignVCenter
+
+                                    Behavior on color {
+                                        enabled: Config.animDuration > 0
+                                        ColorAnimation {
+                                            duration: Config.animDuration / 2
+                                            easing.type: Easing.OutQuart
+                                        }
                                     }
                                 }
                             }
@@ -330,6 +405,7 @@ FocusScope {
                         Separator {
                             anchors.centerIn: parent
                             vert: root.layout === "row"
+                            height: (root.layout === "row" && root.textPosition === "bottom") ? Math.round(root.buttonHeight * 0.45) : undefined
                         }
                     }
                 }

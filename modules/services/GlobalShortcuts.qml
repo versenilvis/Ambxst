@@ -72,7 +72,7 @@ Item {
                 }
                 break;
             case "powermenu": toggleSimpleModule("powermenu"); break;
-            case "tools": toggleSimpleModule("tools"); break;
+            case "tools": GlobalStates.screenshotToolVisible = true; break;
             case "config": GlobalStates.settingsVisible = !GlobalStates.settingsVisible; break;
             case "screenshot": GlobalStates.screenshotToolVisible = true; break;
             case "screenrecord": GlobalStates.screenRecordToolVisible = true; break;
@@ -231,9 +231,9 @@ Item {
     GlobalShortcut {
         appid: root.appId
         name: "tools"
-        description: "Toggle tools menu"
+        description: "Open screenshot toolbar"
 
-        onPressed: toggleSimpleModule("tools")
+        onPressed: GlobalStates.screenshotToolVisible = true
     }
 
     GlobalShortcut {

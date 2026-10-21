@@ -1,17 +1,14 @@
 import QtQuick
 import qs.modules.components
 import qs.modules.theme
+import qs.modules.globals
 import qs.modules.services
 
 ToggleButton {
     id: toolsButton
-    buttonIcon: Icons.toolbox
-    tooltipText: "Tools"
+    buttonIcon: Icons.camera
+    tooltipText: "Screenshot"
     onToggle: function () {
-        if (Visibilities.currentActiveModule === "tools") {
-            Visibilities.setActiveModule("");
-        } else {
-            Visibilities.setActiveModule("tools");
-        }
+        GlobalStates.screenshotToolVisible = !GlobalStates.screenshotToolVisible;
     }
 }

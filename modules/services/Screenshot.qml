@@ -159,6 +159,9 @@ QtObject {
                 if (root.captureMode === "lens") {
                     root.runLensScript()
                     root.captureMode = "normal" 
+                } else if (root.captureMode === "ocr") {
+                    root.runOcrScript()
+                    root.captureMode = "normal"
                 } else {
                     copyProcess.running = true
                     root.imageSaved(root.finalPath)
@@ -190,6 +193,31 @@ QtObject {
                 root.errorOccurred("Failed to open Google Lens: " + lensProcess.stderr.text)
             }
         }
+    }
+
+    function runLensScript() {
+        var scriptPath = Quickshell.shellDir + "/scripts/google_lens.sh"
+        lensProcess.command = ["bash", scriptPath, root.finalPath]
+        lensProcess.running = true
+    }
+
+    property Process ocrProcess: Process {
+        id: ocrProcess
+        stdout: StdioCollector {}
+        stderr: StdioCollector {}
+        onExited: exitCode => {
+            if (exitCode === 0) {
+                console.log("Screenshot: OCR executed successfully")
+            } else {
+                root.errorOccurred("Failed to run OCR: " + ocrProcess.stderr.text)
+            }
+        }
+    }
+
+    function runOcrScript() {
+        var scriptPath = Quickshell.shellDir + "/scripts/ocr.sh"
+        ocrProcess.command = [scriptPath, root.finalPath]
+        ocrProcess.running = true
     }
 
     // Prevent double execution
@@ -240,10 +268,10 @@ QtObject {
 
         const isLua = GlobalStates.isLuaParser;
         const warpAway = isLua
-            ? "hyprctl dispatch 'hl.dsp.cursor.move({ x = 999999, y = 999999, exact = true })' >/dev/null 2>&1"
+            ? "hyprctl eval 'hl.config({ cursor = { no_hardware_cursors = false } })' >/dev/null 2>&1; hyprctl dispatch 'hl.dsp.cursor.move({ x = 999999, y = 999999 })' >/dev/null 2>&1"
             : "hyprctl dispatch movecursor 999999 999999 >/dev/null 2>&1";
         const warpBack = isLua
-            ? "hyprctl dispatch \"hl.dsp.cursor.move({ x = $CX, y = $CY, exact = true })\" >/dev/null 2>&1"
+            ? "hyprctl dispatch \"hl.dsp.cursor.move({ x = $CX, y = $CY })\" >/dev/null 2>&1; hyprctl eval 'hl.config({ cursor = { no_hardware_cursors = true } })' >/dev/null 2>&1"
             : "hyprctl dispatch movecursor \"$CX $CY\" >/dev/null 2>&1";
 
         var grimCmds = "";
@@ -257,7 +285,7 @@ QtObject {
         var fullCmd = `CPOS=$(hyprctl cursorpos 2>/dev/null); ` +
                       `CX=$(echo "$CPOS" | cut -d',' -f1 | tr -d ' '); ` +
                       `CY=$(echo "$CPOS" | cut -d',' -f2 | tr -d ' '); ` +
-                      `${warpAway}; ` +
+                      `${warpAway}; sleep 0.05; ` +
                       `${grimCmds}; ` +
                       `if [ -n "$CX" ] && [ -n "$CY" ]; then ${warpBack}; fi`;
 
@@ -403,22 +431,4 @@ QtObject {
         openScreenshotsProcess.running = true;
     }
 
-    function runLensScript() {
-        var scriptPath = Qt.resolvedUrl("../../scripts/google_lens.sh").toString().replace("file://", "");
-        verifyImageProcess.command = ["test", "-f", root.lensPath];
-        verifyImageProcess.running = true;
-    }
-    
-    property Process verifyImageProcess: Process {
-        id: verifyImageProcess
-        onExited: exitCode => {
-            if (exitCode === 0) {
-                var scriptPath = Qt.resolvedUrl("../../scripts/google_lens.sh").toString().replace("file://", "");
-                lensProcess.command = ["bash", scriptPath];
-                lensProcess.running = true;
-            } else {
-                root.errorOccurred("Image file not ready for Google Lens")
-            }
-        }
-    }
 }

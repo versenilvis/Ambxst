@@ -82,15 +82,20 @@ pub fn ocr(langs: Vec<String>) {
         };
 
         let lang_str = if langs.is_empty() {
-            "eng".to_string()
+            "vie+eng".to_string()
         } else {
             langs.join("+")
         };
 
-        let tesseract_out = match execute_with_input(
-            Command::new("tesseract").args(&["-", "-", "-l", &lang_str]),
-            &grim_output
-        ) {
+        let home = std::env::var("HOME").unwrap_or_default();
+        let tessdata_dir = format!("{}/.local/share/tessdata", home);
+        let mut tesseract_cmd = Command::new("tesseract");
+        tesseract_cmd.args(&["-", "-", "-l", &lang_str, "--psm", "6"]);
+        if std::path::Path::new(&tessdata_dir).join("vie.traineddata").exists() {
+            tesseract_cmd.args(&["--tessdata-dir", &tessdata_dir]);
+        }
+
+        let tesseract_out = match execute_with_input(&mut tesseract_cmd, &grim_output) {
             Some(out) => out,
             None => "".to_string(),
         };
