@@ -20,6 +20,11 @@ Rectangle {
     // See ClipboardTab: the palette owns the search field when this is false.
     property bool showSearch: true
     property alias searchText: appLauncher.searchText
+    property alias filesMode: appLauncher.filesMode
+
+    function toggleSearchMode() {
+        appLauncher.toggleSearchMode();
+    }
 
     // The palette owns the visible search field, so it forwards navigation keys
     // here; re-emit them on the (hidden) internal input that already has all the
@@ -95,27 +100,72 @@ Rectangle {
                             appComment: app.comment,
                             appExecString: app.execString,
                             appCategories: app.categories,
-                            appRunInTerminal: app.runInTerminal
+                            appRunInTerminal: app.runInTerminal,
+                            isFile: false,
+                            filePath: ""
                         });
                     }
                     appLauncher.loadedCount = endIndex;
                 }
             }
 
-            function updateFilteredApps() {
-                if (searchText.length > 0) {
-                    AppSearch.searchApps(searchText);
+            property bool filesMode: false
+            property bool isShowingFiles: filesMode
+
+            function toggleSearchMode() {
+                filesMode = !filesMode;
+                isShowingFiles = filesMode;
+                resultsList.enableScrollAnimation = false;
+                resultsList.contentY = 0;
+                if (filesMode) {
+                    if (searchText.length > 0) {
+                        FileSearch.searchFiles(searchText);
+                    } else {
+                        FileSearch.clearSearch();
+                        appsModel.clear();
+                    }
                 } else {
-                    AppSearch.searchApps("");
+                    FileSearch.clearSearch();
+                    updateFilteredApps();
+                    updateAppsModel();
+                }
+                GlobalStates.launcherSelectedIndex = 0;
+                selectedIndex = 0;
+                resultsList.currentIndex = 0;
+                Qt.callLater(() => {
+                    resultsList.enableScrollAnimation = true;
+                });
+            }
+
+            function updateFilteredApps() {
+                if (filesMode) {
+                    isShowingFiles = true;
+                    if (searchText.length > 0) {
+                        FileSearch.searchFiles(searchText);
+                    } else {
+                        FileSearch.clearSearch();
+                        appsModel.clear();
+                    }
+                } else {
+                    isShowingFiles = false;
+                    FileSearch.clearSearch();
+                    if (searchText.length > 0) {
+                        AppSearch.searchApps(searchText);
+                    } else {
+                        AppSearch.searchApps("");
+                    }
                 }
             }
 
             property var searchResultsList: AppSearch.searchResults
             onSearchResultsListChanged: {
-                appLauncher.filteredApps = AppSearch.searchResults;
+                if (!appLauncher.filesMode) {
+                    appLauncher.filteredApps = AppSearch.searchResults;
+                }
             }
 
             onFilteredAppsChanged: {
+                if (appLauncher.filesMode) return;
                 resultsList.enableScrollAnimation = false;
                 resultsList.contentY = 0;
                 if (appLauncher.searchText.length > 0) {
@@ -123,10 +173,68 @@ Rectangle {
                     appLauncher.selectedIndex = 0;
                     resultsList.currentIndex = 0;
                 }
-                updateAppsModel();
+                if (appLauncher.searchText.length > 0 && appLauncher.filteredApps.length === 0) {
+                    appLauncher.isShowingFiles = true;
+                    FileSearch.searchFiles(appLauncher.searchText);
+                } else {
+                    appLauncher.isShowingFiles = false;
+                    FileSearch.clearSearch();
+                    updateAppsModel();
+                }
                 Qt.callLater(() => {
                     resultsList.enableScrollAnimation = true;
                 });
+            }
+
+            Connections {
+                target: FileSearch
+                function onSearchResultsChanged() {
+                    if (appLauncher.isShowingFiles) {
+                        appLauncher.populateFilesModel(FileSearch.searchResults);
+                    }
+                }
+            }
+
+            function getFileIcon(fileName) {
+                if (!fileName) return "text-x-generic";
+                let parts = fileName.split(".");
+                let ext = parts.length > 1 ? parts.pop().toLowerCase() : "";
+                if (["png", "jpg", "jpeg", "gif", "svg", "webp", "bmp", "ico"].includes(ext)) return "image-x-generic";
+                if (["mp4", "mkv", "webm", "avi", "mov", "flv"].includes(ext)) return "video-x-generic";
+                if (["mp3", "flac", "wav", "ogg", "m4a", "opus", "aac"].includes(ext)) return "audio-x-generic";
+                if (["pdf"].includes(ext)) return "application-pdf";
+                if (["zip", "tar", "gz", "7z", "rar", "bz2", "xz"].includes(ext)) return "package-x-generic";
+                if (["js", "ts", "qml", "rs", "py", "c", "cpp", "h", "sh", "json", "html", "css", "md", "txt"].includes(ext)) return "text-x-script";
+                if (!ext) return "folder";
+                return "text-x-generic";
+            }
+
+            function populateFilesModel(files) {
+                incrementalLoader.stop();
+                appsModel.clear();
+                appsById = {};
+                if (!files || files.length === 0) {
+                    return;
+                }
+                for (let i = 0; i < files.length; i++) {
+                    let f = files[i];
+                    appsModel.append({
+                        appId: f.path,
+                        appName: f.name,
+                        appIcon: getFileIcon(f.name),
+                        appComment: f.dir,
+                        appExecString: "",
+                        appCategories: [],
+                        appRunInTerminal: false,
+                        isFile: true,
+                        filePath: f.path
+                    });
+                }
+                if (appLauncher.selectedIndex === -1 || appLauncher.selectedIndex >= appsModel.count) {
+                    GlobalStates.launcherSelectedIndex = 0;
+                    appLauncher.selectedIndex = 0;
+                    resultsList.currentIndex = 0;
+                }
             }
 
             function updateAppsModel() {
@@ -153,7 +261,9 @@ Rectangle {
                         appComment: app.comment,
                         appExecString: app.execString,
                         appCategories: app.categories,
-                        appRunInTerminal: app.runInTerminal
+                        appRunInTerminal: app.runInTerminal,
+                        isFile: false,
+                        filePath: ""
                     });
                 }
                 
@@ -170,7 +280,28 @@ Rectangle {
                     app.execute();
                     UsageTracker.recordUsage(appId);
                     GlobalStates.commandPaletteVisible = false;
+                    return;
                 }
+                for (let i = 0; i < appsModel.count; i++) {
+                    let entry = appsModel.get(i);
+                    if (entry.appId === appId && entry.isFile) {
+                        openFile(entry.filePath || entry.appId);
+                        return;
+                    }
+                }
+            }
+
+            function openFile(filePath) {
+                if (!filePath) return;
+                DesktopService.openFile(filePath);
+                GlobalStates.commandPaletteVisible = false;
+            }
+
+            function revealFileInManager(filePath) {
+                if (!filePath) return;
+                let cmd = "dbus-send --session --dest=org.freedesktop.FileManager1 --type=method_call /org/freedesktop/FileManager1 org.freedesktop.FileManager1.ShowItems array:string:\"file://" + filePath.replace(/"/g, '\\"') + "\" string:\"\" || strata \"$(dirname '" + filePath.replace(/'/g, "'\\''") + "')\" || xdg-open \"$(dirname '" + filePath.replace(/'/g, "'\\''") + "')\"";
+                DesktopService.executeCommand(cmd);
+                GlobalStates.commandPaletteVisible = false;
             }
 
             ListModel {
@@ -214,6 +345,8 @@ Rectangle {
             }
 
             function clearSearch() {
+                filesMode = false;
+                isShowingFiles = false;
                 GlobalStates.clearLauncherState();
                 searchInput.clear();
                 searchInput.focusInput();
@@ -298,41 +431,63 @@ Rectangle {
 
                     onAccepted: {
                         if (appLauncher.expandedItemIndex >= 0) {
-                            let selectedApp = appsModel.get(appLauncher.expandedItemIndex);
-                            if (selectedApp) {
-                                let options = [function () {
-                                        appLauncher.executeApp(selectedApp.appId);
-                                        GlobalStates.commandPaletteVisible = false;
-                                    }, function () {
-                                        TaskbarApps.togglePin(selectedApp.appId);
-                                        appLauncher.expandedItemIndex = -1;
-                                    }, function () {
-                                        let desktopDir = Quickshell.env("XDG_DESKTOP_DIR") || Quickshell.env("HOME") + "/Desktop";
-                                        let timestamp = Date.now();
-                                        let fileName = selectedApp.appId + "-" + timestamp + ".desktop";
-                                        let filePath = desktopDir + "/" + fileName;
+                            let selectedItem = appsModel.get(appLauncher.expandedItemIndex);
+                            if (selectedItem) {
+                                if (selectedItem.isFile) {
+                                    let fileOptions = [
+                                        function () {
+                                            appLauncher.openFile(selectedItem.filePath || selectedItem.appId);
+                                        },
+                                        function () {
+                                            appLauncher.revealFileInManager(selectedItem.filePath || selectedItem.appId);
+                                            appLauncher.expandedItemIndex = -1;
+                                        },
+                                        function () {
+                                            DesktopService.addFileShortcut(selectedItem.filePath || selectedItem.appId, selectedItem.appName);
+                                            appLauncher.expandedItemIndex = -1;
+                                        }
+                                    ];
+                                    if (appLauncher.selectedOptionIndex >= 0 && appLauncher.selectedOptionIndex < fileOptions.length) {
+                                        fileOptions[appLauncher.selectedOptionIndex]();
+                                    }
+                                } else {
+                                    let options = [function () {
+                                            appLauncher.executeApp(selectedItem.appId);
+                                            GlobalStates.commandPaletteVisible = false;
+                                        }, function () {
+                                            TaskbarApps.togglePin(selectedItem.appId);
+                                            appLauncher.expandedItemIndex = -1;
+                                        }, function () {
+                                            let desktopDir = Quickshell.env("XDG_DESKTOP_DIR") || Quickshell.env("HOME") + "/Desktop";
+                                            let fileName = selectedItem.appId.endsWith(".desktop") ? selectedItem.appId : (selectedItem.appId + ".desktop");
+                                            let filePath = desktopDir + "/" + fileName;
 
-                                        let desktopContent = "[Desktop Entry]\n" + "Version=1.0\n" + "Type=Application\n" + "Name=" + selectedApp.appName + "\n" + "Exec=" + selectedApp.appExecString + "\n" + "Icon=" + selectedApp.appIcon + "\n" + (selectedApp.appComment ? "Comment=" + selectedApp.appComment + "\n" : "") + (selectedApp.appCategories.length > 0 ? "Categories=" + selectedApp.appCategories.join(";") + ";\n" : "") + (selectedApp.appRunInTerminal ? "Terminal=true\n" : "Terminal=false\n");
+                                            let desktopContent = "[Desktop Entry]\n" + "Version=1.0\n" + "Type=Application\n" + "Name=" + selectedItem.appName + "\n" + "Exec=" + selectedItem.appExecString + "\n" + "Icon=" + selectedItem.appIcon + "\n" + (selectedItem.appComment ? "Comment=" + selectedItem.appComment + "\n" : "") + (selectedItem.appCategories.length > 0 ? "Categories=" + selectedItem.appCategories.join(";") + ";\n" : "") + (selectedItem.appRunInTerminal ? "Terminal=true\n" : "Terminal=false\n");
 
-                                        let writeCmd = "printf '%s' '" + desktopContent.replace(/'/g, "'\\''") + "' > \"" + filePath + "\" && chmod 755 \"" + filePath + "\" && gio set \"" + filePath + "\" metadata::trusted true";
-                                        copyProcess.command = ["sh", "-c", writeCmd];
-                                        copyProcess.running = true;
-                                        appLauncher.expandedItemIndex = -1;
-                                    }];
+                                            let writeCmd = "printf '%s' '" + desktopContent.replace(/'/g, "'\\''") + "' > \"" + filePath + "\" && chmod 755 \"" + filePath + "\" && gio set \"" + filePath + "\" metadata::trusted true";
+                                            copyProcess.command = ["sh", "-c", writeCmd];
+                                            copyProcess.running = true;
+                                            appLauncher.expandedItemIndex = -1;
+                                        }];
 
-                                if (appLauncher.selectedOptionIndex >= 0 && appLauncher.selectedOptionIndex < options.length) {
-                                    options[appLauncher.selectedOptionIndex]();
+                                    if (appLauncher.selectedOptionIndex >= 0 && appLauncher.selectedOptionIndex < options.length) {
+                                        options[appLauncher.selectedOptionIndex]();
+                                    }
                                 }
                             }
                         } else {
                             let targetIdx = appLauncher.selectedIndex >= 0 ? appLauncher.selectedIndex : 0;
                             if (targetIdx < appsModel.count) {
-                                let selectedApp = appsModel.get(targetIdx);
-                                if (selectedApp) {
-                                    appLauncher.executeApp(selectedApp.appId);
+                                let selectedItem = appsModel.get(targetIdx);
+                                if (selectedItem) {
+                                    if (selectedItem.isFile) {
+                                        appLauncher.openFile(selectedItem.filePath || selectedItem.appId);
+                                    } else {
+                                        appLauncher.executeApp(selectedItem.appId);
+                                    }
                                     GlobalStates.commandPaletteVisible = false;
                                 }
-                            } else if (appLauncher.filteredApps.length > 0) {
+                            } else if (!appLauncher.filesMode && appLauncher.filteredApps.length > 0) {
                                 let fallbackApp = appLauncher.filteredApps[0];
                                 if (fallbackApp) {
                                     appLauncher.executeApp(fallbackApp.id);
@@ -515,6 +670,8 @@ Rectangle {
                         required property string appExecString
                         required property var appCategories
                         required property bool appRunInTerminal
+                        required property bool isFile
+                        required property string filePath
                         required property int index
 
                         property bool isExpanded: index === appLauncher.expandedItemIndex
@@ -560,7 +717,11 @@ Rectangle {
                             onClicked: mouse => {
                                 if (mouse.button === Qt.LeftButton) {
                                     if (!isExpanded) {
-                                        appLauncher.executeApp(appId);
+                                        if (isFile) {
+                                            appLauncher.openFile(filePath || appId);
+                                        } else {
+                                            appLauncher.executeApp(appId);
+                                        }
                                         GlobalStates.commandPaletteVisible = false;
                                     }
                                 } else if (mouse.button === Qt.RightButton) {
@@ -600,13 +761,22 @@ Rectangle {
                                     anchors.fill: parent
                                     source: "image://icon/" + appIcon
                                     fillMode: Image.PreserveAspectFit
-                                    visible: !Config.tintIcons
+                                    visible: !Config.tintIcons && status === Image.Ready
                                     
                                     onStatusChanged: {
-                                        if (status === Image.Error) {
-                                            source = "image://icon/image-missing";
+                                        if (status === Image.Error && !appIcon.startsWith("image-missing")) {
+                                            source = isFile ? "image://icon/text-x-generic" : "image://icon/image-missing";
                                         }
                                     }
+                                }
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    visible: appIconImage.status !== Image.Ready
+                                    text: isFile ? Icons.file : Icons.apps
+                                    font.family: Icons.font
+                                    font.pixelSize: 22
+                                    color: Colors.outline
                                 }
 
                                 Tinted {
@@ -715,7 +885,38 @@ Rectangle {
                                     clip: true
                                     interactive: false
                                     boundsBehavior: Flickable.StopAtBounds
-                                    model: [
+                                    model: isFile ? [
+                                        {
+                                            text: "Open File",
+                                            icon: Icons.launch,
+                                            highlightColor: Styling.srItem("overprimary"),
+                                            textColor: Styling.srItem("primary"),
+                                            action: function () {
+                                                appLauncher.openFile(filePath || appId);
+                                                GlobalStates.commandPaletteVisible = false;
+                                            }
+                                        },
+                                        {
+                                            text: "Show in File Manager",
+                                            icon: Icons.folder,
+                                            highlightColor: Colors.tertiary,
+                                            textColor: Styling.srItem("tertiary"),
+                                            action: function () {
+                                                appLauncher.revealFileInManager(filePath || appId);
+                                                appLauncher.expandedItemIndex = -1;
+                                            }
+                                        },
+                                        {
+                                            text: "Pin to Desktop",
+                                            icon: Icons.shortcut,
+                                            highlightColor: Colors.secondary,
+                                            textColor: Styling.srItem("secondary"),
+                                            action: function () {
+                                                DesktopService.addFileShortcut(filePath || appId, appName);
+                                                appLauncher.expandedItemIndex = -1;
+                                            }
+                                        }
+                                    ] : [
                                         {
                                             text: "Launch",
                                             icon: Icons.launch,
@@ -743,11 +944,10 @@ Rectangle {
                                             textColor: Styling.srItem("secondary"),
                                             action: function () {
                                                 let desktopDir = Quickshell.env("XDG_DESKTOP_DIR") || Quickshell.env("HOME") + "/Desktop";
-                                                let timestamp = Date.now();
-                                                let fileName = appId + "-" + timestamp + ".desktop";
+                                                let fileName = appId.endsWith(".desktop") ? appId : (appId + ".desktop");
                                                 let filePath = desktopDir + "/" + fileName;
 
-                                                let desktopContent = "[Desktop Entry]\n" + "Version=1.0\n" + "Type=Application\n" + "Name=" + selectedApp.appName + "\n" + "Exec=" + selectedApp.appExecString + "\n" + "Icon=" + selectedApp.appIcon + "\n" + (selectedApp.appComment ? "Comment=" + selectedApp.appComment + "\n" : "") + (selectedApp.appCategories.length > 0 ? "Categories=" + selectedApp.appCategories.join(";") + ";\n" : "") + (selectedApp.appRunInTerminal ? "Terminal=true\n" : "Terminal=false\n");
+                                                let desktopContent = "[Desktop Entry]\n" + "Version=1.0\n" + "Type=Application\n" + "Name=" + appName + "\n" + "Exec=" + appExecString + "\n" + "Icon=" + appIcon + "\n" + (appComment ? "Comment=" + appComment + "\n" : "") + (appCategories.length > 0 ? "Categories=" + appCategories.join(";") + ";\n" : "") + (appRunInTerminal ? "Terminal=true\n" : "Terminal=false\n");
 
                                                 let writeCmd = "printf '%s' '" + desktopContent.replace(/'/g, "'\\''") + "' > \"" + filePath + "\" && chmod 755 \"" + filePath + "\" && gio set \"" + filePath + "\" metadata::trusted true";
                                                 copyProcess.command = ["sh", "-c", writeCmd];
@@ -939,10 +1139,28 @@ Rectangle {
 
                     highlightFollowsCurrentItem: false
                 }
+
+                Text {
+                    anchors.centerIn: parent
+                    visible: appsModel.count === 0 && (appLauncher.searchText.length > 0 || appLauncher.filesMode)
+                    text: appLauncher.filesMode
+                        ? (appLauncher.searchText.length > 0 ? "No files found" : "Type to search files…")
+                        : "No applications found"
+                    font.family: Styling.defaultFont
+                    font.pixelSize: Styling.fontSize(0)
+                    color: Colors.outline
+                }
             }
 
             Process {
                 id: copyProcess
+                running: false
+
+                onExited: function (code) {}
+            }
+
+            Process {
+                id: openFileProcess
                 running: false
 
                 onExited: function (code) {}

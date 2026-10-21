@@ -86,6 +86,8 @@ QtObject {
     // Other Toggles
     readonly property string nightLight: ""
     readonly property string caffeine: ""
+    readonly property string drop: "<font face='Symbols Nerd Font'>\uf043</font>"
+    readonly property string droplet: "<font face='Symbols Nerd Font'>\uf043</font>"
     readonly property string gameMode: ""
 
     // Toolbox

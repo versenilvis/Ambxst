@@ -61,11 +61,15 @@ Singleton {
     }
 
     function registerBarPanel(screenName, barPanel) {
-        barPanels[screenName] = barPanel;
+        var copy = Object.assign({}, barPanels);
+        copy[screenName] = barPanel;
+        barPanels = copy;
     }
 
     function unregisterBarPanel(screenName) {
-        delete barPanels[screenName];
+        var copy = Object.assign({}, barPanels);
+        delete copy[screenName];
+        barPanels = copy;
     }
 
     function getBarPanelForScreen(screenName) {
@@ -113,6 +117,14 @@ Singleton {
         }
 
         lastFocusedScreen = focusedScreenName;
+    }
+
+    function toggleModule(moduleName) {
+        if (currentActiveModule === moduleName) {
+            setActiveModule("");
+        } else {
+            setActiveModule(moduleName);
+        }
     }
 
     function moveActiveModuleToFocusedScreen() {

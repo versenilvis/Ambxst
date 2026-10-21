@@ -47,7 +47,7 @@ ActionGrid {
         {
             icon: Icons.logout,
             tooltip: "Exit Hyprland",
-            command: "hyprctl dispatch exit"
+            command: "hyprctl dispatch 'hl.dsp.exit()' 2>/dev/null || hyprctl dispatch exit 2>/dev/null"
         },
         {
             icon: Icons.reboot,

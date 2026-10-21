@@ -22,52 +22,41 @@ Singleton {
     signal linkPreviewReceived(var data)
     signal networkChanged()
 
-    // spawn daemon process
+    // spawn daemon process if not already running
     property Process daemonProc: Process {
         id: daemonProc
-        running: true
-        command: [Quickshell.shellDir + "/ambxst-daemon/target/release/ambxst-daemon"]
-        
-        onExited: exitCode => {
-            console.warn("ambxst-daemon exited with code " + exitCode + ". Restarting...");
-            restartTimer.start();
-        }
-    }
-
-    property Timer restartTimer: Timer {
-        id: restartTimer
-        interval: 1000
-        repeat: false
-        onTriggered: daemonProc.running = true
+        running: false
+        command: [
+            "sh",
+            "-c",
+            "if ! pgrep -x ambxst-daemon >/dev/null; then exec " + Quickshell.shellDir + "/ambxst-daemon/target/release/ambxst-daemon; fi"
+        ]
     }
 
     // socket communication
     function connectSocket() {
-        if (socket) {
-            socket.connected = false;
-            socket.destroy();
-            socket = null;
-        }
-
-        socket = Qt.createQmlObject(`
-            import Quickshell.Io;
-            Socket {
-                path: "${Quickshell.env("XDG_RUNTIME_DIR")}/ambxst-daemon.sock"
-                connected: false
-                parser: SplitParser {
-                    splitMarker: "\\n"
-                    onRead: text => {
-                        root.handleSocketRead(text);
+        if (!socket) {
+            socket = Qt.createQmlObject(`
+                import Quickshell.Io;
+                Socket {
+                    path: "${Quickshell.env("XDG_RUNTIME_DIR")}/ambxst-daemon.sock"
+                    connected: false
+                    parser: SplitParser {
+                        splitMarker: "\\n"
+                        onRead: text => {
+                            root.handleSocketRead(text);
+                        }
+                    }
+                    onError: error => {
+                        console.warn("DaemonClient: Socket error: " + error);
                     }
                 }
-                onError: error => {
-                    console.warn("DaemonClient: Socket error: " + error);
-                    socket.connected = false;
-                }
-            }
-        `, root);
+            `, root);
+        }
 
-        socket.connected = true;
+        if (socket && !socket.connected) {
+            socket.connected = true;
+        }
     }
 
     function handleSocketRead(text) {
@@ -126,7 +115,6 @@ Singleton {
     function sendCommand(cmdObj) {
         if (socket && socket.connected) {
             socket.write(JSON.stringify(cmdObj) + "\n");
-            socket.flush();
         } else {
             console.warn("DaemonClient: Cannot send command, socket not connected");
         }
@@ -169,6 +157,7 @@ Singleton {
     }
 
     Component.onCompleted: {
+        daemonProc.running = true;
         root.connectSocket();
     }
 }

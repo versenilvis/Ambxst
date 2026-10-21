@@ -108,7 +108,13 @@ PanelWindow {
     property Item hoveredItem: null
     readonly property var hoveredMetric: hoveredItem
 
-    visible: (Config.desktop?.resourceWidget ?? true) && !root.activeWindowFullscreen && !root.covered
+    // check if the current workspace is empty or only contains floating windows
+    readonly property bool isWorkspaceEmptyOrFloating: {
+        const windows = HyprlandData.windowList.filter(w => w.workspace.id === root.activeWorkspaceId);
+        return windows.every(w => w.floating === true);
+    }
+
+    visible: (Config.desktop?.resourceWidget ?? true) && !root.activeWindowFullscreen && isWorkspaceEmptyOrFloating
 
     color: "transparent"
     exclusionMode: ExclusionMode.Ignore

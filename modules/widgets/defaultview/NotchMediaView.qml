@@ -8,11 +8,14 @@ import qs.modules.theme
 import qs.modules.services
 import qs.modules.components
 import qs.modules.bar.workspaces
+import qs.modules.globals
 import qs.config
 import "media_detector.js" as MediaDetector
 
 Item {
     id: notchMediaView
+
+    visible: Visibilities.currentActiveModule === ""
 
     property var player: MprisController.activePlayer
     property bool expandedState: false
@@ -59,12 +62,16 @@ Item {
         const desktopEntry = (player.desktopEntry || "").toLowerCase();
         const identity = (player.identity || "").toLowerCase();
 
-        let domain = detectedInfo.domain;
-        if (domain === "youtube.com") return Icons.youtube;
-        if (domain === "spotify.com") return Icons.spotify;
+        let domain = detectedInfo?.domain || "";
+        let artist = ((detectedInfo?.artist || "") + " " + (player.trackArtist || "")).toLowerCase();
+        let title = ((detectedInfo?.title || "") + " " + (player.trackTitle || "")).toLowerCase();
+        let art = (player.trackArtUrl || "").toLowerCase();
 
-        if (dbusName.includes("spotify") || desktopEntry.includes("spotify") || identity.includes("spotify"))
+        if (domain === "youtube.com" || artist.includes("vevo") || title.includes("vevo") || artist.includes("youtube") || title.includes("youtube") || identity.includes("youtube") || art.includes("ytimg") || art.includes("youtube.com"))
+            return Icons.youtube;
+        if (domain === "spotify.com" || dbusName.includes("spotify") || desktopEntry.includes("spotify") || identity.includes("spotify"))
             return Icons.spotify;
+
         if (dbusName.includes("chromium") || dbusName.includes("chrome") || desktopEntry.includes("chromium") || desktopEntry.includes("chrome"))
             return Icons.chromium;
         if (dbusName.includes("firefox") || desktopEntry.includes("firefox"))
@@ -228,9 +235,10 @@ Item {
                     }
                 }
                 
-                // Empty Space (Middle)
+                // Empty center spacer
                 Item {
                     Layout.fillWidth: true
+                    Layout.fillHeight: true
                 }
                 
                 // 3-Bar Equalizer (Far Right)
@@ -325,33 +333,59 @@ Item {
                     // App Logo Overlay
                     Rectangle {
                         id: logoOverlay
-                        width: 32
-                        height: 32
-                        radius: 8
+                        readonly property string currentIcon: notchMediaView.getPlayerIcon(notchMediaView.player)
+                        readonly property bool isYouTubeBadge: currentIcon === Icons.youtube
+                        width: isYouTubeBadge ? 30 : 26
+                        height: isYouTubeBadge ? 22 : 26
+                        radius: isYouTubeBadge ? 6 : 8
                         color: {
+                            if (isYouTubeBadge) return "#FF0000";
+                            if (currentIcon === Icons.spotify) return "#1DB954";
                             if (faviconImage.visible) return "transparent";
-                            let icon = notchMediaView.getPlayerIcon(notchMediaView.player);
-                            if (icon === Icons.spotify) return "#1DB954";
-                            if (icon === Icons.youtube) return "#FF0000";
                             return Colors.surface;
                         }
                         clip: true
                         
                         anchors.right: parent.right
                         anchors.bottom: parent.bottom
-                        anchors.rightMargin: -8
-                        anchors.bottomMargin: -8
+                        anchors.rightMargin: -6
+                        anchors.bottomMargin: -6
                         
                         property string domain: notchMediaView.getMediaDomain(notchMediaView.player)
-                        property string faviconUrl: domain !== "" ? ("https://www.google.com/s2/favicons?domain=" + encodeURIComponent(domain) + "&sz=64") : ""
+                        property string faviconUrl: (!isYouTubeBadge && domain !== "") ? ("https://www.google.com/s2/favicons?domain=" + encodeURIComponent(domain) + "&sz=64") : ""
                         
-                        visible: domain !== "" || notchMediaView.getPlayerIcon(notchMediaView.player) !== Icons.player
+                        visible: domain !== "" || currentIcon !== Icons.player
+
+                        Canvas {
+                            id: notchYtCanvas
+                            visible: logoOverlay.isYouTubeBadge
+                            anchors.centerIn: parent
+                            width: 12
+                            height: 12
+                            antialiasing: true
+                            onPaint: {
+                                var ctx = getContext("2d");
+                                ctx.clearRect(0, 0, width, height);
+                                ctx.fillStyle = "#ffffff";
+                                ctx.beginPath();
+                                ctx.moveTo(3, 2);
+                                ctx.lineTo(10, 6);
+                                ctx.lineTo(3, 10);
+                                ctx.closePath();
+                                ctx.fill();
+                            }
+                            Component.onCompleted: requestPaint()
+                            Connections {
+                                target: logoOverlay
+                                function onIsYouTubeBadgeChanged() { notchYtCanvas.requestPaint(); }
+                            }
+                        }
                         
                         Image {
                             id: faviconImage
                             anchors.fill: parent
                             source: logoOverlay.faviconUrl
-                            visible: status === Image.Ready && source !== ""
+                            visible: !logoOverlay.isYouTubeBadge && status === Image.Ready && source !== ""
                             fillMode: Image.PreserveAspectFit
                             asynchronous: true
                             cache: true
@@ -359,10 +393,10 @@ Item {
                         
                         Text {
                             anchors.centerIn: parent
-                            visible: !faviconImage.visible
-                            text: notchMediaView.getPlayerIcon(notchMediaView.player)
+                            visible: !logoOverlay.isYouTubeBadge && !faviconImage.visible
+                            text: logoOverlay.currentIcon
                             font.family: Icons.font
-                            font.pixelSize: 16
+                            font.pixelSize: 15
                             color: "#FFFFFF"
                             textFormat: Text.RichText
                         }
@@ -375,25 +409,78 @@ Item {
                     Layout.fillHeight: true
                     spacing: 4
                     
-                    // Track Title
-                    Text {
+                    // Title & menu button row
+                    RowLayout {
                         Layout.fillWidth: true
-                        text: notchMediaView.getDisplayTitle(notchMediaView.player)
-                        font.family: Styling.defaultFont
-                        font.pixelSize: Styling.fontSize(3)
-                        font.weight: Font.Bold
-                        color: Colors.overBackground
-                        elide: Text.ElideRight
-                    }
-                    
-                    // Artist Name
-                    Text {
-                        Layout.fillWidth: true
-                        text: notchMediaView.getDisplayArtist(notchMediaView.player)
-                        font.family: Styling.defaultFont
-                        font.pixelSize: Styling.fontSize(1)
-                        color: Qt.darker(Colors.overBackground, 1.2)
-                        elide: Text.ElideRight
+                        spacing: 8
+
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 2
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: notchMediaView.getDisplayTitle(notchMediaView.player)
+                                font.family: Styling.defaultFont
+                                font.pixelSize: Styling.fontSize(3)
+                                font.weight: Font.Bold
+                                color: Colors.overBackground
+                                elide: Text.ElideRight
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: notchMediaView.getDisplayArtist(notchMediaView.player)
+                                font.family: Styling.defaultFont
+                                font.pixelSize: Styling.fontSize(1)
+                                color: Qt.darker(Colors.overBackground, 1.2)
+                                elide: Text.ElideRight
+                            }
+                        }
+
+                        // 2x2 grid menu button
+                        Item {
+                            Layout.preferredWidth: 28
+                            Layout.preferredHeight: 28
+                            Layout.alignment: Qt.AlignTop
+
+                            Rectangle {
+                                anchors.fill: parent
+                                radius: 6
+                                color: menuHover.hovered ? Qt.rgba(1, 1, 1, 0.12) : "transparent"
+                                Behavior on color { ColorAnimation { duration: 120 } }
+                            }
+
+                            Grid {
+                                anchors.centerIn: parent
+                                columns: 2
+                                spacing: 3
+
+                                Repeater {
+                                    model: 4
+                                    Rectangle {
+                                        width: 6
+                                        height: 6
+                                        radius: 2
+                                        color: "transparent"
+                                        border.width: 1.4
+                                        border.color: menuHover.hovered ? "#ffffff" : Qt.rgba(1, 1, 1, 0.7)
+                                        Behavior on border.color { ColorAnimation { duration: 120 } }
+                                    }
+                                }
+                            }
+
+                            HoverHandler { id: menuHover }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: {
+                                    GlobalStates.dashboardCurrentTab = 1;
+                                    Visibilities.setActiveModule("dashboard");
+                                }
+                            }
+                        }
                     }
                     
                     Item { Layout.fillHeight: true } // Spacer
@@ -401,7 +488,7 @@ Item {
                     // Controls Row
                     RowLayout {
                         Layout.fillWidth: true
-                        spacing: 16
+                        spacing: 20
                         
                         Item { Layout.fillWidth: true } // Spacer
                         
@@ -425,14 +512,14 @@ Item {
                             Layout.preferredWidth: 36
                             Layout.preferredHeight: 36
                             radius: 18
-                            color: playHover.hovered ? Colors.primary : Colors.surfaceBright
+                            color: playHover.hovered ? "#e0e7ff" : "#ffffff"
                             
                             Text {
                                 anchors.centerIn: parent
                                 text: notchMediaView.isPlaying ? Icons.pause : Icons.play
                                 font.family: Icons.font
                                 font.pixelSize: 18
-                                color: playHover.hovered ? Colors.overPrimary : Colors.overBackground
+                                color: "#0a0c10"
                             }
                             
                             HoverHandler { id: playHover }

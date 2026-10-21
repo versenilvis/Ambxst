@@ -9,6 +9,7 @@ import qs.modules.globals
 import qs.modules.theme
 import qs.modules.services
 import qs.modules.components
+import qs.modules.bar.workspaces
 import qs.config
 import "."
 
@@ -25,7 +26,7 @@ PanelWindow {
     color: "transparent"
 
     WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
+    WlrLayershell.keyboardFocus: overviewOpen ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
     // Get this screen's visibility state
     readonly property var screenVisibilities: screen ? Visibilities.getForScreen(screen.name) : null
@@ -99,6 +100,16 @@ PanelWindow {
 
         opacity: overviewOpen ? 1 : 0
         scale: overviewOpen ? 1 : 0.9
+        focus: true
+
+        Keys.onReleased: event => {
+            if (event.key === Qt.Key_Alt || event.key === Qt.Key_Meta) {
+                if (overviewOpen && searchInput.text.length === 0 && overviewLoader.item) {
+                    overviewLoader.item.navigateToSelectedWindow();
+                    event.accepted = true;
+                }
+            }
+        }
 
         Behavior on opacity {
             enabled: Config.animDuration > 0
@@ -193,6 +204,12 @@ PanelWindow {
 
                     onAccepted: {
                         if (overviewLoader.item) {
+                            overviewLoader.item.navigateToSelectedWindow();
+                        }
+                    }
+
+                    onAltReleased: {
+                        if (overviewOpen && searchInput.text.length === 0 && overviewLoader.item) {
                             overviewLoader.item.navigateToSelectedWindow();
                         }
                     }
@@ -357,9 +374,29 @@ PanelWindow {
         }
     }
 
+    Connections {
+        target: GlobalStates
+        function onOverviewCycleNext() {
+            if (overviewLoader.item) {
+                overviewLoader.item.selectNextMatch();
+            }
+        }
+        function onOverviewCyclePrev() {
+            if (overviewLoader.item) {
+                overviewLoader.item.selectPrevMatch();
+            }
+        }
+        function onOverviewCommit() {
+            if (overviewOpen && searchInput.text.length === 0 && overviewLoader.item) {
+                overviewLoader.item.navigateToSelectedWindow();
+            }
+        }
+    }
+
     // Ensure focus when overview opens
     onOverviewOpenChanged: {
         if (overviewOpen) {
+            HyprlandData.updateWindowList();
             Qt.callLater(() => {
                 searchInput.clear();
                 if (overviewLoader.item) {

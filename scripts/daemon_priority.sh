@@ -42,5 +42,13 @@ if command -v easyeffects >/dev/null; then
 		echo "EasyEffects is already running"
 	fi
 else
-	echo "Warning: easyeffects not found in PATH"
+# Ambxst Daemon
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+REPO_ROOT=$(dirname "$SCRIPT_DIR")
+DAEMON_BIN="$REPO_ROOT/ambxst-daemon/target/release/ambxst-daemon"
+
+if [ -f "$DAEMON_BIN" ] && ! pgrep -x ambxst-daemon >/dev/null; then
+	echo "Starting ambxst-daemon..."
+	nohup "$DAEMON_BIN" >/dev/null 2>&1 &
 fi
+

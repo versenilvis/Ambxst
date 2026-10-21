@@ -12,7 +12,7 @@ Item {
 
     property var player: null
 
-    property bool isPlaying: player?.playbackState === MprisPlaybackState.Playing
+    property bool isPlaying: (player?.playbackState === MprisPlaybackState.Playing) || (player?.isPlaying === true)
     property real position: player?.position ?? 0.0
     property real length: player?.length ?? 1.0
     property bool hasArtwork: (player?.trackArtUrl ?? "") !== ""

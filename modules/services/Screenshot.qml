@@ -48,31 +48,22 @@ QtObject {
         }
         running: true // Run on load
         onExited: exitCode => {
+            var dir = ""
             if (exitCode === 0) {
-                var dir = xdgProcess.stdout.text.trim()
-                if (dir === "") {
-                    dir = Quickshell.env("HOME") + "/Pictures"
-                }
-                root.screenshotsDir = dir + "/Screenshots"
-                ensureDirProcess.running = true
+                dir = xdgProcess.stdout.text.trim()
             }
+            if (dir === "" || dir === Quickshell.env("HOME")) {
+                dir = Quickshell.env("HOME") + "/Pictures"
+            }
+            root.screenshotsDir = dir + "/Screenshots"
+            root.screenshotsAreaDir = root.screenshotsDir
+            ensureDirProcess.running = true
         }
     }
 
     property Process ensureDirProcess: Process {
         id: ensureDirProcess
         command: ["mkdir", "-p", root.screenshotsDir]
-        onExited: exitCode => {
-            if (exitCode === 0) {
-                root.screenshotsAreaDir = root.screenshotsDir.replace(/\/Screenshots$/, "/Screenshots_Area");
-                ensureAreaDirProcess.running = true;
-            }
-        }
-    }
-
-    property Process ensureAreaDirProcess: Process {
-        id: ensureAreaDirProcess
-        command: ["mkdir", "-p", root.screenshotsAreaDir]
     }
 
     // Dynamic list of freeze processes, managed via bash for simplicity?
@@ -246,20 +237,32 @@ QtObject {
             _freezing = false;
             return;
         }
-        
-        // disable software cursor only if active to avoid unnecessary delay, then restore if it was set
-        var cmd = "PREV=$(hyprctl getoption cursor:no_hardware_cursors -j 2>/dev/null | jq -r '.int'); ";
-        cmd += "if [ \"$PREV\" = \"1\" ]; then (hyprctl eval 'hl.config({ cursor = { no_hardware_cursors = false } })' 2>/dev/null || hyprctl keyword cursor:no_hardware_cursors false 2>/dev/null) >/dev/null 2>&1 && sleep 0.15; fi; ";
+
+        const isLua = GlobalStates.isLuaParser;
+        const warpAway = isLua
+            ? "hyprctl dispatch 'hl.dsp.cursor.move({ x = 999999, y = 999999, exact = true })' >/dev/null 2>&1"
+            : "hyprctl dispatch movecursor 999999 999999 >/dev/null 2>&1";
+        const warpBack = isLua
+            ? "hyprctl dispatch \"hl.dsp.cursor.move({ x = $CX, y = $CY, exact = true })\" >/dev/null 2>&1"
+            : "hyprctl dispatch movecursor \"$CX $CY\" >/dev/null 2>&1";
+
+        var grimCmds = "";
         for (var i = 0; i < root.monitors.length; i++) {
             var m = root.monitors[i];
             var path = root.tempPathBase + "_" + m.name + ".png";
-            // ensure path is quoted safely
-            cmd += `grim -o "${m.name}" "${path}" & `;
+            grimCmds += `grim -l 0 -o "${m.name}" "${path}" & `;
         }
-        cmd += "wait; if [ \"$PREV\" = \"1\" ]; then (hyprctl eval 'hl.config({ cursor = { no_hardware_cursors = true } })' 2>/dev/null || hyprctl keyword cursor:no_hardware_cursors true 2>/dev/null) >/dev/null 2>&1; fi";
-        
-        console.log("Screenshot: Executing freeze batch: " + cmd);
-        freezeProcess.command = ["bash", "-c", cmd];
+        grimCmds += "wait";
+
+        var fullCmd = `CPOS=$(hyprctl cursorpos 2>/dev/null); ` +
+                      `CX=$(echo "$CPOS" | cut -d',' -f1 | tr -d ' '); ` +
+                      `CY=$(echo "$CPOS" | cut -d',' -f2 | tr -d ' '); ` +
+                      `${warpAway}; ` +
+                      `${grimCmds}; ` +
+                      `if [ -n "$CX" ] && [ -n "$CY" ]; then ${warpBack}; fi`;
+
+        console.log("Screenshot: Executing freeze batch: " + fullCmd);
+        freezeProcess.command = ["bash", "-c", fullCmd];
         freezeProcess.running = true;
     }
 
@@ -281,7 +284,7 @@ QtObject {
             root.finalPath = root.lensPath;
         } else {
             if (root.screenshotsAreaDir === "") {
-                root.screenshotsAreaDir = Quickshell.env("HOME") + "/Pictures/Screenshots_Area"
+                root.screenshotsAreaDir = Quickshell.env("HOME") + "/Pictures/Screenshots"
             }
             var filename = "Screenshot_" + getTimestamp() + ".png"
             root.finalPath = root.screenshotsAreaDir + "/" + filename

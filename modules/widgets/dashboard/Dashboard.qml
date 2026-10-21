@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Controls
-import QtQuick.Effects
 import QtQuick.Layouts
 import qs.modules.theme
 import qs.modules.components
@@ -8,468 +7,195 @@ import qs.modules.globals
 import qs.modules.services
 import qs.modules.notch
 import qs.modules.widgets.dashboard.widgets
-import qs.modules.widgets.dashboard.controls
-import qs.modules.widgets.dashboard.clipboard
-import qs.modules.widgets.dashboard.emoji
+import qs.modules.widgets.hydration
 import qs.config
 
 NotchAnimationBehavior {
     id: root
     focus: true
 
-    property int leftPanelWidth
+    property int leftPanelWidth: 0
 
     property var state: QtObject {
         property int currentTab: GlobalStates.dashboardCurrentTab
     }
 
-    readonly property var tabModel: [Icons.widgets]
-    readonly property int tabCount: tabModel.length + 1  // +1 for controls tab at bottom
-    readonly property int tabSpacing: 8
-
-    readonly property int tabWidth: 48
-    readonly property real nonAnimWidth: (state.currentTab === 0 ? 600 : 400) + tabWidth + 16 // unified launcher tab is wider
+    readonly property int tabCount: 3
+    readonly property real nonAnimWidth: 570
+    readonly property real nonAnimHeight: stack.currentItem ? stack.currentItem.implicitHeight : 210
 
     implicitWidth: nonAnimWidth
-    implicitHeight: 430
+    implicitHeight: nonAnimHeight
 
-
-    // Usar el comportamiento estándar de animaciones del notch
     isVisible: GlobalStates.dashboardOpen
 
-    // Navegar a la pestaña seleccionada cuando se abre el dashboard
-    Component.onCompleted: {
-        root.state.currentTab = GlobalStates.dashboardCurrentTab;
+    readonly property bool isMediaPlaying: {
+        let p = MprisController.activePlayer;
+        if (!p) return false;
+        let playing = p.isPlaying === true;
+        let hasTitle = p.trackTitle && p.trackTitle.trim() !== "" && p.trackTitle !== "Unknown Title" && p.trackTitle !== "Unknown Track" && p.trackTitle !== "Unknown";
+        return playing && hasTitle;
     }
 
-    // Focus search input when dashboard opens to different tabs
     onIsVisibleChanged: {
         if (isVisible) {
-            // Check if current item supports focus, otherwise default logic for launcher
-            if (stack.currentItem && stack.currentItem.focusSearchInput) {
-                focusUnifiedLauncherTimer.restart();
-            } else if (GlobalStates.dashboardCurrentTab === 0) {
-                Notifications.hideAllPopups();
-                focusUnifiedLauncherTimer.restart();
+            let targetTab = 1;
+            if (GlobalStates.dashboardCurrentTab === 2) {
+                targetTab = 2;
+            } else if (root.isMediaPlaying) {
+                targetTab = 0;
+            } else {
+                targetTab = 1;
             }
-        } else {
-            // Reset launcher state when dashboard closes
-            GlobalStates.clearLauncherState();
+            stack.navigateToTab(targetTab);
         }
     }
 
-    // Timer para focus en unified launcher tab
-    Timer {
-        id: focusUnifiedLauncherTimer
-        interval: 50
-        repeat: false
-        onTriggered: {
-            if (stack.currentItem && stack.currentItem.focusSearchInput) {
-                stack.currentItem.focusSearchInput();
-            }
-        }
+    Component.onCompleted: {
+        let initialTab = GlobalStates.dashboardCurrentTab === 2 ? 2 : (root.isMediaPlaying ? 0 : 1);
+        root.state.currentTab = initialTab;
+        GlobalStates.dashboardCurrentTab = initialTab;
     }
 
-    // Escuchar cambios en dashboardCurrentTab para navegar automáticamente
+    // sync external changes to current tab
     property int globalDashboardTab: GlobalStates.dashboardCurrentTab
     onGlobalDashboardTabChanged: {
-        if (GlobalStates.dashboardCurrentTab !== root.state.currentTab) {
-            stack.navigateToTab(GlobalStates.dashboardCurrentTab);
+        let target = GlobalStates.dashboardCurrentTab;
+        if (target === 0 && !root.isMediaPlaying) {
+            target = 1;
+            GlobalStates.dashboardCurrentTab = 1;
+        }
+        if (target !== root.state.currentTab) {
+            stack.navigateToTab(target);
         }
     }
 
-    // Focus cuando cambia el texto del launcher (por shortcuts con prefix)
-    property string globalLauncherSearchText: GlobalStates.launcherSearchText
-    onGlobalLauncherSearchTextChanged: {
-        if (isVisible && GlobalStates.dashboardCurrentTab === 0) {
-            focusUnifiedLauncherTimer.restart();
-        }
+    Keys.onEscapePressed: event => {
+        Visibilities.setActiveModule("");
+        event.accepted = true;
     }
 
-    Row {
-        id: mainLayout
+    // main content stack
+    Item {
         anchors.fill: parent
-        spacing: 8
+        clip: true
 
-        // Tab buttons
-        Item {
-            id: tabsContainer
-            width: root.tabWidth
-            height: parent.height
+        StackView {
+            id: stack
+            anchors.fill: parent
 
-            // Manejo del scroll con rueda del mouse
-            WheelHandler {
-                id: wheelHandler
-                acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-
-                onWheel: event => {
-                    // Determinar dirección del scroll
-                    let scrollUp = event.angleDelta.y > 0;
-                    let newIndex = root.state.currentTab;
-
-                    if (scrollUp && newIndex > 0) {
-                        // Scroll hacia arriba = pestaña anterior
-                        newIndex = newIndex - 1;
-                    } else if (!scrollUp && newIndex < root.tabCount - 1) {
-                        // Scroll hacia abajo = pestaña siguiente
-                        newIndex = newIndex + 1;
-                    }
-
-                    // Navegar solo si cambió el índice
-                    if (newIndex !== root.state.currentTab) {
-                        stack.navigateToTab(newIndex);
-                    }
-                }
-            }
-
-            // Background highlight que se desplaza verticalmente con efecto elástico
-            StyledRect {
-                id: tabHighlight
-                variant: "primary"
-                width: parent.width
-                radius: Styling.radius(4)
-                z: 0
-
-                property real idx1: root.state.currentTab
-                property real idx2: root.state.currentTab
-
-                // Calcular posición Y para un índice dado
-                function getYForIndex(idx) {
-                    if (idx < root.tabModel.length) {
-                        return idx * (width + root.tabSpacing);
-                    } else {
-                        // Controls tab está en la parte inferior
-                        return controlsButtonContainer.y;
-                    }
-                }
-
-                property real targetY1: getYForIndex(idx1)
-                property real targetY2: getYForIndex(idx2)
-
-                property real animatedY1: targetY1
-                property real animatedY2: targetY2
-
-                x: 0
-                y: Math.min(animatedY1, animatedY2)
-                height: Math.abs(animatedY2 - animatedY1) + width
-
-                Behavior on animatedY1 {
-                    enabled: Config.animDuration > 0
-                    NumberAnimation {
-                        duration: Config.animDuration / 3
-                        easing.type: Easing.OutSine
-                    }
-                }
-                Behavior on animatedY2 {
-                    enabled: Config.animDuration > 0
-                    NumberAnimation {
-                        duration: Config.animDuration
-                        easing.type: Easing.OutSine
-                    }
-                }
-
-                onTargetY1Changed: animatedY1 = targetY1
-                onTargetY2Changed: animatedY2 = targetY2
-            }
-
-            Column {
-                id: tabs
-                anchors.top: parent.top
-                anchors.left: parent.left
-                anchors.right: parent.right
-                spacing: root.tabSpacing
-
-                Repeater {
-                    model: root.tabModel
-
-                    Button {
-                        required property int index
-                        required property string modelData
-
-                        text: modelData
-                        flat: true
-                        width: tabsContainer.width
-                        height: width
-                        // implicitHeight: (tabsContainer.height - root.tabSpacing * (root.tabCount - 1)) / root.tabCount
-
-                        background: Rectangle {
-                            color: "transparent"
-                            radius: Styling.radius(4)
-                        }
-
-                        contentItem: Text {
-                            text: parent.text
-                            textFormat: Text.RichText
-                            color: root.state.currentTab === index ? Styling.srItem("primary") : Colors.overBackground
-                            // font.family: Config.theme.font
-                            font.family: Icons.font
-                            // font.pixelSize: Config.theme.fontSize
-                            font.pixelSize: 20
-                            font.weight: Font.Medium
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-
-                            Behavior on color {
-                                enabled: Config.animDuration > 0
-                                ColorAnimation {
-                                    duration: Config.animDuration
-                                    easing.type: Easing.OutCubic
-                                }
-                            }
-                        }
-
-                        onClicked: stack.navigateToTab(index)
-                    }
-                }
-            }
-
-            // Controls button (separate at bottom)
-            StyledRect {
-                id: controlsButtonContainer
-                anchors.bottom: parent.bottom
-                anchors.left: parent.left
-                anchors.right: parent.right
-                height: width
-                radius: Styling.radius(4)
-                variant: controlsButton.hovered ? "focus" : "common"
-                z: -1
-
-                opacity: root.state.currentTab === 1 ? 0 : 1
-
-                Behavior on opacity {
-                    enabled: Config.animDuration > 0
-                    NumberAnimation {
-                        duration: Config.animDuration
-                        easing.type: Easing.OutCubic
-                    }
-                }
-            }
-
-            Button {
-                id: controlsButton
-                anchors.bottom: parent.bottom
-                anchors.left: parent.left
-                anchors.right: parent.right
-                height: width
-                flat: true
-                hoverEnabled: true
-                z: 1
-
-                background: Rectangle {
-                    color: "transparent"
-                }
-
-                contentItem: Text {
-                    text: Icons.gear
-                    font.family: Icons.font
-                    font.pixelSize: 20
-                    font.weight: Font.Medium
-                    color: root.state.currentTab === 1 ? Styling.srItem("primary") : Colors.overBackground
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-
-                    Behavior on color {
-                        enabled: Config.animDuration > 0
-                        ColorAnimation {
-                            duration: Config.animDuration
-                            easing.type: Easing.OutCubic
-                        }
-                    }
-                }
-
-                onClicked: stack.navigateToTab(1)
-            }
-        }
-
-        Separator {
-            width: 2
-            height: parent.height
-            vert: true
-        }
-
-        // Content area
-        Rectangle {
-            id: viewWrapper
-
-            color: "transparent"
-
-            width: parent.width - root.tabWidth - 2 - 16 // Ancho total menos tabs, separador y spacings
-            height: parent.height
-
-            clip: true
-
-            StackView {
-                id: stack
+            AppleNowPlayingTab {
+                id: nowPlayingTabItem
+                visible: false
                 anchors.fill: parent
+                onOpenMenu: stack.navigateToTab(1)
+            }
 
-                WidgetsTab { id: widgetsTabItem; leftPanelWidth: root.leftPanelWidth; visible: false }
-                SettingsTab { id: settingsTabItem; visible: false }
+            DashboardMenuView {
+                id: menuTabItem
+                visible: false
+                anchors.fill: parent
+                onRequestBack: stack.navigateToTab(0)
+                onOpenHydration: stack.navigateToTab(2)
+            }
 
-                readonly property var components: [widgetsTabItem, settingsTabItem]
-                initialItem: components[GlobalStates.dashboardCurrentTab]
+            HydrationView {
+                id: hydrationTabItem
+                arrowPosition: "none"
+                anchors.fill: parent
+                visible: false
+                onRequestBack: stack.navigateToTab(1)
+            }
 
-                onCurrentItemChanged: {
-                    if (currentItem) {
-                        if (typeof currentItem.focusSearchInput === "function") {
-                            focusUnifiedLauncherTimer.restart();
-                        }
-                    }
-                }
+            readonly property var components: [nowPlayingTabItem, menuTabItem, hydrationTabItem]
+            initialItem: components[GlobalStates.dashboardCurrentTab === 2 ? 2 : (root.isMediaPlaying ? 0 : 1)]
 
-                function navigateToTab(index) {
-                    if (index >= 0 && index < components.length && index !== root.state.currentTab) {
+            function navigateToTab(index) {
+                if (index >= 0 && index < components.length) {
+                    if (index !== root.state.currentTab) {
                         let targetItem = components[index];
                         let direction = index > root.state.currentTab ? StackView.PushTransition : StackView.PopTransition;
                         stack.replace(targetItem, {}, direction);
-
-                        if (root.state.currentTab === 0 && index !== 0) {
-                            GlobalStates.clearLauncherState();
-                        }
-
-                        root.state.currentTab = index;
-                        GlobalStates.dashboardCurrentTab = index;
-
-                        if (index === 0) {
-                            Notifications.hideAllPopups();
-                            if (typeof currentItem.focusSearchInput === "function")
-                                focusUnifiedLauncherTimer.restart();
-                        }
                     }
+                    root.state.currentTab = index;
+                    GlobalStates.dashboardCurrentTab = index;
                 }
+            }
 
                 pushEnter: Transition {
-                    PropertyAnimation {
-                        property: "y"
-                        from: stack.height
-                        to: 0
-                        duration: Config.animDuration
-                        easing.type: Easing.OutCubic
-                    }
                     PropertyAnimation {
                         property: "opacity"
                         from: 0
                         to: 1
-                        duration: Config.animDuration
+                        duration: 180
                         easing.type: Easing.OutQuart
+                    }
+                    PropertyAnimation {
+                        property: "x"
+                        from: 20
+                        to: 0
+                        duration: 180
+                        easing.type: Easing.OutCubic
                     }
                 }
 
                 pushExit: Transition {
                     PropertyAnimation {
-                        property: "y"
-                        from: 0
-                        to: -stack.height
-                        duration: Config.animDuration
-                        easing.type: Easing.OutCubic
-                    }
-                    PropertyAnimation {
                         property: "opacity"
                         from: 1
                         to: 0
-                        duration: Config.animDuration
+                        duration: 180
                         easing.type: Easing.OutQuart
+                    }
+                    PropertyAnimation {
+                        property: "x"
+                        from: 0
+                        to: -20
+                        duration: 180
+                        easing.type: Easing.OutCubic
                     }
                 }
 
                 popEnter: Transition {
                     PropertyAnimation {
-                        property: "y"
-                        from: -stack.height
-                        to: 0
-                        duration: Config.animDuration
-                        easing.type: Easing.OutCubic
-                    }
-                    PropertyAnimation {
                         property: "opacity"
                         from: 0
                         to: 1
-                        duration: Config.animDuration
+                        duration: 180
                         easing.type: Easing.OutQuart
+                    }
+                    PropertyAnimation {
+                        property: "x"
+                        from: -20
+                        to: 0
+                        duration: 180
+                        easing.type: Easing.OutCubic
                     }
                 }
 
                 popExit: Transition {
                     PropertyAnimation {
-                        property: "y"
-                        from: 0
-                        to: stack.height
-                        duration: Config.animDuration
-                        easing.type: Easing.OutCubic
-                    }
-                    PropertyAnimation {
                         property: "opacity"
                         from: 1
                         to: 0
-                        duration: Config.animDuration
+                        duration: 180
                         easing.type: Easing.OutQuart
                     }
-                }
-
-                // gesture handling for vertical swipe (disabled to prevent blocking child inputs)
-                MouseArea {
-                    anchors.fill: parent
-                    enabled: false
-                    property real startY: 0
-                    property real startX: 0
-                    property bool swiping: false
-                    property real swipeThreshold: 50
-                    property real swipeProgress: 0
-
-                    onPressed: mouse => {
-                        root.forceActiveFocus();
-                        startY = mouse.y;
-                        startX = mouse.x;
-                        swiping = false;
-                        swipeProgress = 0;
-                        // DO NOT accept the event here, so it can propagate to sliders/buttons
-                        // but unfortunately if we don't accept it, we won't get positionChanged.
-                        // However, QML StackView content should still receive it if we use propagateComposedEvents
-                        // and handled correctly. 
-                        // Actually, better: accept it but only if it's not a click or if we are sure.
+                    PropertyAnimation {
+                        property: "x"
+                        from: 0
+                        to: 20
+                        duration: 180
+                        easing.type: Easing.OutCubic
                     }
-
-
-                    onPositionChanged: mouse => {
-                        let deltaY = mouse.y - startY;
-                        let deltaX = Math.abs(mouse.x - startX);
-
-                        // Solo considerar swipe vertical si el movimiento horizontal es mínimo
-                        if (Math.abs(deltaY) > 20 && deltaX < 30) {
-                            swiping = true;
-                            swipeProgress = Math.max(-1, Math.min(1, deltaY / (parent.height * 0.3)));
-                        }
-                    }
-
-                    onReleased: mouse => {
-                        if (swiping) {
-                            let deltaY = mouse.y - startY;
-
-                            if (deltaY < -swipeThreshold && root.state.currentTab < root.tabCount - 1) {
-                                // Swipe hacia arriba - siguiente tab
-                                stack.navigateToTab(root.state.currentTab + 1);
-                            } else if (deltaY > swipeThreshold && root.state.currentTab > 0) {
-                                // Swipe hacia abajo - tab anterior
-                                stack.navigateToTab(root.state.currentTab - 1);
-                            }
-                        }
-
-                        swiping = false;
-                        swipeProgress = 0;
-                    }
-
-                    // Pasar eventos de click a los elementos internos
-                    propagateComposedEvents: true
                 }
             }
         }
-    }
 
-    // Atajos de teclado para navegación
+    // keyboard shortcuts
     Shortcut {
-        id: nextTabShortcut
         sequence: "Ctrl+Tab"
         enabled: GlobalStates.dashboardOpen
-
         onActivated: {
             let nextIndex = (root.state.currentTab + 1) % root.tabCount;
             stack.navigateToTab(nextIndex);
@@ -477,10 +203,8 @@ NotchAnimationBehavior {
     }
 
     Shortcut {
-        id: prevTabShortcut
         sequence: "Ctrl+Shift+Tab"
         enabled: GlobalStates.dashboardOpen
-
         onActivated: {
             let prevIndex = root.state.currentTab - 1;
             if (prevIndex < 0) {
@@ -490,14 +214,12 @@ NotchAnimationBehavior {
         }
     }
 
-    // Animated size properties for smooth transitions
     property real animatedWidth: implicitWidth
     property real animatedHeight: implicitHeight
 
     width: animatedWidth
     height: animatedHeight
 
-    // Update animated properties when implicit properties change
     onImplicitWidthChanged: animatedWidth = implicitWidth
     onImplicitHeightChanged: animatedHeight = implicitHeight
 
@@ -506,7 +228,7 @@ NotchAnimationBehavior {
         NumberAnimation {
             duration: Config.animDuration
             easing.type: Easing.OutBack
-            easing.overshoot: 1.1
+            easing.overshoot: 1.25
         }
     }
 
@@ -515,8 +237,7 @@ NotchAnimationBehavior {
         NumberAnimation {
             duration: Config.animDuration
             easing.type: Easing.OutBack
-            easing.overshoot: 1.1
+            easing.overshoot: 1.25
         }
     }
-
 }

@@ -857,8 +857,8 @@ Singleton {
         }
 
         adapter: JsonAdapter {
-            property bool enabled: false
-            property int iconSize: 40
+            property bool enabled: true
+            property int iconSize: 48
             property int spacingVertical: 16
             property string textColor: "overBackground"
             // Resource rings pinned to the right edge; independent of `enabled`,
@@ -1281,15 +1281,12 @@ Singleton {
                         let action = bind.actions[a];
                         if (action.compositor === undefined) {
                             actionsNeedUpdate = true;
-                            normalizedActions.push({
-                                "dispatcher": action.dispatcher || "",
-                                "argument": action.argument || "",
-                                "flags": action.flags || "",
-                                "compositor": {
-                                    "type": "hyprland",
-                                    "layouts": []
-                                }
-                            });
+                            let normAction = Object.assign({}, action);
+                            normAction.compositor = {
+                                "type": "hyprland",
+                                "layouts": action.layouts || []
+                            };
+                            normalizedActions.push(normAction);
                         } else {
                             normalizedActions.push(action);
                         }
@@ -1449,7 +1446,7 @@ Singleton {
                 "system": {
                     "config": { "modifiers": ["SUPER", "SHIFT"], "key": "C", "dispatcher": "exec", "argument": "ambxst run config", "flags": "" },
                     "lockscreen": { "modifiers": ["SUPER"], "key": "L", "dispatcher": "exec", "argument": "loginctl lock-session", "flags": "" },
-                    "overview": { "modifiers": ["SUPER"], "key": "TAB", "dispatcher": "exec", "argument": "ambxst run overview", "flags": "" },
+                    "overview": { "modifiers": ["ALT"], "key": "TAB", "dispatcher": "exec", "argument": "ambxst run overview", "flags": "" },
                     "powermenu": { "modifiers": ["SUPER"], "key": "ESCAPE", "dispatcher": "exec", "argument": "ambxst run powermenu", "flags": "" },
                     "tools": { "modifiers": ["SUPER"], "key": "S", "dispatcher": "exec", "argument": "ambxst run tools", "flags": "" },
                     "screenshot": { "modifiers": ["SUPER", "SHIFT"], "key": "S", "dispatcher": "exec", "argument": "ambxst run screenshot", "flags": "" },

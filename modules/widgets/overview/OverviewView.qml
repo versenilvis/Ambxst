@@ -64,6 +64,13 @@ Item {
                 }
             }
 
+            Keys.onReleased: event => {
+                if (event.key === Qt.Key_Alt || event.key === Qt.Key_Meta) {
+                    GlobalStates.overviewCommit();
+                    event.accepted = true;
+                }
+            }
+
             Component.onCompleted: {
                 forceActiveFocus();
             }
@@ -79,6 +86,13 @@ Item {
             Keys.onPressed: event => {
                 if (event.key === Qt.Key_Escape) {
                     Visibilities.setActiveModule("");
+                    event.accepted = true;
+                }
+            }
+
+            Keys.onReleased: event => {
+                if (event.key === Qt.Key_Alt || event.key === Qt.Key_Meta) {
+                    GlobalStates.overviewCommit();
                     event.accepted = true;
                 }
             }

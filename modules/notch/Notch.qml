@@ -29,6 +29,7 @@ Item {
         if (hasActiveNotifications) {
             bounceAnimation.start()
         } else {
+            notificationExpanded = false
             triggerCollapseSpring()
         }
     }
@@ -36,6 +37,7 @@ Item {
     Connections {
         target: GlobalStates
         function onNotchBounce() {
+            bounceAnimation.start()
         }
     }
 
@@ -60,22 +62,22 @@ Item {
             NumberAnimation {
                 target: notchRect
                 property: "scaleX"
-                to: 1.22
-                duration: 150
+                to: 1.34
+                duration: 140
                 easing.type: Easing.OutQuad
             }
             NumberAnimation {
                 target: notchRect
                 property: "scaleY"
-                to: 0.75
-                duration: 150
+                to: 0.60
+                duration: 140
                 easing.type: Easing.OutQuad
             }
             NumberAnimation {
                 target: notchRect
                 property: "translateY"
-                to: 16
-                duration: 150
+                to: 26
+                duration: 140
                 easing.type: Easing.OutQuad
             }
         }
@@ -85,14 +87,14 @@ Item {
             NumberAnimation {
                 target: notchRect
                 property: "scaleX"
-                to: 1.08
+                to: 1.15
                 duration: 220
                 easing.type: Easing.OutQuad
             }
             NumberAnimation {
                 target: notchRect
                 property: "scaleY"
-                to: 1.08
+                to: 1.15
                 duration: 220
                 easing.type: Easing.OutQuad
             }
@@ -106,7 +108,9 @@ Item {
 
             ScriptAction {
                 script: {
-                    notchContainer.notificationExpanded = true
+                    if (notchContainer.hasActiveNotifications) {
+                        notchContainer.notificationExpanded = true
+                    }
                 }
             }
         }
@@ -116,14 +120,14 @@ Item {
             NumberAnimation {
                 target: notchRect
                 property: "scaleX"
-                to: 0.97
+                to: 0.95
                 duration: 180
                 easing.type: Easing.OutQuad
             }
             NumberAnimation {
                 target: notchRect
                 property: "scaleY"
-                to: 0.97
+                to: 0.95
                 duration: 180
                 easing.type: Easing.OutQuad
             }
@@ -134,7 +138,7 @@ Item {
             NumberAnimation {
                 target: notchRect
                 property: "scaleX"
-                to: 1.01
+                to: 1.02
                 duration: 150
                 easing.type: Easing.OutQuad
             }
@@ -179,13 +183,13 @@ Item {
         // trigger state collapse
         notchContainer.notificationExpanded = false
 
-        let intensity = 1.0
+        let intensity = 1.35
 
         // apply spring velocity impulses
         if (diffW < 0) {
-            notchRect.velScaleX = (diffW * 0.035) * intensity
-            notchRect.velScaleY = -(diffW * 0.022) * intensity
-            notchRect.velTranslateY = Math.abs(diffW) * 2.8 * intensity
+            notchRect.velScaleX = (diffW * 0.042) * intensity
+            notchRect.velScaleY = -(diffW * 0.026) * intensity
+            notchRect.velTranslateY = Math.abs(diffW) * 3.4 * intensity
         }
 
         physicsTimer.start()
@@ -199,12 +203,12 @@ Item {
 
         onTriggered: {
             let dt = 0.016
-            let tensionX = 60
-            let frictionX = 7
-            let tensionY = 60
-            let frictionY = 7
-            let tensionTransY = 190
-            let frictionTransY = 18
+            let tensionX = 72
+            let frictionX = 6.2
+            let tensionY = 72
+            let frictionY = 6.2
+            let tensionTransY = 210
+            let frictionTransY = 16.5
 
             // scaleX spring solver
             let dispX = notchRect.scaleX - 1.0
@@ -245,7 +249,7 @@ Item {
         }
     }
 
-    property int defaultHeight: Config.showBackground ? Math.max(stackContainer.height, 44) : Math.max(stackContainer.height, 40)
+    property int defaultHeight: Math.max(stackContainer.height, 44)
     property int islandHeight: Math.max(stackContainer.height, 36)
 
     // Corner size calculation for dynamic width (only for default theme)
@@ -262,7 +266,7 @@ Item {
         NumberAnimation {
             duration: Config.animDuration
             easing.type: isExpanded ? Easing.OutBack : Easing.OutQuart
-            easing.overshoot: isExpanded ? 1.2 : 1.0
+            easing.overshoot: isExpanded ? 1.5 : 1.0
         }
     }
 
@@ -271,7 +275,7 @@ Item {
         NumberAnimation {
             duration: Config.animDuration
             easing.type: isExpanded ? Easing.OutBack : Easing.OutQuart
-            easing.overshoot: isExpanded ? 1.2 : 1.0
+            easing.overshoot: isExpanded ? 1.5 : 1.0
         }
     }
 
@@ -299,7 +303,7 @@ Item {
             NumberAnimation {
                 duration: Config.animDuration
                 easing.type: screenNotchOpen || hasActiveNotifications ? Easing.OutBack : Easing.OutQuart
-                easing.overshoot: screenNotchOpen || hasActiveNotifications ? 1.2 : 1.0
+                easing.overshoot: screenNotchOpen || hasActiveNotifications ? 1.35 : 1.0
             }
         }
 
@@ -308,7 +312,7 @@ Item {
             NumberAnimation {
                 duration: Config.animDuration
                 easing.type: screenNotchOpen || hasActiveNotifications ? Easing.OutBack : Easing.OutQuart
-                easing.overshoot: screenNotchOpen || hasActiveNotifications ? 1.2 : 1.0
+                easing.overshoot: screenNotchOpen || hasActiveNotifications ? 1.35 : 1.0
             }
         }
 
@@ -437,7 +441,7 @@ Item {
                 NumberAnimation {
                     duration: Config.animDuration
                     easing.type: screenNotchOpen || hasActiveNotifications ? Easing.OutBack : Easing.OutQuart
-                    easing.overshoot: screenNotchOpen || hasActiveNotifications ? 1.2 : 1.0
+                    easing.overshoot: screenNotchOpen || hasActiveNotifications ? 1.35 : 1.0
                 }
             }
 
@@ -446,7 +450,7 @@ Item {
                 NumberAnimation {
                     duration: Config.animDuration
                     easing.type: screenNotchOpen || hasActiveNotifications ? Easing.OutBack : Easing.OutQuart
-                    easing.overshoot: screenNotchOpen || hasActiveNotifications ? 1.2 : 1.0
+                    easing.overshoot: screenNotchOpen || hasActiveNotifications ? 1.35 : 1.0
                 }
             }
 
@@ -455,7 +459,7 @@ Item {
                 NumberAnimation {
                     duration: Config.animDuration
                     easing.type: screenNotchOpen || hasActiveNotifications ? Easing.OutBack : Easing.OutQuart
-                    easing.overshoot: screenNotchOpen || hasActiveNotifications ? 1.2 : 1.0
+                    easing.overshoot: screenNotchOpen || hasActiveNotifications ? 1.35 : 1.0
                 }
             }
 
@@ -464,7 +468,7 @@ Item {
                 NumberAnimation {
                     duration: Config.animDuration
                     easing.type: screenNotchOpen || hasActiveNotifications ? Easing.OutBack : Easing.OutQuart
-                    easing.overshoot: screenNotchOpen || hasActiveNotifications ? 1.2 : 1.0
+                    easing.overshoot: screenNotchOpen || hasActiveNotifications ? 1.35 : 1.0
                 }
             }
         }
@@ -522,15 +526,37 @@ Item {
                     isShowingNotifications = false;
                 }
 
-                // Activar blur al inicio de transición y animarlo a nítido
                 onBusyChanged: {
                     if (busy) {
                         stackContainer.transitionBlur = 1.0;
                         blurTransitionAnimation.start();
+                    } else {
+                        for (var i = 0; i < depth; i++) {
+                            var it = get(i);
+                            if (it && it !== currentItem) {
+                                it.visible = false;
+                            }
+                        }
+                    }
+                }
+
+                onCurrentItemChanged: {
+                    for (var i = 0; i < depth; i++) {
+                        var it = get(i);
+                        if (it && it !== currentItem) {
+                            it.visible = false;
+                        }
+                    }
+                    if (currentItem) {
+                        currentItem.visible = true;
                     }
                 }
 
                 pushEnter: Transition {
+                    PropertyAction {
+                        property: "visible"
+                        value: true
+                    }
                     PropertyAnimation {
                         property: "opacity"
                         from: 0
@@ -544,7 +570,7 @@ Item {
                         to: 1
                         duration: Config.animDuration
                         easing.type: Easing.OutBack
-                        easing.overshoot: 1.2
+                        easing.overshoot: 1.45
                     }
                 }
 
@@ -563,9 +589,17 @@ Item {
                         duration: Config.animDuration
                         easing.type: Easing.OutQuart
                     }
+                    PropertyAction {
+                        property: "visible"
+                        value: false
+                    }
                 }
 
                 popEnter: Transition {
+                    PropertyAction {
+                        property: "visible"
+                        value: true
+                    }
                     PropertyAnimation {
                         property: "opacity"
                         from: 0
@@ -596,6 +630,10 @@ Item {
                         to: 0.95
                         duration: Config.animDuration
                         easing.type: Easing.OutQuart
+                    }
+                    PropertyAction {
+                        property: "visible"
+                        value: false
                     }
                 }
 
@@ -631,6 +669,10 @@ Item {
                         to: 1.05
                         duration: Config.animDuration
                         easing.type: Easing.OutQuart
+                    }
+                    PropertyAction {
+                        property: "visible"
+                        value: false
                     }
                 }
             }

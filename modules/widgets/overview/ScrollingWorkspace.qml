@@ -665,9 +665,9 @@ Item {
                             if (!windowDelegate.windowData)
                                 return;
                             if (mouse.button === Qt.LeftButton && !windowDelegate.dragging) {
-                                Hyprland.dispatch(`focuswindow address:${windowDelegate.windowData.address}`);
+                                GlobalStates.focusWindow(windowDelegate.windowData.address);
                             } else if (mouse.button === Qt.MiddleButton) {
-                                Hyprland.dispatch(`closewindow address:${windowDelegate.windowData.address}`);
+                                GlobalStates.closeWindow(windowDelegate.windowData.address);
                             }
                         }
 
@@ -677,7 +677,7 @@ Item {
                             if (mouse.button === Qt.LeftButton) {
                                 Visibilities.setActiveModule("", true);
                                 Qt.callLater(() => {
-                                    Hyprland.dispatch(`focuswindow address:${windowDelegate.windowData.address}`);
+                                    GlobalStates.focusWindow(windowDelegate.windowData.address);
                                 });
                             }
                         }

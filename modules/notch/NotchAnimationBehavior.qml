@@ -18,7 +18,7 @@ Item {
         NumberAnimation {
             duration: Config.animDuration
             easing.type: Easing.OutBack
-            easing.overshoot: 1.2
+            easing.overshoot: 1.35
         }
     }
 

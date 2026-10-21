@@ -86,55 +86,22 @@ Examples:
 EOF
 }
 
-find_ambxst_pid() {
-	# Try to find QuickShell process running shell.qml
-	# QuickShell binary can be named 'qs' or 'quickshell'
-	local pid
-
-	# First try with full path (production/flake mode)
-	pid=$(pgrep -f "qs.*${SCRIPT_DIR}/shell.qml" 2>/dev/null | head -1)
-	if [ -z "$pid" ]; then
-		pid=$(pgrep -f "quickshell.*${SCRIPT_DIR}/shell.qml" 2>/dev/null | head -1)
-	fi
-
-	# If not found, try with relative path (development mode)
-	if [ -z "$pid" ]; then
-		pid=$(pgrep -f "qs.*shell.qml" 2>/dev/null | head -1)
-	fi
-	if [ -z "$pid" ]; then
-		pid=$(pgrep -f "quickshell.*shell.qml" 2>/dev/null | head -1)
-	fi
-
-	# Last resort: find any qs/quickshell process in this directory
-	if [ -z "$pid" ]; then
-		pid=$(pgrep -a "qs" 2>/dev/null | grep -F "$SCRIPT_DIR" | awk '{print $1}' | head -1)
-	fi
-	if [ -z "$pid" ]; then
-		pid=$(pgrep -a quickshell 2>/dev/null | grep -F "$SCRIPT_DIR" | awk '{print $1}' | head -1)
-	fi
-
-	echo "$pid"
-}
-
 find_ambxst_pids() {
-	# Same match as find_ambxst_pid, but every instance. Reload must not leave a
-	# second one alive: two shells both push keybinds through `hyprctl eval` and
-	# both claim the daemon socket, which is what kills the super binds and the
-	# app icons.
-	# Matched by process name first, then by cmdline. `pgrep -f` alone also hits
-	# any shell whose command line happens to mention the path - including the
-	# one running this script, which must never be killed.
-	local p
+	local p cmd
 	{
 		pgrep -x qs 2>/dev/null || true
 		pgrep -x quickshell 2>/dev/null || true
 	} | sort -u | while read -r p; do
-		# The pid can be gone already; reading its cmdline is best effort.
 		[ -r "/proc/$p/cmdline" ] || continue
-		if { tr '\0' ' ' <"/proc/$p/cmdline" || true; } 2>/dev/null | grep -qF "${SCRIPT_DIR}/shell.qml"; then
+		cmd=$(tr '\0' ' ' <"/proc/$p/cmdline" 2>/dev/null || true)
+		if echo "$cmd" | grep -qE "(${SCRIPT_DIR}/shell\.qml|[[:space:]]shell\.qml)"; then
 			echo "$p"
 		fi
 	done
+}
+
+find_ambxst_pid() {
+	find_ambxst_pids | head -1
 }
 
 dispatch_dpms() {
@@ -230,9 +197,7 @@ reload)
 	pkill -f "ipc_listener.sh" || true
 	rm -f "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/ambxst-daemon.sock"
 	rm -f /tmp/ambxst_ipc.pipe "${XDG_RUNTIME_DIR:-/tmp}/ambxst-ipc-listener.pid"
-	echo "Starting Ambxst..."
-	# Relaunch the script in background
-	nohup "${SCRIPT_DIR}/cli.sh" >/tmp/ambxst_reload_start.log 2>&1 &
+	nohup setsid "${SCRIPT_DIR}/cli.sh" </dev/null >/tmp/ambxst_reload_start.log 2>&1 &
 	;;
 quit)
 	pkill -f "ipc_listener.sh" || true

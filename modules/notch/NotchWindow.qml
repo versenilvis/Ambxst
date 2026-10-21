@@ -11,6 +11,7 @@ import qs.modules.widgets.defaultview
 import qs.modules.widgets.dashboard
 import qs.modules.widgets.powermenu
 import qs.modules.widgets.tools
+import qs.modules.widgets.hydration
 import qs.modules.services
 import qs.modules.components
 import qs.config
@@ -96,13 +97,8 @@ PanelWindow {
     // Get the bar panel for this screen to check its state
     readonly property var barPanelRef: screen ? Visibilities.barPanels[screen.name] : null
 
-    // Check if bar is pinned (use bar state directly)
-    readonly property bool barPinned: {
-        if (barPanelRef && typeof barPanelRef.pinned !== 'undefined') {
-            return barPanelRef.pinned;
-        }
-        return Config.bar?.pinnedOnStartup ?? true;
-    }
+    // Check if bar is pinned (use centralized state)
+    readonly property bool barPinned: GlobalStates.barPinned
     
     // Check if bar is hovering (for synchronized reveal when bar is at top)
     readonly property bool barHoverActive: {
@@ -142,7 +138,16 @@ PanelWindow {
     // Track if mouse is over any notch-related area
     readonly property bool isMouseOverNotch: notchMouseAreaHover.hovered || notchRegionHover.hovered
 
-    // Reveal logic:
+    readonly property HyprlandMonitor hyprlandMonitor: Hyprland.monitorFor(notchPanel.screen)
+    readonly property int activeWorkspaceId: hyprlandMonitor?.activeWorkspace?.id ?? 1
+
+    // check if the current workspace is empty or only contains floating windows
+    readonly property bool isWorkspaceEmptyOrFloating: {
+        const windows = HyprlandData.windowList.filter(w => w.workspace.id === activeWorkspaceId);
+        return windows.every(w => w.floating === true);
+    }
+
+    // reveal logic: show when pinned, open, notification, hover, or empty workspace
     readonly property bool reveal: {
         // If not auto-hiding (pinned and not fullscreen), always show
         if (!shouldAutoHide) return true;
@@ -153,9 +158,8 @@ PanelWindow {
             return true;
         }
         
-        // Show on desktop (no active window) - but NOT if fullscreen mode forced auto-hide
-        // (activeWindowFullscreen implies there IS an active window)
-        if (!activeWindowFullscreen && !ToplevelManager.activeToplevel?.activated) {
+        // show on empty or floating workspace (or desktop with no active window)
+        if (!activeWindowFullscreen && (isWorkspaceEmptyOrFloating || !ToplevelManager.activeToplevel?.activated)) {
             return true;
         }
         
@@ -304,8 +308,8 @@ PanelWindow {
             id: notchAnimationContainer
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.top: parent.top
-            width: notchContainer.width
-            height: notchContainer.height + notchContainer.anchors.topMargin
+            width: notchContainer.width + (hydrationCircleBtn.visible ? (hydrationCircleBtn.width + 12) * 2 : 0)
+            height: Math.max(notchContainer.height + notchContainer.anchors.topMargin, hydrationCircleBtn.visible ? 44 : 0)
 
             // Opacity animation
             opacity: notchPanel.reveal ? 1 : 0
@@ -349,6 +353,26 @@ PanelWindow {
                     if (event.key === Qt.Key_Escape && notchPanel.screenNotchOpen) {
                         Visibilities.setActiveModule("");
                         event.accepted = true;
+                    }
+                }
+            }
+
+            // Standalone circular hydration button to the right of the notch
+            HydrationButton {
+                id: hydrationCircleBtn
+                anchors.left: notchContainer.right
+                anchors.leftMargin: 8
+                anchors.top: notchAnimationContainer.top
+                anchors.topMargin: (Config.notchTheme === "default" ? 4 : 8)
+
+                visible: HydrationService.enabled && opacity > 0
+                opacity: (HydrationService.enabled && !notchPanel.screenNotchOpen) ? 1.0 : 0.0
+
+                Behavior on opacity {
+                    enabled: Config.animDuration > 0
+                    NumberAnimation {
+                        duration: Config.animDuration / 2
+                        easing.type: Easing.OutQuart
                     }
                 }
             }

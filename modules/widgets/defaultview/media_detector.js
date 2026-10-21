@@ -24,34 +24,42 @@ function detectMedia(player, windowList) {
     if (domainCache[trackTitle]) {
         domain = domainCache[trackTitle];
     } else {
-        // detect domain and website first
         let trackArtUrl = (player.trackArtUrl || "").toLowerCase();
         let mUrl = (player.metadata && (player.metadata["xesam:url"] || player.metadata["url"]) || "").toLowerCase();
-        if (cleanTitle.toLowerCase().includes("youtube") || identity.includes("youtube") || dbusName.includes("youtube") || desktopEntry.includes("youtube") || trackArtUrl.includes("ytimg.com") || trackArtUrl.includes("youtube.com") || mUrl.includes("youtube.com") || mUrl.includes("youtu.be")) {
+        let artistLower = trackArtist.toLowerCase();
+        let titleLower = cleanTitle.toLowerCase();
+
+        if (titleLower.includes("youtube") || artistLower.includes("youtube") || artistLower.includes("vevo") || titleLower.includes("vevo") || identity.includes("youtube") || dbusName.includes("youtube") || desktopEntry.includes("youtube") || trackArtUrl.includes("ytimg.com") || trackArtUrl.includes("youtube.com") || mUrl.includes("youtube.com") || mUrl.includes("youtu.be")) {
             domain = "youtube.com";
-        } else if (cleanTitle.toLowerCase().includes("on x") || cleanTitle.toLowerCase().includes(" / x") || identity.includes("twitter") || dbusName.includes("twitter") || trackArtUrl.includes("twimg.com") || trackArtUrl.includes("twitter.com") || mUrl.includes("x.com") || mUrl.includes("twitter.com")) {
+        } else if (titleLower.includes("on x") || titleLower.includes(" / x") || identity.includes("twitter") || dbusName.includes("twitter") || trackArtUrl.includes("twimg.com") || trackArtUrl.includes("twitter.com") || mUrl.includes("x.com") || mUrl.includes("twitter.com")) {
             domain = "x.com";
-        } else if (identity.includes("spotify") || dbusName.includes("spotify") || desktopEntry.includes("spotify") || cleanTitle.toLowerCase().includes("spotify") || mUrl.includes("spotify.com")) {
+        } else if (identity.includes("spotify") || dbusName.includes("spotify") || desktopEntry.includes("spotify") || titleLower.includes("spotify") || mUrl.includes("spotify.com")) {
             domain = "spotify.com";
-        } else if (cleanTitle.toLowerCase().includes("soundcloud") || trackArtUrl.includes("sndcdn.com") || trackArtUrl.includes("soundcloud.com") || mUrl.includes("soundcloud.com")) {
+        } else if (titleLower.includes("soundcloud") || trackArtUrl.includes("sndcdn.com") || trackArtUrl.includes("soundcloud.com") || mUrl.includes("soundcloud.com")) {
             domain = "soundcloud.com";
-        } else if (cleanTitle.toLowerCase().includes("twitch") || mUrl.includes("twitch.tv")) {
+        } else if (titleLower.includes("twitch") || mUrl.includes("twitch.tv")) {
             domain = "twitch.tv";
-        } else if (cleanTitle.toLowerCase().includes("facebook") || trackArtUrl.includes("fbcdn.net") || trackArtUrl.includes("facebook.com") || mUrl.includes("facebook.com")) {
+        } else if (titleLower.includes("facebook") || trackArtUrl.includes("fbcdn.net") || trackArtUrl.includes("facebook.com") || mUrl.includes("facebook.com")) {
             domain = "facebook.com";
-        } else if (cleanTitle.toLowerCase().includes("reddit") || mUrl.includes("reddit.com")) {
+        } else if (titleLower.includes("reddit") || mUrl.includes("reddit.com")) {
             domain = "reddit.com";
-        } else if (cleanTitle.toLowerCase().includes("netflix") || mUrl.includes("netflix.com")) {
+        } else if (titleLower.includes("netflix") || mUrl.includes("netflix.com")) {
             domain = "netflix.com";
         }
 
-        // search window list if domain is still empty and it is a browser
-        if (domain === "" && windowList && (dbusName.includes("chromium") || dbusName.includes("chrome") || dbusName.includes("firefox"))) {
+        // search window list if domain is still empty
+        if (domain === "" && windowList && windowList.length > 0) {
             for (let i = 0; i < windowList.length; i++) {
                 let client = windowList[i];
                 let wt = (client.title || "").toLowerCase();
-                if (trackTitle !== "" && wt.includes(trackTitle.toLowerCase())) {
-                    if (wt.includes("youtube")) {
+                let cClass = (client.class || "").toLowerCase();
+                let isBrowser = cClass.includes("chrome") || cClass.includes("chromium") || cClass.includes("brave") || cClass.includes("firefox") || cClass.includes("zen") || cClass.includes("helium") || cClass.includes("opera") || cClass.includes("vivaldi") || cClass.includes("edge");
+                if (isBrowser && (wt.includes("youtube") || wt.includes("youtu.be"))) {
+                    domain = "youtube.com";
+                    break;
+                }
+                if (trackTitle !== "" && (wt.includes(trackTitle.toLowerCase()) || trackTitle.toLowerCase().includes(wt))) {
+                    if (wt.includes("youtube") || wt.includes("youtu.be")) {
                         domain = "youtube.com";
                         break;
                     }

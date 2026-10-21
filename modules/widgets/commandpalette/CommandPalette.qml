@@ -30,16 +30,20 @@ FloatingWindow {
         { name: "Apps", icon: Icons.apps },
         { name: "Clipboard", icon: Icons.clipboard },
         { name: "Emoji", icon: Icons.emoji },
-        { name: "Files", icon: Icons.file },
         { name: "Settings", icon: Icons.gear }
     ]
 
+    readonly property bool launcherFilesMode: (widgetsLoader.item && widgetsLoader.item.filesMode) ? true : false
+
     // Footer hints are per tab: the palette tells you what Enter does *here*
     readonly property var tabHints: [
-        [{ key: "↑↓", label: "navigate" }, { key: "↵", label: "open" }, { key: "clip", label: "jump to clipboard" }],
+        [
+            { key: "↑↓", label: "navigate" },
+            { key: "↵", label: "open" },
+            { key: "Tab", label: launcherFilesMode ? "switch to apps" : "switch to files" }
+        ],
         [{ key: "↵", label: "copy & close" }, { key: "⌘↵", label: "open" }, { key: "⌘P", label: "pin" }],
         [{ key: "↵", label: "copy & type" }, { key: "↑↓←→", label: "navigate" }],
-        [{ key: "↑↓", label: "navigate" }, { key: "↵", label: "open" }],
         [{ key: "↑↓", label: "navigate" }, { key: "↵", label: "select" }, { key: "esc", label: "close" }]
     ]
 
@@ -80,7 +84,12 @@ FloatingWindow {
         }
     }
 
-    readonly property var searchPlaceholders: ["Search applications…", "Search clipboard…", "Search emoji…", "Search files…", "Search settings & options…"]
+    readonly property var searchPlaceholders: [
+        launcherFilesMode ? "Search files… (Tab for apps)" : "Search apps… (Tab for files)",
+        "Search clipboard…",
+        "Search emoji…",
+        "Search settings & options…"
+    ]
 
     // Route the shared field's text to whichever tab is showing. Apps also mirrors
     // into GlobalStates because its launcher already reads from there.
@@ -110,8 +119,6 @@ FloatingWindow {
         if (root.currentTab === 2)
             return emojiLoader.item;
         if (root.currentTab === 3)
-            return filesLoader.item;
-        if (root.currentTab === 4)
             return settingsLoader.item;
         return null;
     }
@@ -130,6 +137,9 @@ FloatingWindow {
             // Clearing the field also routes "" through applySearch, which resets the
             // active tab's own searchText and the launcher state it mirrors.
             sharedSearch.text = "";
+            if (widgetsLoader.item && widgetsLoader.item.filesMode) {
+                widgetsLoader.item.filesMode = false;
+            }
             GlobalStates.clearLauncherState();
             if (clipboardLoader.item && typeof clipboardLoader.item.resetToTop === "function") {
                 clipboardLoader.item.resetToTop();
@@ -139,6 +149,9 @@ FloatingWindow {
 
     onCurrentTabChanged: {
         sharedSearch.text = "";
+        if (widgetsLoader.item && widgetsLoader.item.filesMode) {
+            widgetsLoader.item.filesMode = false;
+        }
         if (visible) {
             focusCurrentTab();
             if (root.currentTab === 1 && clipboardLoader.item && typeof clipboardLoader.item.resetToTop === "function") {
@@ -168,11 +181,11 @@ FloatingWindow {
             } else if (text === "settings " || text === "setting " || text === "config ") {
                 if (widgetsLoader.item)
                     widgetsLoader.item.clearSearch();
-                GlobalStates.commandPaletteTab = 4;
+                GlobalStates.commandPaletteTab = 3;
             } else if (text === "audio " || text === "sound " || text === "vol ") {
                 if (widgetsLoader.item)
                     widgetsLoader.item.clearSearch();
-                GlobalStates.commandPaletteTab = 4;
+                GlobalStates.commandPaletteTab = 3;
                 if (settingsLoader.item) {
                     settingsLoader.item.currentSection = 2;
                 }
@@ -233,7 +246,9 @@ FloatingWindow {
 
                 // The active tab's own glyph, so the field says what it is searching
                 Text {
-                    text: root.tabModel[root.currentTab].icon
+                    text: (root.currentTab === 0 && root.launcherFilesMode)
+                        ? Icons.folder
+                        : root.tabModel[root.currentTab].icon
                     font.family: Icons.font
                     font.pixelSize: 21
                     color: Colors.outline
@@ -253,6 +268,24 @@ FloatingWindow {
                     onTextChanged: root.applySearch(text)
 
                     Keys.onEscapePressed: GlobalStates.commandPaletteVisible = false
+
+                    Keys.onTabPressed: event => {
+                        if (root.currentTab === 0 && widgetsLoader.item && typeof widgetsLoader.item.toggleSearchMode === "function") {
+                            widgetsLoader.item.toggleSearchMode();
+                            event.accepted = true;
+                        } else {
+                            event.accepted = false;
+                        }
+                    }
+
+                    Keys.onBacktabPressed: event => {
+                        if (root.currentTab === 0 && widgetsLoader.item && typeof widgetsLoader.item.toggleSearchMode === "function") {
+                            widgetsLoader.item.toggleSearchMode();
+                            event.accepted = true;
+                        } else {
+                            event.accepted = false;
+                        }
+                    }
 
                     // Navigation keys belong to the active tab's list, not the text
                     // cursor: forward them to whichever tab is showing.
@@ -311,6 +344,65 @@ FloatingWindow {
                             return;
                         }
                         event.accepted = true;
+                    }
+                }
+
+                Rectangle {
+                    visible: root.currentTab === 0 && widgetsLoader.item !== null
+                    implicitWidth: modePillRow.implicitWidth + 18
+                    implicitHeight: 28
+                    radius: Styling.radius(-4)
+                    color: root.launcherFilesMode ? Colors.secondaryContainer : Colors.surfaceContainerLowest
+                    border.color: Colors.outline
+                    border.width: 1
+
+                    RowLayout {
+                        id: modePillRow
+                        anchors.centerIn: parent
+                        spacing: 6
+
+                        Text {
+                            text: root.launcherFilesMode ? Icons.folder : Icons.apps
+                            font.family: Icons.font
+                            font.pixelSize: 14
+                            color: Colors.overBackground
+                        }
+
+                        Text {
+                            text: root.launcherFilesMode ? "Files" : "Apps"
+                            font.family: Styling.defaultFont
+                            font.pixelSize: Styling.fontSize(-1)
+                            font.weight: Font.DemiBold
+                            color: Colors.overBackground
+                        }
+
+                        Rectangle {
+                            implicitWidth: tabKeyText.implicitWidth + 8
+                            implicitHeight: 18
+                            radius: 3
+                            color: Colors.surfaceContainerHigh
+
+                            Text {
+                                id: tabKeyText
+                                anchors.centerIn: parent
+                                text: "Tab ⇄"
+                                font.family: Styling.defaultFont
+                                font.pixelSize: Styling.fontSize(-3)
+                                font.weight: Font.Medium
+                                color: Colors.outline
+                            }
+                        }
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            if (widgetsLoader.item && typeof widgetsLoader.item.toggleSearchMode === "function") {
+                                widgetsLoader.item.toggleSearchMode();
+                                sharedSearch.forceActiveFocus();
+                            }
+                        }
                     }
                 }
             }
@@ -409,7 +501,7 @@ FloatingWindow {
                         anchors.fill: parent
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
-                        onClicked: GlobalStates.commandPaletteTab = (root.currentTab === 4 ? 0 : 4)
+                        onClicked: GlobalStates.commandPaletteTab = (root.currentTab === 3 ? 0 : 3)
                     }
                 }
 
@@ -490,7 +582,6 @@ FloatingWindow {
                     id: emojiLoader
                     active: root.currentTab === 2 || emojiLoader.status === Loader.Ready
                     sourceComponent: EmojiTab {
-                        leftPanelWidth: 270
                         showSearch: false
                         onBackspaceOnEmpty: GlobalStates.commandPaletteTab = 0
                     }
@@ -501,25 +592,13 @@ FloatingWindow {
                 }
 
                 Loader {
-                    id: filesLoader
-                    active: root.currentTab === 3 || filesLoader.status === Loader.Ready
-                    sourceComponent: FilesTab {
-                        showSearch: false
-                    }
-                    onLoaded: {
-                        if (root.currentTab === 3)
-                            root.focusCurrentTab();
-                    }
-                }
-
-                Loader {
                     id: settingsLoader
-                    active: root.currentTab === 4 || settingsLoader.status === Loader.Ready
+                    active: root.currentTab === 3 || settingsLoader.status === Loader.Ready
                     sourceComponent: SettingsTab {
                         showSearch: false
                     }
                     onLoaded: {
-                        if (root.currentTab === 4)
+                        if (root.currentTab === 3)
                             root.focusCurrentTab();
                     }
                 }
@@ -692,9 +771,9 @@ FloatingWindow {
                             Layout.preferredWidth: 28
                             Layout.preferredHeight: 28
                             iconName: Icons.gear
-                            isActive: root.currentTab === 4
-                            tooltipText: root.currentTab === 4 ? "Back to Apps" : "Settings"
-                            onClicked: GlobalStates.commandPaletteTab = (root.currentTab === 4 ? 0 : 4)
+                            isActive: root.currentTab === 3
+                            tooltipText: root.currentTab === 3 ? "Back to Apps" : "Settings"
+                            onClicked: GlobalStates.commandPaletteTab = (root.currentTab === 3 ? 0 : 3)
                         }
                     }
                 }

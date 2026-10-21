@@ -25,6 +25,7 @@ StyledRect {
     signal backspaceOnEmpty  // Signal when backspace is pressed on empty text
     signal tabPressed
     signal shiftTabPressed
+    signal altReleased
     signal ctrlRPressed
     signal ctrlPPressed
     signal ctrlUpPressed
@@ -167,6 +168,12 @@ StyledRect {
                 } else if (event.key === Qt.Key_End) {
                     root.endPressed();
                     event.accepted = true;
+                }
+            }
+
+            Keys.onReleased: event => {
+                if (event.key === Qt.Key_Alt || event.key === Qt.Key_Meta) {
+                    root.altReleased();
                 }
             }
         }

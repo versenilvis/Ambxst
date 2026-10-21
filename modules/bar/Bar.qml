@@ -26,9 +26,12 @@ PanelWindow {
 
     property string barPosition: ["top", "bottom", "left", "right"].includes(Config.bar.position) ? Config.bar.position : "top"
     property string orientation: barPosition === "left" || barPosition === "right" ? "vertical" : "horizontal"
+    readonly property int barMargin: 4
+    readonly property int pillSize: 36
+    readonly property int barTotalSize: pillSize + barMargin * 2
 
     // Auto-hide properties
-    property bool pinned: Config.bar?.pinnedOnStartup ?? true
+    property bool pinned: GlobalStates.barPinned
 
     // Fullscreen detection - check if active toplevel is fullscreen on this screen
     readonly property bool activeWindowFullscreen: {
@@ -52,8 +55,25 @@ PanelWindow {
     // Track if mouse is over bar area
     readonly property bool isMouseOverBar: barMouseArea.containsMouse
 
-    // Reveal logic: bar visibility is purely controlled by shouldAutoHide (pinned and fullscreen states)
-    readonly property bool reveal: !shouldAutoHide
+    readonly property HyprlandMonitor hyprlandMonitor: Hyprland.monitorFor(panel.screen)
+    readonly property int activeWorkspaceId: hyprlandMonitor?.activeWorkspace?.id ?? 1
+
+    // check if the current workspace is empty or only contains floating windows
+    readonly property bool isWorkspaceEmptyOrFloating: {
+        const windows = HyprlandData.windowList.filter(w => w.workspace.id === activeWorkspaceId);
+        return windows.every(w => w.floating === true);
+    }
+
+    // reveal logic: show when pinned, hover, or empty/floating workspace
+    readonly property bool reveal: {
+        if (activeWindowFullscreen) {
+            return (Config.bar?.availableOnFullscreen ?? false) && (Config.bar?.hoverToReveal && hoverActive);
+        }
+
+        return panel.pinned 
+            || (Config.bar?.hoverToReveal && hoverActive)
+            || isWorkspaceEmptyOrFloating;
+    }
 
     // Timer to delay hiding the bar after mouse leaves
     Timer {
@@ -118,8 +138,8 @@ PanelWindow {
     WlrLayershell.layer: WlrLayer.Overlay
 
 
-    // Reserve space only when revealed and pinned (not in auto-hide mode or fullscreen)
-    exclusiveZone: (reveal && pinned && !activeWindowFullscreen) ? (Config.showBackground ? 44 : 40) : 0
+    // reserve space only when revealed and pinned (not in auto-hide mode or fullscreen)
+    exclusiveZone: (reveal && pinned && !activeWindowFullscreen) ? panel.barTotalSize : 0
     exclusionMode: ExclusionMode.Ignore
 
     // Altura implicita incluye espacio extra para animaciones / futuros elementos.
@@ -296,7 +316,7 @@ PanelWindow {
                     PropertyChanges {
                         target: bar
                         width: undefined
-                        height: 44
+                        height: panel.barTotalSize
                     }
                 },
                 State {
@@ -312,7 +332,7 @@ PanelWindow {
                     PropertyChanges {
                         target: bar
                         width: undefined
-                        height: 44
+                        height: panel.barTotalSize
                     }
                 },
                 State {
@@ -327,7 +347,7 @@ PanelWindow {
                     }
                     PropertyChanges {
                         target: bar
-                        width: 44
+                        width: panel.barTotalSize
                         height: undefined
                     }
                 },
@@ -343,7 +363,7 @@ PanelWindow {
                     }
                     PropertyChanges {
                         target: bar
-                        width: 44
+                        width: panel.barTotalSize
                         height: undefined
                     }
                 }
@@ -359,7 +379,7 @@ PanelWindow {
                 id: horizontalLayout
                 visible: panel.orientation === "horizontal"
                 anchors.fill: parent
-                anchors.margins: 4
+                anchors.margins: panel.barMargin
                 spacing: 4
 
                 // Obtener referencia al notch de esta pantalla
@@ -436,7 +456,7 @@ PanelWindow {
                             }
                         }
 
-                        onClicked: panel.pinned = !panel.pinned
+                        onClicked: GlobalStates.barPinned = !GlobalStates.barPinned
 
                         StyledToolTip {
                             show: pinButton.hovered
@@ -531,7 +551,7 @@ PanelWindow {
                 id: verticalLayout
                 visible: panel.orientation === "vertical"
                 anchors.fill: parent
-                anchors.margins: 4
+                anchors.margins: panel.barMargin
                 spacing: 4
 
                 LauncherButton {
@@ -641,7 +661,7 @@ PanelWindow {
                                     }
                                 }
 
-                                onClicked: panel.pinned = !panel.pinned
+                                onClicked: GlobalStates.barPinned = !GlobalStates.barPinned
 
                                 StyledToolTip {
                                     show: pinButtonV.hovered

@@ -1,9 +1,11 @@
 import QtQuick
+import QtQuick.Controls
 import Quickshell.Services.Mpris
 import qs.modules.theme
 import qs.modules.services
 import qs.modules.notch
 import qs.modules.components
+import qs.modules.globals
 import qs.config
 
 Item {
@@ -21,6 +23,19 @@ Item {
     readonly property var activePlayer: MprisController.activePlayer
     property bool notchHovered: false
     property bool isNavigating: false
+
+    readonly property bool isNotchOpen: Visibilities.currentActiveModule !== ""
+
+    visible: !isNotchOpen && opacity > 0
+    opacity: isNotchOpen ? 0.0 : 1.0
+
+    Behavior on opacity {
+        enabled: Config.animDuration > 0
+        NumberAnimation {
+            duration: Config.animDuration * 0.4
+            easing.type: Easing.OutQuart
+        }
+    }
 
     HoverHandler {
         id: contentHoverHandler
@@ -40,8 +55,6 @@ Item {
     }
 
     // Computed dimensions
-    // The notch grows for an EVENT (charger, low battery, device connected...),
-    // not for hover. Hover keeps showing the normal media row.
     readonly property real mainRowContentWidth: notchEvents.active
         ? (notchEvents.implicitWidth + mainRowMargin)
         : notchMedia.implicitWidth
@@ -51,11 +64,11 @@ Item {
     readonly property real notificationMinWidth: expandedState ? 450 : 380
     readonly property real notificationContainerHeight: notificationView.implicitHeight + notificationPaddingTop + notificationPaddingBottom
 
-    implicitWidth: Math.round(notchContainer.notificationExpanded
+    implicitWidth: Math.round((notchContainer.notificationExpanded && hasActiveNotifications)
         ? Math.max(notificationMinWidth + (notificationPadding * 2), mainRowContentWidth)
         : mainRowContentWidth)
 
-    implicitHeight: notchContainer.notificationExpanded ? notificationContainerHeight : mainRowHeight
+    implicitHeight: (notchContainer.notificationExpanded && hasActiveNotifications) ? notificationContainerHeight : mainRowHeight
 
     Behavior on implicitWidth {
         enabled: Config.animDuration > 0
@@ -97,6 +110,24 @@ Item {
     Item {
         anchors.fill: parent
 
+        // clickable notch background
+        MouseArea {
+            id: notchBgClickArea
+            anchors.fill: parent
+            z: -1
+            enabled: !hasActiveNotifications && !notchEvents.active
+            cursorShape: Qt.PointingHandCursor
+            onClicked: {
+                let isMediaPlaying = notchMedia.hasValidPlayer && (notchMedia.isPlaying || (notchMedia.player?.isPlaying === true));
+                if (isMediaPlaying) {
+                    GlobalStates.dashboardCurrentTab = 0;
+                } else {
+                    GlobalStates.dashboardCurrentTab = 1;
+                }
+                Visibilities.toggleModule("dashboard");
+            }
+        }
+
         // mainRow - ẩn khi có notification
         Item {
             id: mainRow
@@ -105,30 +136,37 @@ Item {
             width: parent.width - mainRowMargin
             height: mainRowHeight
 
-            opacity: hasActiveNotifications ? 0 : 1
-            visible: opacity > 0
+            scale: notchBgClickArea.pressed ? 0.88 : 1.0
+            Behavior on scale {
+                enabled: Config.animDuration > 0
+                NumberAnimation {
+                    duration: notchBgClickArea.pressed ? 70 : 260
+                    easing.type: notchBgClickArea.pressed ? Easing.OutQuad : Easing.OutBack
+                    easing.overshoot: 1.6
+                }
+            }
+
+            opacity: (hasActiveNotifications || root.isNotchOpen) ? 0 : 1
+            visible: opacity > 0 && !root.isNotchOpen
 
             Behavior on opacity {
                 enabled: Config.animDuration > 0
                 NumberAnimation {
-                    duration: hasActiveNotifications ? Config.animDuration * 0.2 : Config.animDuration
+                    duration: (hasActiveNotifications || root.isNotchOpen) ? Config.animDuration * 0.2 : Config.animDuration
                     easing.type: Easing.OutQuart
                 }
             }
 
             NotchMediaView {
                 id: notchMedia
-                // Hover expands the media player again; this was pinned to false while
-                // the notch briefly hosted a hover-triggered pill row.
                 expandedState: root.expandedState
                 anchors.centerIn: parent
-                opacity: notchEvents.active ? 0 : 1
-                visible: opacity > 0
+                opacity: (!notchEvents.active && notchMedia.hasValidPlayer) ? 1 : 0
+                visible: opacity > 0 && !root.isNotchOpen
 
                 Behavior on opacity {
                     enabled: Config.animDuration > 0
                     SequentialAnimation {
-                        // wait for event to clear before coming back
                         PauseAnimation { duration: notchEvents.active ? 0 : 170 }
                         NumberAnimation {
                             duration: notchEvents.active ? 80 : Config.animDuration
@@ -147,7 +185,6 @@ Item {
                 Behavior on opacity {
                     enabled: Config.animDuration > 0
                     SequentialAnimation {
-                        // let player finish leaving first
                         PauseAnimation { duration: notchEvents.active ? 90 : 0 }
                         NumberAnimation {
                             duration: notchEvents.active ? Config.animDuration : 130
@@ -166,7 +203,7 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
 
             // drop từ trên xuống - sync với bung ra của notchRect
-            anchors.verticalCenterOffset: notchContainer.notificationExpanded ? 0 : -12
+            anchors.verticalCenterOffset: (notchContainer.notificationExpanded && hasActiveNotifications) ? 0 : -12
 
             Behavior on anchors.verticalCenterOffset {
                 enabled: Config.animDuration > 0
@@ -177,7 +214,7 @@ Item {
                 }
             }
 
-            opacity: notchContainer.notificationExpanded ? 1 : 0
+            opacity: (notchContainer.notificationExpanded && hasActiveNotifications) ? 1 : 0
             visible: opacity > 0
 
             Behavior on opacity {

@@ -59,6 +59,8 @@ Item {
 
     width: 440
     height: 248
+    implicitWidth: 440
+    implicitHeight: 248
 
     // Single unified dark card container
     Rectangle {

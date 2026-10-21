@@ -72,6 +72,7 @@ Singleton {
     // HYPRLAND PARSER STATE
     // ═══════════════════════════════════════════════════════════════
     property bool isLuaParser: false
+    property bool hyprlandParserReady: false
 
     Process {
         id: checkParserProcess
@@ -80,10 +81,32 @@ Singleton {
         stdout: SplitParser {
             onRead: (data) => {
                 root.isLuaParser = (data && data.trim() === "lua");
+                root.hyprlandParserReady = true;
                 console.log("GlobalStates: Hyprland parser detected:", root.isLuaParser ? "Lua" : "Legacy");
             }
         }
     }
+
+    function focusWindow(address) {
+        if (!address) return;
+        if (root.isLuaParser) {
+            Hyprland.dispatch(`hl.dsp.focus({ window = 'address:${address}' })`);
+        } else {
+            Hyprland.dispatch(`focuswindow address:${address}`);
+        }
+    }
+
+    function closeWindow(address) {
+        if (!address) return;
+        if (root.isLuaParser) {
+            Hyprland.dispatch(`hl.dsp.window.close({ window = 'address:${address}' })`);
+        } else {
+            Hyprland.dispatch(`closewindow address:${address}`);
+        }
+    }
+
+    // Bar and notch pinned state
+    property bool barPinned: Config.bar?.pinnedOnStartup ?? true
 
     // ═══════════════════════════════════════════════════════════════
     // HYPRLAND LAYOUT STATE (dynamic, not persisted)
@@ -214,6 +237,9 @@ Singleton {
     // Legacy properties for backward compatibility - use active screen
     readonly property bool notchOpen: getActiveNotchOpen()
     readonly property bool overviewOpen: getActiveOverview()
+    signal overviewCycleNext()
+    signal overviewCyclePrev()
+    signal overviewCommit()
     readonly property bool launcherOpen: getActiveLauncher()
     readonly property bool dashboardOpen: getActiveDashboard()
 

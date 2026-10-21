@@ -94,12 +94,7 @@ Scope {
             // Reference to the bar panel on this screen to check its state
             readonly property var barPanelRef: screen ? Visibilities.barPanels[screen.name] : null
             // Only allow exclusive zone if the bar is also pinned (to prevent pushing the bar when it's floating)
-            readonly property bool barPinned: {
-                if (barPanelRef && typeof barPanelRef.pinned !== 'undefined') {
-                    return barPanelRef.pinned;
-                }
-                return true; // Default to true if not found, to maintain original behavior
-            }
+            readonly property bool barPinned: GlobalStates.barPinned
 
             // Fullscreen detection - check if active toplevel is fullscreen on this screen
             readonly property bool activeWindowFullscreen: {

@@ -514,7 +514,7 @@ Rectangle {
             spacing: 8
 
             Item {
-                Layout.preferredWidth: root.leftPanelWidth
+                Layout.fillWidth: true
                 Layout.fillHeight: true
 
                 Row {
@@ -954,7 +954,7 @@ Rectangle {
                             Text {
                                 width: parent.width - emojiIcon.implicitWidth - 6 - parent.spacing - 16
                                 height: parent.height
-                                text: modelData.search
+                                text: modelData.name ? (modelData.name.charAt(0).toUpperCase() + modelData.name.slice(1)) : (modelData.search || "")
                                 color: textColor
                                 font.family: Config.theme.font
                                 font.weight: Font.Bold
@@ -1265,11 +1265,13 @@ Rectangle {
                 Layout.fillHeight: true
                 radius: Styling.radius(0)
                 color: Colors.surface
+                visible: root.searchText.length === 0 && root.recentEmojis.length > 0
             }
 
             Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
+                visible: root.searchText.length === 0 && root.recentEmojis.length > 0
 
                 Item {
                     anchors.fill: parent
@@ -1384,7 +1386,7 @@ Rectangle {
                                 Text {
                                     width: parent.width - recentEmojiIcon.implicitWidth - 6 - parent.spacing - 16
                                     height: parent.height
-                                    text: modelData.search
+                                    text: modelData.name ? (modelData.name.charAt(0).toUpperCase() + modelData.name.slice(1)) : (modelData.search || "")
                                     color: textColor
                                     font.family: Config.theme.font
                                     font.weight: Font.Bold

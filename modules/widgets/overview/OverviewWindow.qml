@@ -256,7 +256,7 @@ Item {
 
                 // Only focus if the window is in the current workspace
                 if (currentWorkspace && windowWorkspace && currentWorkspace === windowWorkspace) {
-                    Hyprland.dispatch(`focuswindow address:${windowData.address}`);
+                    GlobalStates.focusWindow(windowData.address);
                 }
             }
         }
@@ -371,7 +371,7 @@ Item {
 
             if (mouse.button === Qt.LeftButton) {
                 // Single click just focuses the window without closing overview
-                Hyprland.dispatch(`focuswindow address:${windowData.address}`);
+                GlobalStates.focusWindow(windowData.address);
             } else if (mouse.button === Qt.MiddleButton) {
                 root.windowClosed();
             }

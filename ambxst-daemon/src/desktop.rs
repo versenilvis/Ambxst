@@ -85,6 +85,14 @@ impl DesktopWatcher {
     }
 
     pub fn execute_file(&self, path_str: &str) {
+        let script = "/home/verse/Ambxst/scripts/open-file.sh";
+        if Path::new(script).exists() {
+            let _ = Command::new(script)
+                .arg(path_str)
+                .spawn();
+            return;
+        }
+
         let path = Path::new(path_str);
         if path.extension().map(|e| e == "desktop").unwrap_or(false) {
             let _ = Command::new("gio")

@@ -27,10 +27,10 @@ PanelWindow {
     color: "transparent"
 
     WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: screenshotPopup.visible ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+    WlrLayershell.keyboardFocus: (screenshotPopup.visible && state === "active") ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
-    // Visible only when explicitly opened
-    visible: state !== "idle"
+    // visible only when freeze image is ready to prevent stealing focus prematurely
+    visible: state === "active"
     exclusionMode: ExclusionMode.Ignore
 
     property string state: "idle" // idle, loading, active, processing
@@ -172,7 +172,7 @@ PanelWindow {
     HyprlandFocusGrab {
         id: focusGrab
         windows: [screenshotPopup]
-        active: screenshotPopup.visible
+        active: screenshotPopup.visible && screenshotPopup.state === "active"
     }
 
     // Main Content

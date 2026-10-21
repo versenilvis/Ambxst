@@ -34,6 +34,14 @@ Item {
         console.log("IPC run command received:", command);
         switch (command) {
             // Dashboard / Command Palette
+            case "dashboard":
+            case "notch":
+                Visibilities.toggleModule("dashboard");
+                break;
+            case "dashboard-hydration":
+                GlobalStates.dashboardCurrentTab = 1;
+                Visibilities.setActiveModule("dashboard");
+                break;
             case "dashboard-widgets": toggleCommandPalette(0); break;
             case "dashboard-controls": toggleDashboardTab(1); break;
             case "dashboard-clipboard": toggleCommandPalette(1); break;
@@ -42,12 +50,27 @@ Item {
             case "audio":
             case "dashboard-settings":
             case "settings":
-                toggleCommandPalette(4);
+                toggleCommandPalette(3);
                 break;
             case "dashboard-notes": toggleDashboardWithPrefix(Config.prefix.notes + " "); break;
             
-            // System
-            case "overview": toggleSimpleModule("overview"); break;
+            case "overview":
+                if (Visibilities.currentActiveModule === "overview") {
+                    GlobalStates.overviewCycleNext();
+                } else {
+                    Visibilities.setActiveModule("overview");
+                }
+                break;
+            case "overview-prev":
+                if (Visibilities.currentActiveModule === "overview") {
+                    GlobalStates.overviewCyclePrev();
+                }
+                break;
+            case "overview-commit":
+                if (Visibilities.currentActiveModule === "overview") {
+                    GlobalStates.overviewCommit();
+                }
+                break;
             case "powermenu": toggleSimpleModule("powermenu"); break;
             case "tools": toggleSimpleModule("tools"); break;
             case "config": GlobalStates.settingsVisible = !GlobalStates.settingsVisible; break;
@@ -100,17 +123,11 @@ Item {
     }
 
     function toggleBarPinned() {
-        const panels = Visibilities.barPanels;
-        const screenNames = Object.keys(panels);
-        for (let i = 0; i < screenNames.length; i++) {
-            const p = panels[screenNames[i]];
-            if (p && typeof p.pinned !== 'undefined') {
-                p.pinned = !p.pinned;
-            }
-        }
+        GlobalStates.barPinned = !GlobalStates.barPinned;
     }
 
     function toggleCommandPalette(tabIndex) {
+        if (tabIndex === 4) tabIndex = 3;
         if (GlobalStates.commandPaletteVisible) {
             if (GlobalStates.commandPaletteTab === tabIndex) {
                 GlobalStates.commandPaletteVisible = false;

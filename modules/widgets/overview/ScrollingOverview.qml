@@ -32,7 +32,7 @@ Item {
     readonly property string barPosition: Config.bar.position
     readonly property var barPanel: monitor ? Visibilities.getBarPanelForScreen(monitor.name) : null
     readonly property bool isBarPinned: barPanel ? barPanel.pinned : (Config.bar.pinnedOnStartup ?? true)
-    readonly property int barReserved: isBarPinned ? (Config.showBackground ? 44 : 40) : 0
+    readonly property int barReserved: isBarPinned ? 44 : 0
 
     // Window data
     readonly property var windowList: HyprlandData.windowList
@@ -45,10 +45,14 @@ Item {
     property var matchingWindows: []
     property int selectedMatchIndex: 0
 
+    property bool userCycled: false
+
     function resetSearch() {
         searchQuery = "";
-        matchingWindows = [];
-        selectedMatchIndex = 0;
+        if (!userCycled) {
+            selectedMatchIndex = -1;
+            updateMatchingWindows();
+        }
     }
 
     onSearchQueryChanged: updateMatchingWindows()
@@ -98,8 +102,14 @@ Item {
 
     function updateMatchingWindows() {
         if (searchQuery.length === 0) {
-            matchingWindows = [];
-            selectedMatchIndex = 0;
+            const wins = (windowList || [])
+                .filter(win => win && win.mapped && !win.hidden)
+                .slice()
+                .sort((a, b) => (a.focusHistoryID ?? 999) - (b.focusHistoryID ?? 999));
+            matchingWindows = wins;
+            if (selectedMatchIndex < 0 || selectedMatchIndex >= wins.length) {
+                selectedMatchIndex = wins.length > 1 ? 1 : 0;
+            }
             return;
         }
         const query = searchQuery.toLowerCase();
@@ -123,19 +133,21 @@ Item {
         const win = matchingWindows[selectedMatchIndex];
         if (!win)
             return;
-        Visibilities.setActiveModule("", true);
-        Qt.callLater(() => {
-            Hyprland.dispatch(`focuswindow address:${win.address}`);
-        });
+        // focus target window immediately without delay
+        GlobalStates.focusWindow(win.address);
+        // hide overview instantly
+        Visibilities.setActiveModule("");
     }
 
     function selectNextMatch() {
+        userCycled = true;
         if (matchingWindows.length === 0)
             return;
         selectedMatchIndex = (selectedMatchIndex + 1) % matchingWindows.length;
     }
 
     function selectPrevMatch() {
+        userCycled = true;
         if (matchingWindows.length === 0)
             return;
         selectedMatchIndex = (selectedMatchIndex - 1 + matchingWindows.length) % matchingWindows.length;
