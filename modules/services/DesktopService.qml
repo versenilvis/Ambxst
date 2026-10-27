@@ -23,16 +23,26 @@ Singleton {
         id: itemsModel
     }
 
-    onMaxRowsChanged: checkGridReady()
-    onMaxColumnsChanged: checkGridReady()
+    onMaxRowsChanged: handleGridResize()
+    onMaxColumnsChanged: handleGridResize()
     onPositionsLoadedChanged: checkGridReady()
 
     function checkGridReady() {
-        if (maxRows > 0 && maxColumns > 0 && positionsLoaded && !gridReady) {
+        if (maxRows > 1 && maxColumns > 1 && positionsLoaded && !gridReady) {
             gridReady = true;
             if (rawItems.length > 0) {
                 finalizeItems();
             }
+        }
+    }
+
+    function handleGridResize() {
+        if (!gridReady) {
+            checkGridReady();
+            return;
+        }
+        if (rawItems.length > 0) {
+            finalizeItems();
         }
     }
 
@@ -65,10 +75,28 @@ Singleton {
 
         // clean up stale entries from deleted files
         for (let p in iconPositions) {
-            if (!validPaths[p]) {
+            if (p !== "_meta" && !validPaths[p]) {
                 delete iconPositions[p];
             }
         }
+
+        let savedMeta = iconPositions["_meta"];
+        let oldMaxCols = (savedMeta && typeof savedMeta.maxColumns === "number") ? savedMeta.maxColumns : -1;
+
+        if (oldMaxCols <= 0) {
+            // infer previous grid width from highest saved column
+            let maxColInSaved = -1;
+            for (let p in iconPositions) {
+                if (p !== "_meta" && iconPositions[p] && typeof iconPositions[p].col === "number") {
+                    if (iconPositions[p].col > maxColInSaved) maxColInSaved = iconPositions[p].col;
+                }
+            }
+            if (maxColInSaved > 0 && maxColInSaved < maxColumns - 2) {
+                oldMaxCols = maxColInSaved + 1;
+            }
+        }
+
+        let hasNewPositions = false;
 
         // first pass: place items that already have valid saved positions
         for (let i = 0; i < rawItems.length; i++) {
@@ -78,12 +106,23 @@ Singleton {
             let row = -1;
 
             if (saved && typeof saved.col === "number" && typeof saved.row === "number") {
-                if (saved.col >= 0 && saved.col < maxColumns && saved.row >= 0 && saved.row < maxRows) {
-                    let key = saved.col + "," + saved.row;
+                let targetCol = saved.col;
+                if (oldMaxCols > 0 && oldMaxCols !== maxColumns) {
+                    // maintain offset from right edge for icons on the right half
+                    if (targetCol >= Math.floor(oldMaxCols / 2)) {
+                        let offsetFromRight = oldMaxCols - 1 - targetCol;
+                        targetCol = Math.max(0, maxColumns - 1 - offsetFromRight);
+                        hasNewPositions = true;
+                    }
+                }
+
+                if (targetCol >= 0 && targetCol < maxColumns && saved.row >= 0 && saved.row < maxRows) {
+                    let key = targetCol + "," + saved.row;
                     if (!occupied[key]) {
-                        col = saved.col;
+                        col = targetCol;
                         row = saved.row;
                         occupied[key] = true;
+                        iconPositions[item.path] = { col: col, row: row };
                     }
                 }
             }
@@ -101,7 +140,6 @@ Singleton {
         }
 
         // second pass: place remaining items into first vacant slot from right to left
-        let hasNewPositions = false;
         for (let i = 0; i < processed.length; i++) {
             if (processed[i].col === -1) {
                 let slot = findNextVacantSlot(occupied);
@@ -203,6 +241,7 @@ Singleton {
     }
 
     function savePositions() {
+        iconPositions["_meta"] = { maxColumns: maxColumns, maxRows: maxRows };
         let json = JSON.stringify(iconPositions, null, 2);
         savePositionsProcess.command = [
             "sh",

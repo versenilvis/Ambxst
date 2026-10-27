@@ -60,7 +60,7 @@ function getIconForMime(mimeType, content) {
 
 // Check if content is a URL
 function isUrl(text) {
-    if (!text) return false;
+    if (!text || text.length > 2048) return false;
     var trimmed = text.trim();
     return /^https?:\/\/[^\s]+/.test(trimmed);
 }

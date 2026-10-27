@@ -267,12 +267,12 @@ QtObject {
         }
 
         const isLua = GlobalStates.isLuaParser;
-        const warpAway = isLua
-            ? "hyprctl eval 'hl.config({ cursor = { no_hardware_cursors = false } })' >/dev/null 2>&1; hyprctl dispatch 'hl.dsp.cursor.move({ x = 999999, y = 999999 })' >/dev/null 2>&1"
-            : "hyprctl dispatch movecursor 999999 999999 >/dev/null 2>&1";
-        const warpBack = isLua
-            ? "hyprctl dispatch \"hl.dsp.cursor.move({ x = $CX, y = $CY })\" >/dev/null 2>&1; hyprctl eval 'hl.config({ cursor = { no_hardware_cursors = true } })' >/dev/null 2>&1"
-            : "hyprctl dispatch movecursor \"$CX $CY\" >/dev/null 2>&1";
+        const hideCursor = isLua
+            ? "hyprctl eval 'hl.config({ cursor = { no_hardware_cursors = false } })' >/dev/null 2>&1"
+            : "hyprctl keyword cursor:no_hardware_cursors false >/dev/null 2>&1";
+        const restoreCursor = isLua
+            ? "hyprctl eval 'hl.config({ cursor = { no_hardware_cursors = true } })' >/dev/null 2>&1"
+            : "hyprctl keyword cursor:no_hardware_cursors true >/dev/null 2>&1";
 
         var grimCmds = "";
         for (var i = 0; i < root.monitors.length; i++) {
@@ -282,12 +282,11 @@ QtObject {
         }
         grimCmds += "wait";
 
-        var fullCmd = `CPOS=$(hyprctl cursorpos 2>/dev/null); ` +
-                      `CX=$(echo "$CPOS" | cut -d',' -f1 | tr -d ' '); ` +
-                      `CY=$(echo "$CPOS" | cut -d',' -f2 | tr -d ' '); ` +
-                      `${warpAway}; sleep 0.05; ` +
+        // disable software cursor during capture without warping pointer so edge panels do not expand
+        var fullCmd = `PREV=$(hyprctl getoption cursor:no_hardware_cursors -j 2>/dev/null | jq -r '.int'); ` +
+                      `if [ "$PREV" = "1" ]; then ${hideCursor}; sleep 0.04; fi; ` +
                       `${grimCmds}; ` +
-                      `if [ -n "$CX" ] && [ -n "$CY" ]; then ${warpBack}; fi`;
+                      `if [ "$PREV" = "1" ]; then ${restoreCursor}; fi`;
 
         console.log("Screenshot: Executing freeze batch: " + fullCmd);
         freezeProcess.command = ["bash", "-c", fullCmd];

@@ -84,15 +84,21 @@ PanelWindow {
 
         property int cellWidth: Config.desktop.iconSize + 48
         property int cellHeight: Config.desktop.iconSize + 56 + Config.desktop.spacingVertical
-        property int maxRows: Math.max(1, Math.floor(height / cellHeight))
-        property int maxColumns: Math.max(1, Math.floor(width / cellWidth))
+        property int effectiveWidth: width > 100 ? width : (desktop.screen ? desktop.screen.width - 32 : 1920)
+        property int effectiveHeight: height > 100 ? height : (desktop.screen ? desktop.screen.height - (desktop.barSize + 32) : 1080)
+        property int maxRows: Math.max(1, Math.floor(effectiveHeight / cellHeight))
+        property int maxColumns: Math.max(1, Math.floor(effectiveWidth / cellWidth))
 
-        onMaxRowsChanged: DesktopService.maxRows = maxRows
-        onMaxColumnsChanged: DesktopService.maxColumns = maxColumns
+        onMaxRowsChanged: {
+            if (maxRows > 1) DesktopService.maxRows = maxRows;
+        }
+        onMaxColumnsChanged: {
+            if (maxColumns > 1) DesktopService.maxColumns = maxColumns;
+        }
 
         Component.onCompleted: {
-            DesktopService.maxRows = maxRows;
-            DesktopService.maxColumns = maxColumns;
+            if (maxRows > 1) DesktopService.maxRows = maxRows;
+            if (maxColumns > 1) DesktopService.maxColumns = maxColumns;
         }
 
         DropArea {

@@ -22,3 +22,11 @@ url = "2.5.8"
 walkdir = "2.5.0"
 shellexpand = "3.1.2"
 futures = "0.3.33"
+base64 = "0.21"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"

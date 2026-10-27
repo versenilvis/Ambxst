@@ -5,6 +5,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Serialize, Deserialize};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::sync::mpsc;
+use base64::Engine;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ClipboardItem {
@@ -84,10 +85,16 @@ impl ClipboardManager {
             end;
         ")?;
 
-        Ok(Self {
+        let mgr = Self {
             data_dir: data_dir.to_path_buf(),
             conn: Arc::new(Mutex::new(conn)),
-        })
+        };
+        {
+            let conn_guard = mgr.conn.lock().unwrap();
+            mgr.clean_legacy_html_items(&conn_guard);
+            let _ = mgr.prune_internal(&conn_guard);
+        }
+        Ok(mgr)
     }
 
     pub fn list(&self, limit: i64, offset: i64) -> Result<Vec<ClipboardItem>, rusqlite::Error> {
@@ -429,14 +436,15 @@ impl ClipboardManager {
     }
 
     fn prune_internal(&self, conn: &Connection) -> Result<(), rusqlite::Error> {
+        // prune total unpinned items exceeding 100
         let mut stmt = conn.prepare("
-            select id, coalesce(binary_path, ''), is_image
+            select id, coalesce(binary_path, '')
             from clipboard_items
             where pinned = 0
             order by updated_at desc
             limit -1 offset ?1
         ")?;
-        let rows = stmt.query_map(params![500], |row| {
+        let rows = stmt.query_map(params![100], |row| {
             Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
         })?;
 
@@ -450,6 +458,28 @@ impl ClipboardManager {
             }
         }
 
+        // prune unpinned images exceeding 30
+        let mut img_stmt = conn.prepare("
+            select id, coalesce(binary_path, '')
+            from clipboard_items
+            where pinned = 0 and is_image = 1
+            order by updated_at desc
+            limit -1 offset ?1
+        ")?;
+        let img_rows = img_stmt.query_map(params![30], |row| {
+            Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+        })?;
+
+        for r in img_rows {
+            let (id, path) = r?;
+            if !ids.contains(&id) {
+                ids.push(id);
+                if !path.is_empty() {
+                    paths.push(path);
+                }
+            }
+        }
+
         for id in ids {
             conn.execute("delete from clipboard_items where id=?1", params![id])?;
         }
@@ -458,9 +488,232 @@ impl ClipboardManager {
             let _ = fs::remove_file(p);
         }
 
-        let _ = conn.execute("vacuum", []);
+        // clean orphan files in data_dir
+        if let Ok(entries) = fs::read_dir(&self.data_dir) {
+            let mut valid_paths = std::collections::HashSet::new();
+            if let Ok(mut v_stmt) = conn.prepare("select binary_path from clipboard_items where binary_path is not null and binary_path != ''") {
+                if let Ok(v_rows) = v_stmt.query_map([], |row| row.get::<_, String>(0)) {
+                    for r in v_rows.flatten() {
+                        valid_paths.insert(PathBuf::from(r));
+                    }
+                }
+            }
+
+            for entry in entries.flatten() {
+                let p = entry.path();
+                if p.is_file() && !valid_paths.contains(&p) {
+                    let _ = fs::remove_file(p);
+                }
+            }
+        }
+
+        // rebuild fts index, truncate wal and vacuum
+        let _ = conn.execute_batch("
+            insert into clipboard_fts(clipboard_fts) values('rebuild');
+            pragma wal_checkpoint(TRUNCATE);
+            vacuum;
+        ");
         Ok(())
     }
+
+    fn clean_legacy_html_items(&self, conn: &Connection) {
+        // clean legacy items containing raw html or base64 images
+        let mut stmt = match conn.prepare("
+            select id, coalesce(full_content, ''), coalesce(binary_path, ''), mime_type
+            from clipboard_items
+            where is_image = 0 and (preview like '%<meta%' or full_content like '%data:image/%' or mime_type = 'text/html')
+        ") {
+            Ok(s) => s,
+            Err(_) => return,
+        };
+
+        let rows: Vec<(i64, String, String, String)> = match stmt.query_map([], |row| {
+            Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+        }) {
+            Ok(mapped) => mapped.flatten().collect(),
+            Err(_) => return,
+        };
+
+        for (id, mut full_content, binary_path, _mime_type) in rows {
+            if !binary_path.is_empty() {
+                if let Ok(s) = fs::read_to_string(&binary_path) {
+                    full_content = s;
+                }
+            }
+
+            // check if contains base64 image
+            if let Some(src_pos) = full_content.find("data:image/") {
+                let rest = &full_content[src_pos + "data:image/".len()..];
+                if let Some(semi_pos) = rest.find(';') {
+                    let format = &rest[..semi_pos];
+                    let after_semi = &rest[semi_pos + 1..].trim_start();
+                    if after_semi.starts_with("base64,") {
+                        let b64_part = &after_semi["base64,".len()..].trim_start();
+                        let end_pos = b64_part
+                            .find(|c| c == '"' || c == '\'' || c == ' ' || c == '>' || c == '\n' || c == '\r')
+                            .unwrap_or(b64_part.len());
+                        let raw_b64: String = b64_part[..end_pos]
+                            .chars()
+                            .filter(|c| !c.is_whitespace())
+                            .collect();
+                        if let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(&raw_b64) {
+                            if !bytes.is_empty() {
+                                let ext = if format == "jpg" { "jpeg" } else { format };
+                                let ts = chrono_ms();
+                                let filename = format!("clipboard_{}.{}", ts, ext);
+                                let full_path = self.data_dir.join(filename);
+                                if fs::write(&full_path, &bytes).is_ok() {
+                                    let path_str = full_path.to_string_lossy().to_string();
+                                    let mime = format!("image/{}", ext);
+                                    let _ = conn.execute(
+                                        "update clipboard_items set is_image=1, mime_type=?1, preview='[Image]', binary_path=?2, full_content='', size=?3 where id=?4",
+                                        params![mime, path_str, bytes.len() as i64, id]
+                                    );
+                                    if !binary_path.is_empty() && binary_path != path_str {
+                                        let _ = fs::remove_file(binary_path);
+                                    }
+                                    continue;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // if not an image, clean html tags from preview and content
+            let clean = strip_html_tags(&full_content);
+            let preview = truncate_string_bytes(&clean, 100);
+            let _ = conn.execute(
+                "update clipboard_items set preview=?1, full_content=?2, binary_path='' where id=?3",
+                params![preview, clean, id]
+            );
+            if !binary_path.is_empty() {
+                let _ = fs::remove_file(binary_path);
+            }
+        }
+    }
+}
+
+fn strip_html_tags(html: &str) -> String {
+    let mut result = String::with_capacity(html.len());
+    let mut in_tag = false;
+    let mut in_style_or_script = false;
+    let chars: Vec<char> = html.chars().collect();
+    let mut i = 0;
+
+    while i < chars.len() {
+        if !in_tag && chars[i] == '<' {
+            in_tag = true;
+            let remaining: String = chars[i..std::cmp::min(i + 8, chars.len())].iter().collect();
+            let rem_low = remaining.to_lowercase();
+            if rem_low.starts_with("<style") || rem_low.starts_with("<script") {
+                in_style_or_script = true;
+            } else if rem_low.starts_with("</style") || rem_low.starts_with("</script") {
+                in_style_or_script = false;
+            }
+            i += 1;
+            continue;
+        }
+
+        if in_tag {
+            if chars[i] == '>' {
+                in_tag = false;
+            }
+            i += 1;
+            continue;
+        }
+
+        if !in_style_or_script {
+            result.push(chars[i]);
+        }
+        i += 1;
+    }
+
+    result
+        .replace("&nbsp;", " ")
+        .replace("&amp;", "&")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'")
+        .trim()
+        .to_string()
+}
+
+async fn extract_image_from_html(html: &str) -> Option<(Vec<u8>, String)> {
+    // 1. check for base64 data uri (common in google docs image copy)
+    if let Some(src_pos) = html.find("data:image/") {
+        let rest = &html[src_pos + "data:image/".len()..];
+        if let Some(semi_pos) = rest.find(';') {
+            let format = &rest[..semi_pos];
+            let after_semi = &rest[semi_pos + 1..].trim_start();
+            if after_semi.starts_with("base64,") {
+                let b64_part = &after_semi["base64,".len()..].trim_start();
+                let end_pos = b64_part
+                    .find(|c| c == '"' || c == '\'' || c == ' ' || c == '>' || c == '\n' || c == '\r')
+                    .unwrap_or(b64_part.len());
+                let raw_b64: String = b64_part[..end_pos]
+                    .chars()
+                    .filter(|c| !c.is_whitespace())
+                    .collect();
+                if let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(&raw_b64) {
+                    if !bytes.is_empty() {
+                        let mime = format!("image/{}", if format == "jpg" { "jpeg" } else { format });
+                        return Some((bytes, mime));
+                    }
+                }
+            }
+        }
+    }
+
+    // 2. check for standalone img tag with http/https url (e.g. google docs remote image)
+    if let Some(img_pos) = html.find("<img") {
+        let rest = &html[img_pos..];
+        if let Some(src_pos) = rest.find("src=") {
+            let after_src = &rest[src_pos + 4..].trim_start();
+            if let Some(quote) = after_src.chars().next() {
+                if quote == '"' || quote == '\'' {
+                    let url_candidate = &after_src[1..];
+                    if let Some(end_quote) = url_candidate.find(quote) {
+                        let url = &url_candidate[..end_quote];
+                        if (url.starts_with("https://") || url.starts_with("http://")) && !url.contains("data:image") {
+                            // only treat as image if the html does not contain substantial text body
+                            let stripped = strip_html_tags(html);
+                            if stripped.len() < 20 {
+                                if let Ok(client) = reqwest::Client::builder()
+                                    .timeout(std::time::Duration::from_millis(2500))
+                                    .build()
+                                {
+                                    if let Ok(resp) = client.get(url).send().await {
+                                        if resp.status().is_success() {
+                                            let content_type = resp
+                                                .headers()
+                                                .get("content-type")
+                                                .and_then(|h| h.to_str().ok())
+                                                .unwrap_or("image/png")
+                                                .to_string();
+                                            if let Ok(bytes) = resp.bytes().await {
+                                                if !bytes.is_empty() {
+                                                    let mime = if content_type.starts_with("image/") {
+                                                        content_type.split(';').next().unwrap_or("image/png").trim().to_string()
+                                                    } else {
+                                                        "image/png".to_string()
+                                                    };
+                                                    return Some((bytes.to_vec(), mime));
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    None
 }
 
 fn chrono_ms() -> i64 {
@@ -481,6 +734,15 @@ fn make_preview(content: &str, mime_type: &str) -> String {
             }
         }
     }
+
+    // if content is html, strip tags so preview is human-readable text
+    if mime_type == "text/html" || content.trim_start().starts_with('<') {
+        let clean = strip_html_tags(content);
+        if !clean.is_empty() {
+            return truncate_string_bytes(&clean, 100);
+        }
+    }
+
     truncate_string_bytes(content, 100)
 }
 
@@ -610,10 +872,24 @@ async fn check_and_insert(manager: &ClipboardManager) -> Result<bool, String> {
         }
     }
 
+    // check if html payload contains an image (e.g. google docs image copy)
+    if let Some(html_mime) = types.iter().find(|m| m.starts_with("text/html")) {
+        if let Ok(html) = wl_paste(html_mime).await {
+            if !html.is_empty() {
+                if let Some((img_bytes, img_mime)) = extract_image_from_html(&html).await {
+                    let stripped = strip_html_tags(&html);
+                    if stripped.len() < 50 {
+                        return manager.insert_image(&img_bytes, &img_mime).map_err(|e| e.to_string());
+                    }
+                }
+            }
+        }
+    }
+
     for mime in &["text/plain;charset=utf-8", "text/plain", "UTF8_STRING", "STRING"] {
         if types.iter().any(|m| m == mime) {
             if let Ok(text) = wl_paste(mime).await {
-                if !text.is_empty() {
+                if !text.trim().is_empty() {
                     let cleaned = text.replace('\r', "");
                     return manager.insert_text(&cleaned, "text/plain").map_err(|e| e.to_string());
                 }
@@ -624,7 +900,7 @@ async fn check_and_insert(manager: &ClipboardManager) -> Result<bool, String> {
     for mime in &types {
         if mime.starts_with("text/") {
             if let Ok(text) = wl_paste(mime).await {
-                if !text.is_empty() {
+                if !text.trim().is_empty() {
                     let cleaned = text.replace('\r', "");
                     return manager.insert_text(&cleaned, mime).map_err(|e| e.to_string());
                 }

@@ -8,6 +8,8 @@ mod link_preview;
 mod tools;
 mod network;
 mod file_search;
+mod power_profile;
+mod emoji;
 
 use std::sync::{Arc, Mutex};
 use std::path::Path;
@@ -62,6 +64,18 @@ enum ClientCommand {
     SearchApps { query: String },
     #[serde(rename = "search_files")]
     SearchFiles { query: String },
+    #[serde(rename = "search_emojis")]
+    SearchEmojis {
+        query: String,
+        #[serde(default)]
+        limit: Option<usize>,
+    },
+    #[serde(rename = "get_all_emojis")]
+    GetAllEmojis,
+    #[serde(rename = "get_power_profile")]
+    GetPowerProfile,
+    #[serde(rename = "set_power_profile")]
+    SetPowerProfile { profile: String },
     #[serde(rename = "colorpicker")]
     Colorpicker,
     #[serde(rename = "ocr")]
@@ -84,6 +98,8 @@ struct AppState {
     clipboard_mgr: Option<Arc<clipboard::ClipboardManager>>,
     app_searcher: app_search::AppSearcher,
     file_searcher: file_search::FileSearcher,
+    emoji_mgr: Arc<emoji::EmojiManager>,
+    power_mgr: Arc<power_profile::PowerProfileManager>,
 }
 
 type SharedState = Arc<Mutex<AppState>>;
@@ -138,8 +154,10 @@ fn init_clipboard_if_needed(state: &SharedState, _db_path: Option<&str>, _data_d
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(target_os = "linux")]
-    unsafe {
-        libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGTERM);
+    if std::env::var("AMBXST_PARENT_DEATH").is_ok() || std::env::args().any(|a| a == "--die-with-parent") {
+        unsafe {
+            libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGTERM);
+        }
     }
 
     // determine socket path
@@ -181,6 +199,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("ambxst-daemon listening on {}", socket_path.display());
 
     // setup shared state
+    let emoji_mgr = Arc::new(emoji::EmojiManager::new());
+    let power_mgr = Arc::new(power_profile::PowerProfileManager::new());
+
     let state = Arc::new(Mutex::new(AppState {
         sys_monitor: sys_resources::SysMonitor::new(),
         usage_tracker: usage::UsageTracker::new(),
@@ -189,6 +210,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         clipboard_mgr: None,
         app_searcher: app_search::AppSearcher::new(),
         file_searcher: file_search::FileSearcher::new(),
+        emoji_mgr: emoji_mgr.clone(),
+        power_mgr: power_mgr.clone(),
     }));
 
     init_clipboard_if_needed(&state, None, None);
@@ -251,6 +274,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
+    let (power_tx, mut power_rx) = tokio::sync::mpsc::channel(32);
+    let state_clone = state.clone();
+    tokio::spawn(async move {
+        while let Some(msg) = power_rx.recv().await {
+            let mut s = state_clone.lock().unwrap();
+            broadcast_message(&mut s.clients, msg);
+        }
+    });
+
+    tokio::spawn(async move {
+        if let Err(e) = power_profile::monitor_power_profiles(power_tx).await {
+            eprintln!("Power profile monitor error: {}", e);
+        }
+    });
+
     // accept client connections
     loop {
         if let Ok((stream, _)) = listener.accept().await {
@@ -305,6 +343,20 @@ async fn handle_client(
         if let Ok(msg) = serde_json::to_string(&event) {
             let _ = client_tx.send(format!("{}\n", msg));
         }
+
+        // send initial power profile
+        let power_mgr = s.power_mgr.clone();
+        let client_tx_power = client_tx.clone();
+        tokio::spawn(async move {
+            let info = power_mgr.get_info().await;
+            let event = ServerEvent {
+                r#type: "power_profile".to_string(),
+                data: info,
+            };
+            if let Ok(msg) = serde_json::to_string(&event) {
+                let _ = client_tx_power.send(format!("{}\n", msg));
+            }
+        });
     }
 
     // task for writing outgoing events to the socket
@@ -384,6 +436,77 @@ async fn handle_client(
                     if let Ok(msg) = serde_json::to_string(&event) {
                         let _ = client_tx.send(format!("{}\n", msg));
                     }
+                }
+                ClientCommand::SearchEmojis { query, limit } => {
+                    let emoji_mgr = {
+                        let s = state.lock().unwrap();
+                        s.emoji_mgr.clone()
+                    };
+                    let client_tx = client_tx.clone();
+                    tokio::spawn(async move {
+                        let results = emoji_mgr.search(&query, limit.unwrap_or(80));
+                        let event = ServerEvent {
+                            r#type: "emoji_search_results".to_string(),
+                            data: results,
+                        };
+                        if let Ok(msg) = serde_json::to_string(&event) {
+                            let _ = client_tx.send(format!("{}\n", msg));
+                        }
+                    });
+                }
+                ClientCommand::GetAllEmojis => {
+                    let emoji_mgr = {
+                        let s = state.lock().unwrap();
+                        s.emoji_mgr.clone()
+                    };
+                    let client_tx = client_tx.clone();
+                    tokio::spawn(async move {
+                        let grouped = emoji_mgr.get_all_grouped();
+                        let event = ServerEvent {
+                            r#type: "emoji_groups".to_string(),
+                            data: grouped,
+                        };
+                        if let Ok(msg) = serde_json::to_string(&event) {
+                            let _ = client_tx.send(format!("{}\n", msg));
+                        }
+                    });
+                }
+                ClientCommand::GetPowerProfile => {
+                    let power_mgr = {
+                        let s = state.lock().unwrap();
+                        s.power_mgr.clone()
+                    };
+                    let client_tx = client_tx.clone();
+                    tokio::spawn(async move {
+                        let info = power_mgr.get_info().await;
+                        let event = ServerEvent {
+                            r#type: "power_profile".to_string(),
+                            data: info,
+                        };
+                        if let Ok(msg) = serde_json::to_string(&event) {
+                            let _ = client_tx.send(format!("{}\n", msg));
+                        }
+                    });
+                }
+                ClientCommand::SetPowerProfile { profile } => {
+                    let power_mgr = {
+                        let s = state.lock().unwrap();
+                        s.power_mgr.clone()
+                    };
+                    let state_clone = state.clone();
+                    tokio::spawn(async move {
+                        if power_mgr.set_profile(&profile).await.is_ok() {
+                            let info = power_mgr.get_info().await;
+                            let event = ServerEvent {
+                                r#type: "power_profile".to_string(),
+                                data: info,
+                            };
+                            if let Ok(msg) = serde_json::to_string(&event) {
+                                let mut s = state_clone.lock().unwrap();
+                                broadcast_message(&mut s.clients, msg);
+                            }
+                        }
+                    });
                 }
                 ClientCommand::Colorpicker => {
                     tools::colorpicker();

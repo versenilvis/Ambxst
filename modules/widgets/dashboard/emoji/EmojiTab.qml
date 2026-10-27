@@ -24,7 +24,6 @@ Rectangle {
     property int cellSpacing: 6
     property int columns: Math.max(8, Math.floor((width - 24) / (cellSize + cellSpacing)))
 
-    property var allEmojis: []
     property var recentEmojis: []
     property var groupMap: ({})
     property var rowsData: []
@@ -85,7 +84,13 @@ Rectangle {
     }
 
     onSearchTextChanged: {
-        rebuildRows();
+        var q = searchText.trim();
+        if (q.length === 0) {
+            searchDebounceTimer.stop();
+            rebuildRows();
+        } else {
+            searchDebounceTimer.restart();
+        }
     }
 
     onColumnsChanged: {
@@ -197,67 +202,55 @@ Rectangle {
         rebuildRows();
     }
 
-    function rebuildRows() {
+    function buildSearchRows(filtered) {
         var rows = [];
         var flat = [];
         var cols = Math.max(1, root.columns);
-        var q = searchText.trim().toLowerCase();
 
-        if (q.length > 0) {
-            // Search mode with multi-keyword support and relevance ranking
-            var terms = q.split(/\s+/).filter(Boolean);
-            var titleMatches = [];
-            var keywordMatches = [];
+        rows.push({
+            type: "header",
+            categoryId: "search",
+            title: `Search Results (${filtered.length})`,
+            canClear: false
+        });
 
-            for (var i = 0; i < allEmojis.length; i++) {
-                var em = allEmojis[i];
-                var nameLow = em.name.toLowerCase();
-                var slugLow = em.slug.toLowerCase();
-                var searchLow = em.search;
-
-                var matchesAll = true;
-                for (var t = 0; t < terms.length; t++) {
-                    var term = terms[t];
-                    if (!searchLow.includes(term) && !em.emoji.includes(term)) {
-                        matchesAll = false;
-                        break;
-                    }
-                }
-
-                if (matchesAll) {
-                    if (em.emoji.includes(q) || nameLow.includes(q) || slugLow.includes(q)) {
-                        titleMatches.push(em);
-                    } else {
-                        keywordMatches.push(em);
-                    }
-                }
+        for (var r = 0; r < filtered.length; r += cols) {
+            var chunk = filtered.slice(r, r + cols);
+            var rowStartIndex = flat.length;
+            for (var c = 0; c < chunk.length; c++) {
+                var item = chunk[c];
+                item.flatIndex = flat.length;
+                item.categoryId = item.group || "Smileys & Emotion";
+                flat.push(item);
             }
-
-            var filtered = titleMatches.concat(keywordMatches);
-
             rows.push({
-                type: "header",
-                categoryId: "search",
-                title: `Search Results (${filtered.length})`,
-                canClear: false
+                type: "row",
+                categoryId: chunk[0].categoryId,
+                startIndex: rowStartIndex,
+                emojis: chunk
             });
+        }
 
-            for (var r = 0; r < filtered.length; r += cols) {
-                var chunk = filtered.slice(r, r + cols);
-                var rowStartIndex = flat.length;
-                for (var c = 0; c < chunk.length; c++) {
-                    chunk[c].flatIndex = flat.length;
-                    chunk[c].categoryId = chunk[c].group || "Smileys & Emotion";
-                    flat.push(chunk[c]);
-                }
-                rows.push({
-                    type: "row",
-                    categoryId: chunk[0].categoryId,
-                    startIndex: rowStartIndex,
-                    emojis: chunk
-                });
+        flatVisibleEmojis = flat;
+        rowsData = rows;
+        if (flat.length > 0) {
+            focusedFlatIndex = 0;
+            if (flat[0] && flat[0].categoryId) {
+                activeCategoryId = flat[0].categoryId;
             }
-        } else {
+        }
+    }
+
+    function rebuildRows() {
+        var q = searchText.trim();
+        if (q.length > 0) {
+            searchDebounceTimer.restart();
+            return;
+        }
+
+        var rows = [];
+        var flat = [];
+        var cols = Math.max(1, root.columns);
             // Categorized mode
             // 1. Recently used
             if (recentEmojis.length > 0) {
@@ -332,46 +325,44 @@ Rectangle {
         }
     }
 
-    // Load emojis.json reliably
-    Process {
-        id: emojiProcess
-        running: true
-        command: ["cat", Quickshell.env("HOME") + "/Ambxst/assets/emojis.json"]
-        stdout: StdioCollector {
-            waitForEnd: true
-            onStreamFinished: {
-                try {
-                    var jsonData = JSON.parse(text.trim());
-                    var data = [];
-                    var groups = {};
-                    for (var em in jsonData) {
-                        if (jsonData.hasOwnProperty(em)) {
-                            var info = jsonData[em];
-                            var kwList = (info.keywords && Array.isArray(info.keywords)) ? info.keywords.join(" ") : "";
-                            var searchStr = ((info.name || "") + " " + (info.slug || "") + " " + (info.group || "") + " " + kwList).toLowerCase();
-                            var obj = {
-                                emoji: em,
-                                name: info.name || "",
-                                slug: info.slug || "",
-                                group: info.group || "Other",
-                                search: searchStr,
-                                skin_tone_support: info.skin_tone_support || false
-                            };
-                            data.push(obj);
-                            if (!groups[obj.group]) {
-                                groups[obj.group] = [];
-                            }
-                            groups[obj.group].push(obj);
-                        }
-                    }
-                    root.allEmojis = data;
-                    root.groupMap = groups;
-                    root.rebuildRows();
-                } catch (e) {
-                    console.warn("EmojiTab: failed to parse emojis.json", e);
-                }
+    // debounce timer for search query
+    Timer {
+        id: searchDebounceTimer
+        interval: 30
+        repeat: false
+        onTriggered: {
+            var q = root.searchText.trim();
+            if (q.length > 0) {
+                DaemonClient.sendCommand({ type: "search_emojis", query: q, limit: 120 });
             }
         }
+    }
+
+    // daemon event connection for emojis
+    Connections {
+        target: DaemonClient
+        function onEmojiGroupsReceived(data) {
+            if (!data) return;
+            root.groupMap = data;
+            if (root.searchText.trim().length === 0) {
+                root.rebuildRows();
+            }
+        }
+        function onEmojiSearchResultsReceived(data) {
+            if (!data) return;
+            if (root.searchText.trim().length > 0) {
+                root.buildSearchRows(data);
+            }
+        }
+        function onDaemonConnectedChanged() {
+            if (DaemonClient.daemonConnected && Object.keys(root.groupMap).length === 0) {
+                DaemonClient.sendCommand({ type: "get_all_emojis" });
+            }
+        }
+    }
+
+    Component.onCompleted: {
+        DaemonClient.sendCommand({ type: "get_all_emojis" });
     }
 
     // Load recents

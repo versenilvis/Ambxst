@@ -3158,7 +3158,14 @@ Item {
 
                             Text {
                                 id: previewText
-                                text: root.safeCurrentContent
+                                text: {
+                                    var s = root.safeCurrentContent;
+                                    if (!s) return "";
+                                    if (s.length > 3000) {
+                                        return s.substring(0, 3000) + "\n\n... (truncated for preview, " + s.length + " characters)";
+                                    }
+                                    return s;
+                                }
                                 font.family: Config.theme.font
                                 font.pixelSize: Config.theme.fontSize
                                 color: Colors.overBackground

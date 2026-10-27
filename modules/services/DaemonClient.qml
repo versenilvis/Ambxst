@@ -21,6 +21,9 @@ Singleton {
     signal fileSearchResultsReceived(var data)
     signal linkPreviewReceived(var data)
     signal networkChanged()
+    signal emojiSearchResultsReceived(var data)
+    signal emojiGroupsReceived(var data)
+    signal powerProfileReceived(var data)
 
     // spawn daemon process if not already running
     property Process daemonProc: Process {
@@ -29,7 +32,7 @@ Singleton {
         command: [
             "sh",
             "-c",
-            "if ! pgrep -x ambxst-daemon >/dev/null; then exec " + Quickshell.shellDir + "/ambxst-daemon/target/release/ambxst-daemon; fi"
+            "if ! pgrep -x ambxst-daemon >/dev/null; then if [ -f '" + Quickshell.shellDir + "/bin/ambxst-daemon' ]; then exec '" + Quickshell.shellDir + "/bin/ambxst-daemon'; else exec '" + Quickshell.shellDir + "/ambxst-daemon/target/release/ambxst-daemon'; fi; fi"
         ]
     }
 
@@ -93,6 +96,15 @@ Singleton {
                         break;
                     case "network_changed":
                         root.networkChanged();
+                        break;
+                    case "emoji_search_results":
+                        root.emojiSearchResultsReceived(event.data);
+                        break;
+                    case "emoji_groups":
+                        root.emojiGroupsReceived(event.data);
+                        break;
+                    case "power_profile":
+                        root.powerProfileReceived(event.data);
                         break;
                 }
             }
