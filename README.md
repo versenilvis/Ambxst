@@ -12,14 +12,11 @@ An <i><b>Ax</b>tremely</i> customizable shell.
 <div align="center">
   <img width="100%" alt="image" src="https://github.com/user-attachments/assets/12ed750b-8756-450f-b1c6-88379e6bef48" />
 
-  <br />
+  <br /><br />
 
-  
-  <img width="33%" alt="image" src="https://github.com/user-attachments/assets/e78a7c4e-bb9a-4d2d-8fc7-38a570013e69" />
-  <img width="33%" alt="image" src="https://github.com/user-attachments/assets/72cf676c-f16f-41c2-9a64-972463475e0a" />
-  <img width="33%" alt="image" src="https://github.com/user-attachments/assets/cd18b438-b5a4-4e29-b551-0e76412ebc54" />
-
-
+  <img width="32%" alt="image" src="https://github.com/user-attachments/assets/e78a7c4e-bb9a-4d2d-8fc7-38a570013e69" />
+  <img width="32%" alt="image" src="https://github.com/user-attachments/assets/72cf676c-f16f-41c2-9a64-972463475e0a" />
+  <img width="32%" alt="image" src="https://github.com/user-attachments/assets/cd18b438-b5a4-4e29-b551-0e76412ebc54" />
 </div>
 
 ---
