@@ -1,37 +1,25 @@
-<p align="center">
+<!-- <p align="center">
 <img src="./assets/ambxst/ambxst-banner.png" alt="Ambxst Logo" style="width: 60%;" align="center" />
   <br>
 An <i><b>Ax</b>tremely</i> customizable shell.
-</p>
+</p> -->
 
-  <p align="center">
-  <a href="https://github.com/Axenide/Ax-Shell/stargazers">
-    <img src="https://img.shields.io/github/stars/Axenide/Ambxst?style=for-the-badge&logo=github&color=E3B341&logoColor=D9E0EE&labelColor=000000" alt="GitHub stars">
-  </a>
-  <a href="https://ko-fi.com/Axenide">
-    <img src="https://img.shields.io/badge/Support me on-Ko--fi-FF6433?style=for-the-badge&logo=kofi&logoColor=white&labelColor=000000" alt="Ko-Fi">
-  </a>
-  <a href="https://discord.com/invite/gHG9WHyNvH">
-    <img src="https://img.shields.io/discord/669048311034150914?style=for-the-badge&logo=discord&logoColor=D9E0EE&labelColor=000000&color=5865F2&label=Discord" alt="Discord">
-  </a>
-</p>
 
----
+
 
 <h2><sub><img src="https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Objects/Camera%20with%20Flash.png" alt="Camera with Flash" width="32" height="32" /></sub> Screenshots</h2>
 
 <div align="center">
-  <img src="./assets/screenshots/1.png" width="100%" />
+  <img width="100%" alt="image" src="https://github.com/user-attachments/assets/12ed750b-8756-450f-b1c6-88379e6bef48" />
 
   <br />
 
-  <img src="./assets/screenshots/2.png" width="32%" />
-  <img src="./assets/screenshots/3.png" width="32%" />
-  <img src="./assets/screenshots/4.png" width="32%" />
+  
+  <img width="33%" alt="image" src="https://github.com/user-attachments/assets/e78a7c4e-bb9a-4d2d-8fc7-38a570013e69" />
+  <img width="33%" alt="image" src="https://github.com/user-attachments/assets/72cf676c-f16f-41c2-9a64-972463475e0a" />
+  <img width="33%" alt="image" src="https://github.com/user-attachments/assets/cd18b438-b5a4-4e29-b551-0e76412ebc54" />
 
-  <img src="./assets/screenshots/5.png" width="32%" />
-  <img src="./assets/screenshots/6.png" width="32%" />
-  <img src="./assets/screenshots/7.png" width="32%" />
+
 </div>
 
 ---
@@ -213,7 +201,7 @@ ambxst update                    # Pull git changes and recompile ambxst-daemon
 
 ---
 
-## Configuration & Architecture
+<h2><sub><img src="https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Smilies/Alien%20Monster.png" alt="Alien Monster" width="32" height="32" /></sub> Configuration & Architecture</h2>
 
 All user configurations are stored under `~/.config/Ambxst`:
 
@@ -222,17 +210,3 @@ All user configurations are stored under `~/.config/Ambxst`:
 * `ambxst-daemon`: Standalone Rust daemon handling clipboard history (SQLite), hardware brightness control, system telemetry, and IPC pipe synchronization.
 
 To customize keybindings, edit `~/.config/Ambxst/binds.json` or open the settings UI (`Super + Shift + C`).
-
----
-
-## Credits
-- [end-4](https://github.com/end-4) for awesome projects and inspiration.
-- [soramane](https://github.com/soramanew) for helping with Quickshell.
-- [outfoxxed](https://outfoxxed.me/) for creating Quickshell.
-- [tr1x_em](https://github.com/tr1x_em) for being a great friend and helping find tools.
-- [Darsh](https://github.com/its-darsh) for creating Fabric.
-- [Mario](https://github.com/mariokhz) for showing Quickshell.
-- [Samouly](https://github.com/N1xev) for being Samouly. :3
-- [Zen](https://github.com/wer-zen) for helping with Quickshell.
-- [kh](https://www.youtube.com/watch?v=dQw4w9WgXcQ) for listening to delusions about Ambxst. :D
-- And you, the user, for trying out Ambxst! 💖
