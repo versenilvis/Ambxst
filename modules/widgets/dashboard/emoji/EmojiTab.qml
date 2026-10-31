@@ -309,7 +309,6 @@ Rectangle {
                     });
                 }
             }
-        }
 
         flatVisibleEmojis = flat;
         rowsData = rows;
