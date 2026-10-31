@@ -68,6 +68,7 @@ impl ClipboardManager {
             create index if not exists idx_created_at on clipboard_items(created_at desc);
             create index if not exists idx_is_image on clipboard_items(is_image);
             create index if not exists idx_pinned on clipboard_items(pinned desc);
+            create index if not exists idx_pinned_updated_at on clipboard_items(pinned desc, updated_at desc);
             create index if not exists idx_display_index on clipboard_items(pinned desc, display_index asc);
 
             create virtual table if not exists clipboard_fts using fts5(

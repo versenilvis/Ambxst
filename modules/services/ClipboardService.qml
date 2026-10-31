@@ -119,21 +119,6 @@ QtObject {
         root.hasMoreItems = jsonArray.length >= root.pageSize;
         root.listCompleted();
         root._operationInProgress = false;
-
-        // auto-fetch link previews in background
-        for (var j = 0; j < clipboardItems.length; j++) {
-            var ci = clipboardItems[j];
-            if (!ci.isFile && !ci.isImage && root.isUrl(ci.preview)) {
-                if (ci.preview.endsWith("...")) {
-                    // retrieve full content first
-                    root.getFullContent(ci.id);
-                } else {
-                    if (!root.linkPreviewCache[ci.id]) {
-                        root.fetchLinkPreview(ci.preview.trim(), ci.id);
-                    }
-                }
-            }
-        }
     }
 
     function initializeClipboardBackend() {

@@ -21,6 +21,7 @@ CREATE INDEX IF NOT EXISTS idx_content_hash ON clipboard_items(content_hash);
 CREATE INDEX IF NOT EXISTS idx_created_at ON clipboard_items(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_is_image ON clipboard_items(is_image);
 CREATE INDEX IF NOT EXISTS idx_pinned ON clipboard_items(pinned DESC);
+CREATE INDEX IF NOT EXISTS idx_pinned_updated_at ON clipboard_items(pinned DESC, updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_display_index ON clipboard_items(pinned DESC, display_index ASC);
 
 -- Virtual table for full-text search

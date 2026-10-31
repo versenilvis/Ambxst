@@ -304,6 +304,8 @@ Item {
         ClipboardService.search(searchText);
     }
 
+    property bool _resetting: false
+
     onVisibleChanged: {
         if (visible) {
             resetToTop();
@@ -311,6 +313,13 @@ Item {
     }
 
     function resetToTop() {
+        if (_resetting)
+            return;
+        _resetting = true;
+        Qt.callLater(() => {
+            _resetting = false;
+        });
+
         searchText = "";
         hasNavigatedFromSearch = false;
         clearButtonFocused = false;
@@ -330,10 +339,6 @@ Item {
             if (allItems.length > 0) {
                 selectedIndex = 0;
                 resultsList.currentIndex = 0;
-                let first = allItems[0];
-                if (first && !first.isImage) {
-                    ClipboardService.getFullContent(first.id);
-                }
             } else {
                 selectedIndex = -1;
                 resultsList.currentIndex = -1;
@@ -489,6 +494,38 @@ Item {
     function updateFilteredItems(forceTop) {
         var newItems = ClipboardService.items.slice();
         allItems = newItems;
+
+        // check if model already has identical items
+        var isSame = (itemsModel.count === newItems.length);
+        if (isSame) {
+            for (var i = 0; i < newItems.length; i++) {
+                var cur = itemsModel.get(i);
+                var n = newItems[i];
+                if (!cur || cur.itemId !== n.id || cur.itemData.pinned !== n.pinned || cur.itemData.alias !== n.alias || cur.itemData.preview !== n.preview) {
+                    isSame = false;
+                    break;
+                }
+            }
+        }
+
+        if (isSame) {
+            if (newItems.length === 0) {
+                selectedIndex = -1;
+                if (resultsList)
+                    resultsList.currentIndex = -1;
+                return;
+            }
+            if (forceTop || !hasNavigatedFromSearch) {
+                selectedIndex = 0;
+                if (resultsList) {
+                    resultsList.currentIndex = 0;
+                    resultsList.contentY = 0;
+                    resultsList.positionViewAtBeginning();
+                }
+                return;
+            }
+            return;
+        }
 
         if (!forceTop && itemsModel.count > 0 && newItems.length > itemsModel.count) {
             var isAppend = true;
@@ -992,7 +1029,7 @@ Item {
                     visible: ClipboardService.items.length > 0
                     clip: true
                     interactive: !root.deleteMode && root.expandedItemIndex === -1
-                    cacheBuffer: 800
+                    cacheBuffer: 120
                     reuseItems: false
                     boundsBehavior: Flickable.StopAtBounds
 
@@ -1043,29 +1080,33 @@ Item {
 
                         if (currentIndex > 0 && resultsList.height > 0) {
                             var itemY = 0;
-                            for (var i = 0; i < currentIndex && i < itemsModel.count; i++) {
-                                var itemHeight = 56;
-                                if (i === root.expandedItemIndex && !root.deleteMode && !root.aliasMode) {
-                                    var itemData = itemsModel.get(i).itemData;
-                                    var optionsCount = 4;
-                                    if (itemData && (itemData.isFile || itemData.isImage || ClipboardUtils.isUrl(itemData.preview))) {
-                                        optionsCount++;
-                                    }
-                                    var listHeight = 36 * Math.min(3, optionsCount);
-                                    itemHeight = 56 + 4 + listHeight + 8;
-                                }
-                                itemY += itemHeight;
-                            }
-
                             var currentItemHeight = 56;
-                            if (currentIndex === root.expandedItemIndex && !root.deleteMode && !root.aliasMode && currentIndex < itemsModel.count) {
-                                var curData = itemsModel.get(currentIndex).itemData;
-                                var curOptions = 4;
-                                if (curData && (curData.isFile || curData.isImage || ClipboardUtils.isUrl(curData.preview))) {
-                                    curOptions++;
+                            if (root.expandedItemIndex === -1 || root.deleteMode || root.aliasMode) {
+                                itemY = currentIndex * 56;
+                            } else {
+                                for (var i = 0; i < currentIndex && i < itemsModel.count; i++) {
+                                    var itemHeight = 56;
+                                    if (i === root.expandedItemIndex) {
+                                        var itemData = itemsModel.get(i).itemData;
+                                        var optionsCount = 4;
+                                        if (itemData && (itemData.isFile || itemData.isImage || ClipboardUtils.isUrl(itemData.preview))) {
+                                            optionsCount++;
+                                        }
+                                        var listHeight = 36 * Math.min(3, optionsCount);
+                                        itemHeight = 56 + 4 + listHeight + 8;
+                                    }
+                                    itemY += itemHeight;
                                 }
-                                var curListHeight = 36 * Math.min(3, curOptions);
-                                currentItemHeight = 56 + 4 + curListHeight + 8;
+
+                                if (currentIndex === root.expandedItemIndex && currentIndex < itemsModel.count) {
+                                    var curData = itemsModel.get(currentIndex).itemData;
+                                    var curOptions = 4;
+                                    if (curData && (curData.isFile || curData.isImage || ClipboardUtils.isUrl(curData.preview))) {
+                                        curOptions++;
+                                    }
+                                    var curListHeight = 36 * Math.min(3, curOptions);
+                                    currentItemHeight = 56 + 4 + curListHeight + 8;
+                                }
                             }
 
                             var viewportTop = resultsList.targetContentY;
@@ -1100,10 +1141,15 @@ Item {
                         }
 
                         y: {
+                            if (resultsList.currentIndex <= 0)
+                                return 0;
+                            if (root.expandedItemIndex === -1 || root.deleteMode || root.aliasMode) {
+                                return resultsList.currentIndex * 56;
+                            }
                             var yPos = 0;
                             for (var i = 0; i < resultsList.currentIndex && i < itemsModel.count; i++) {
                                 var itemHeight = 56;
-                                if (i === root.expandedItemIndex && !root.deleteMode && !root.aliasMode) {
+                                if (i === root.expandedItemIndex) {
                                     var itemData = itemsModel.get(i).itemData;
                                     var optionsCount = 4;
                                     if (itemData && (itemData.isFile || itemData.isImage || ClipboardUtils.isUrl(itemData.preview))) {

@@ -32,6 +32,16 @@ FloatingWindow {
     ]
 
     readonly property bool launcherFilesMode: (widgetsLoader.item && widgetsLoader.item.filesMode) ? true : false
+    property bool _preloadClipboard: false
+
+    // preload clipboard tab during idle
+    Timer {
+        id: preloadClipboardTimer
+        interval: 1000
+        running: true
+        repeat: false
+        onTriggered: root._preloadClipboard = true
+    }
 
     // Footer hints are per tab: the palette tells you what Enter does *here*
     readonly property var tabHints: [
@@ -135,9 +145,6 @@ FloatingWindow {
                 widgetsLoader.item.filesMode = false;
             }
             GlobalStates.clearLauncherState();
-            if (clipboardLoader.item && typeof clipboardLoader.item.resetToTop === "function") {
-                clipboardLoader.item.resetToTop();
-            }
         }
     }
 
@@ -545,7 +552,8 @@ FloatingWindow {
 
                 Loader {
                     id: clipboardLoader
-                    active: root.currentTab === 1 || clipboardLoader.status === Loader.Ready
+                    active: root.currentTab === 1 || clipboardLoader.status === Loader.Ready || root._preloadClipboard
+                    asynchronous: !root.visible
                     sourceComponent: ClipboardTab {
                         leftPanelWidth: 270
                         showSearch: false
