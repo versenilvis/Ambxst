@@ -2,8 +2,9 @@
 set -e
 
 # === Configuration ===
-REPO_URL="https://github.com/Axenide/Ambxst.git"
-INSTALL_PATH="$HOME/Ambxst"
+REPO_URL="${REPO_URL:-https://github.com/versenilvis/Ambxst.git}"
+BRANCH="${BRANCH:-main}"
+INSTALL_PATH="${INSTALL_PATH:-$HOME/Ambxst}"
 BIN_DIR="/usr/local/bin"
 QUICKSHELL_REPO="https://git.outfoxxed.me/outfoxxed/quickshell"
 
@@ -56,7 +57,7 @@ install_dependencies() {
 	case "$DISTRO" in
 	nixos)
 		# Existing NixOS/Nix Logic (via flake)
-		FLAKE_URI="${1:-github:Axenide/Ambxst}"
+		FLAKE_URI="${1:-github:versenilvis/Ambxst}"
 
 		# Conflict cleanup logic from original script
 		if nix profile list | grep -q "ddcutil"; then
@@ -78,52 +79,42 @@ install_dependencies() {
 		# Enable COPRs
 		log_info "Enabling COPR repositories..."
 		sudo dnf install -y dnf-plugins-core
-		# The -y flag for dnf should be passed to the main command, but for 'copr enable',
-		# passing it as a command argument often works better to confirm the prompt.
-		# If not, we can force it with 'yes'.
-		# Using 'yes | ...' to ensure unattended installation if -y isn't sufficient for GPG keys.
-
-		# Quickshell
 		yes | sudo dnf copr enable errornointernet/quickshell
-		# Hyprland (for mpvpaper)
 		yes | sudo dnf copr enable solopasha/hyprland
-		# Matugen
 		yes | sudo dnf copr enable zirconium/packages
-		# Phosphor Icons
 		yes | sudo dnf copr enable iucar/cran
 
 		log_info "Installing dependencies..."
 
-		# Package list adapted for Fedora
 		PKGS=(
 			# Apps
 			kitty tmux fuzzel network-manager-applet blueman
 
 			# Audio/Video
-			pipewire wireplumber easyeffects playerctl
-			# Note: ffmpeg/x264 often require rpmfusion, omitting for basic install safety
-			# but ensure ffmpeg-free is present if possible or let user handle restricted codecs
+			pipewire wireplumber easyeffects playerctl pamixer
 
-			# Qt6
+			# Qt6 & KDE deps
 			qt6-qtbase qt6-qtdeclarative qt6-qtwayland qt6-qtsvg qt6-qttools
 			qt6-qtimageformats qt6-qtmultimedia qt6-qtshadertools
+			kf6-syntax-highlighting kf6-breeze-icons hicolor-icon-theme polkit-kde
 
-			# KDE/Icons (Fedora naming)
-			kf6-syntax-highlighting kf6-breeze-icons hicolor-icon-theme
+			# Build & Backend
+			rust cargo openssl-devel pkgconf-pkg-config
 
 			# Tools
 			brightnessctl ddcutil fontconfig grim slurp ImageMagick jq sqlite upower
-			wl-clipboard wlsunset wtype zbar glib2 pipx zenity power-profiles-daemon
-			python3.12 libnotify flatpak
+			wl-clipboard wlsunset wtype zbar glib2 zenity power-profiles-daemon
+			libnotify flatpak hyprpicker hypridle hyprlock
 
-			# Tesseract (Fedora uses langpack naming)
+			# Tesseract
 			tesseract tesseract-langpack-eng tesseract-langpack-spa tesseract-langpack-jpn
 			tesseract-langpack-chi_sim tesseract-langpack-chi_tra tesseract-langpack-kor
 			tesseract-langpack-lat
 
 			# Fonts
-			google-roboto-fonts google-roboto-mono-fonts dejavu-sans-fonts liberation-fonts
-			google-noto-fonts-common google-noto-cjk-fonts google-noto-emoji-fonts
+			google-inter-fonts jetbrains-mono-fonts google-roboto-fonts google-roboto-mono-fonts
+			dejavu-sans-fonts liberation-fonts google-noto-fonts-common google-noto-cjk-fonts
+			google-noto-emoji-fonts
 
 			# Special Packages
 			mpvpaper matugen R-CRAN-phosphoricons adw-gtk3-theme
@@ -131,8 +122,8 @@ install_dependencies() {
 			# Quickshell
 			quickshell-git
 
-			# Utils for manual installs
-			unzip curl
+			# Utils
+			unzip curl git
 		)
 
 		sudo dnf install -y "${PKGS[@]}"
@@ -154,14 +145,9 @@ install_dependencies() {
 		log_info "Extracting..."
 		unzip -q "$TEMP_DIR/phosphor.zip" -d "$TEMP_DIR"
 
-		# Install to ~/.local/share/fonts (standard user font dir)
 		FONT_DIR="$HOME/.local/share/fonts/phosphor"
 		mkdir -p "$FONT_DIR"
-
-		# Find and move TTF files (structure: web-version/src/weight/file.ttf)
 		find "$TEMP_DIR" -name "*.ttf" -exec cp {} "$FONT_DIR/" \;
-
-		# Cleanup
 		rm -rf "$TEMP_DIR"
 		fc-cache -f "$FONT_DIR"
 		log_success "Phosphor Icons installed to $FONT_DIR"
@@ -200,23 +186,29 @@ install_dependencies() {
 			kitty tmux fuzzel network-manager-applet blueman
 
 			# Audio/Video
-			pipewire wireplumber pwvucontrol easyeffects ffmpeg x264 playerctl
+			pipewire wireplumber pwvucontrol easyeffects ffmpeg x264 playerctl pamixer
 
 			# Qt6 & KDE deps
 			qt6-base qt6-declarative qt6-wayland qt6-svg qt6-tools qt6-imageformats qt6-multimedia qt6-shadertools
-			libwebp libavif # Image formats support
-			syntax-highlighting breeze-icons hicolor-icon-theme
+			libwebp libavif
+			syntax-highlighting breeze-icons hicolor-icon-theme polkit-kde-agent
+
+			# Build & Backend
+			rust cargo openssl pkgconf
 
 			# Tools
 			brightnessctl ddcutil fontconfig grim slurp imagemagick jq sqlite upower
-			wl-clipboard wlsunset wtype zbar glib2 python-pipx zenity inetutils power-profiles-daemon
-			python312 libnotify
+			wl-clipboard cliphist wlsunset wtype zbar glib2 zenity inetutils power-profiles-daemon
+			libnotify
+
+			# Hyprland & Wayland tools
+			hyprpicker hypridle hyprlock grimblast-git
 
 			# Tesseract
 			tesseract tesseract-data-eng tesseract-data-spa tesseract-data-jpn tesseract-data-chi_sim tesseract-data-chi_tra tesseract-data-kor tesseract-data-lat
 
 			# Fonts
-			ttf-roboto ttf-roboto-mono ttf-dejavu ttf-liberation noto-fonts noto-fonts-cjk noto-fonts-emoji
+			inter-font ttf-jetbrains-mono ttf-roboto ttf-roboto-mono ttf-dejavu ttf-liberation noto-fonts noto-fonts-cjk noto-fonts-emoji
 			ttf-nerd-fonts-symbols
 
 			# Special Packages
@@ -237,22 +229,30 @@ install_dependencies() {
 # === Ambxst Clone ===
 setup_repo() {
 	if [ "$DISTRO" != "nixos" ]; then
+		# check if running from within an existing clone
+		SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+		if [ -f "$SCRIPT_DIR/shell.qml" ] && [ -d "$SCRIPT_DIR/.git" ]; then
+			INSTALL_PATH="$SCRIPT_DIR"
+			log_info "Using current Ambxst directory at $INSTALL_PATH"
+			return
+		fi
+
 		if [ ! -d "$INSTALL_PATH" ]; then
-			log_info "Cloning Ambxst to $INSTALL_PATH..."
-			git clone "$REPO_URL" "$INSTALL_PATH"
+			log_info "Cloning Ambxst ($BRANCH) to $INSTALL_PATH..."
+			git clone -b "$BRANCH" "$REPO_URL" "$INSTALL_PATH"
 		else
 			log_info "Ambxst directory exists. Checking status..."
-			git -C "$INSTALL_PATH" fetch origin
+			git -C "$INSTALL_PATH" fetch origin "$BRANCH" 2>/dev/null || git -C "$INSTALL_PATH" fetch origin
 
 			CURRENT_BRANCH=$(git -C "$INSTALL_PATH" rev-parse --abbrev-ref HEAD)
-			if [ "$CURRENT_BRANCH" == "main" ]; then
-				# Check for local changes (uncommitted or committed ahead of origin)
+			if [ "$CURRENT_BRANCH" == "$BRANCH" ]; then
+				# check for local changes (uncommitted or committed ahead of origin)
 				HAS_CHANGES=0
 				if [ -n "$(git -C "$INSTALL_PATH" status --porcelain)" ]; then HAS_CHANGES=1; fi
-				if [ -n "$(git -C "$INSTALL_PATH" log origin/main..HEAD)" ]; then HAS_CHANGES=1; fi
+				if [ -n "$(git -C "$INSTALL_PATH" log "origin/$BRANCH..HEAD" 2>/dev/null)" ]; then HAS_CHANGES=1; fi
 
 				if [ "$HAS_CHANGES" -eq 1 ]; then
-					echo -e "${YELLOW}⚠  Local changes or custom commits detected on 'main'.${NC}"
+					echo -e "${YELLOW}⚠  Local changes or custom commits detected on '$BRANCH'.${NC}"
 					echo -e "${RED}This update will DISCARD all your local changes to match the remote.${NC}"
 					echo -e "Make sure to save your changes in another branch if needed."
 					read -r -p "Continue and overwrite local changes? [y/N] " response </dev/tty
@@ -263,13 +263,38 @@ setup_repo() {
 				fi
 
 				log_info "Enforcing remote state..."
-				git -C "$INSTALL_PATH" reset --hard origin/main
+				git -C "$INSTALL_PATH" reset --hard "origin/$BRANCH"
 			else
-				log_warn "Your Ambxst installation is on branch '$CURRENT_BRANCH', not 'main'."
-				log_warn "Automatic update skipped to protect your changes. Switch to 'main' to update."
+				log_warn "Your Ambxst installation is on branch '$CURRENT_BRANCH', not '$BRANCH'."
+				log_warn "Automatic update skipped to protect your changes. Switch to '$BRANCH' to update."
 			fi
 		fi
 	fi
+}
+
+# === Ambxst Daemon Build (Rust) ===
+build_daemon() {
+	if [ "$DISTRO" == "nixos" ]; then return; fi
+
+	log_info "Building ambxst-daemon (Rust backend)..."
+
+	if ! command -v cargo >/dev/null 2>&1; then
+		if [ -f "$HOME/.cargo/bin/cargo" ]; then
+			export PATH="$HOME/.cargo/bin:$PATH"
+		else
+			log_error "cargo not found. Please install Rust (https://rustup.rs) to build ambxst-daemon."
+			return 1
+		fi
+	fi
+
+	pushd "$INSTALL_PATH/ambxst-daemon" >/dev/null
+	cargo build --release
+	popd >/dev/null
+
+	mkdir -p "$INSTALL_PATH/bin"
+	install -m 755 "$INSTALL_PATH/ambxst-daemon/target/release/ambxst-daemon" "$INSTALL_PATH/bin/ambxst-daemon"
+	chmod +x "$INSTALL_PATH/cli.sh" "$INSTALL_PATH/scripts/"*.sh 2>/dev/null || true
+	log_success "ambxst-daemon compiled and installed to $INSTALL_PATH/bin/ambxst-daemon"
 }
 
 # === Quickshell Build (Git) ===
@@ -292,19 +317,6 @@ install_quickshell() {
 		log_success "Quickshell installed to ~/.local/bin/qs"
 	else
 		log_info "Quickshell (qs) is already installed."
-	fi
-}
-
-# === Python Tools ===
-install_python_tools() {
-	if [ "$DISTRO" == "nixos" ]; then return; fi
-
-	log_info "Installing Python tools..."
-	if command -v pipx >/dev/null; then
-		pipx install "litellm[proxy]" --python 3.12
-		pipx ensurepath
-	else
-		log_warn "pipx not found. Skipping litellm[proxy] installation."
 	fi
 }
 
@@ -394,22 +406,21 @@ configure_services() {
 setup_launcher() {
 	if [ "$DISTRO" == "nixos" ]; then return; fi
 
-	# Clean up old launcher location
-	OLD_LAUNCHER="$HOME/.local/bin/ambxst"
-	if [ -f "$OLD_LAUNCHER" ]; then
-		log_info "Removing old launcher at $OLD_LAUNCHER..."
-		rm -f "$OLD_LAUNCHER"
-	fi
+	# User launcher in ~/.local/bin
+	mkdir -p "$HOME/.local/bin"
+	ln -sf "$INSTALL_PATH/cli.sh" "$HOME/.local/bin/ambxst"
+	chmod +x "$HOME/.local/bin/ambxst"
 
-	mkdir -p "$BIN_DIR" # Ensure bin dir exists
+	# System launcher in /usr/local/bin
+	mkdir -p "$BIN_DIR" 2>/dev/null || sudo mkdir -p "$BIN_DIR"
 	LAUNCHER="$BIN_DIR/ambxst"
 
 	log_info "Creating launcher at $LAUNCHER..."
 
 	sudo tee "$LAUNCHER" >/dev/null <<EOF
 #!/usr/bin/env bash
-export PATH="$HOME/.local/bin:\$PATH"
-export QML2_IMPORT_PATH="$HOME/.local/lib/qml:\$QML2_IMPORT_PATH"
+export PATH="\$HOME/.local/bin:\$PATH"
+export QML2_IMPORT_PATH="\$HOME/.local/lib/qml:\$QML2_IMPORT_PATH"
 export QML_IMPORT_PATH="\$QML2_IMPORT_PATH"
 
 # Execute the CLI script from the repo
@@ -417,7 +428,7 @@ exec "$INSTALL_PATH/cli.sh" "\$@"
 EOF
 
 	sudo chmod +x "$LAUNCHER"
-	log_success "Launcher created."
+	log_success "Launcher created at $LAUNCHER and $HOME/.local/bin/ambxst"
 }
 
 # === Main Execution ===
@@ -428,19 +439,16 @@ install_dependencies "$1"
 # 2. Setup Repo (Non-NixOS)
 setup_repo
 
-# 3. Install Quickshell (Non-NixOS)
+# 3. Build Ambxst Daemon (Rust backend)
+build_daemon
+
+# 4. Install Quickshell (Non-NixOS)
 install_quickshell
 
-# 4. Install Python Tools
-install_python_tools
-
-# 5. Compile Auth
-# (Auth removed - using Quickshell internal PAM)
-
-# 6. Configure Services
+# 5. Configure Services
 configure_services
 
-# 7. Setup Launcher
+# 6. Setup Launcher
 setup_launcher
 
 echo ""

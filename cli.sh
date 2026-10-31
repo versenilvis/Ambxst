@@ -131,7 +131,17 @@ dispatch_dpms() {
 case "${1:-}" in
 update)
 	echo "Updating Ambxst..."
-	exec curl -fsSL get.axeni.de/ambxst | sh
+	if [ -d "${SCRIPT_DIR}/.git" ]; then
+		git -C "${SCRIPT_DIR}" pull --ff-only
+		if command -v cargo >/dev/null 2>&1 && [ -d "${SCRIPT_DIR}/ambxst-daemon" ]; then
+			echo "Rebuilding ambxst-daemon..."
+			cargo build --release --manifest-path "${SCRIPT_DIR}/ambxst-daemon/Cargo.toml"
+			install -m 755 "${SCRIPT_DIR}/ambxst-daemon/target/release/ambxst-daemon" "${SCRIPT_DIR}/bin/ambxst-daemon"
+		fi
+		echo "Ambxst updated successfully."
+	else
+		exec curl -fsSL https://raw.githubusercontent.com/versenilvis/Ambxst/main/install.sh | bash
+	fi
 	;;
 refresh)
 	echo "Refreshing Ambxst profile..."
