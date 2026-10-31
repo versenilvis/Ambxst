@@ -23,12 +23,16 @@ Singleton {
         id: itemsModel
     }
 
-    onMaxRowsChanged: handleGridResize()
-    onMaxColumnsChanged: handleGridResize()
+    onMaxRowsChanged: {
+        if (maxRows >= 4) handleGridResize();
+    }
+    onMaxColumnsChanged: {
+        if (maxColumns >= 8) handleGridResize();
+    }
     onPositionsLoadedChanged: checkGridReady()
 
     function checkGridReady() {
-        if (maxRows > 1 && maxColumns > 1 && positionsLoaded && !gridReady) {
+        if (maxRows >= 4 && maxColumns >= 8 && positionsLoaded && !gridReady) {
             gridReady = true;
             if (rawItems.length > 0) {
                 finalizeItems();
@@ -83,20 +87,33 @@ Singleton {
         let savedMeta = iconPositions["_meta"];
         let oldMaxCols = (savedMeta && typeof savedMeta.maxColumns === "number") ? savedMeta.maxColumns : -1;
 
-        if (oldMaxCols <= 0) {
-            // infer previous grid width from highest saved column
-            let maxColInSaved = -1;
-            for (let p in iconPositions) {
-                if (p !== "_meta" && iconPositions[p] && typeof iconPositions[p].col === "number") {
-                    if (iconPositions[p].col > maxColInSaved) maxColInSaved = iconPositions[p].col;
-                }
+        let maxColInSaved = -1;
+        for (let p in iconPositions) {
+            if (p !== "_meta" && iconPositions[p] && typeof iconPositions[p].col === "number") {
+                if (iconPositions[p].col > maxColInSaved) maxColInSaved = iconPositions[p].col;
             }
+        }
+
+        // ignore corrupted grid metadata from unconfigured window
+        if (oldMaxCols > 0 && oldMaxCols < 8) {
+            oldMaxCols = -1;
+        }
+
+        // detect if saved coordinates were crushed into columns < 4 by dummy window bug
+        let isCorrupted = (savedMeta && savedMeta.maxColumns < 8) || (maxColumns >= 12 && maxColInSaved >= 0 && maxColInSaved < 4);
+        if (isCorrupted) {
+            iconPositions = {};
+            occupied = {};
+            oldMaxCols = -1;
+        }
+
+        if (oldMaxCols <= 0) {
             if (maxColInSaved > 0 && maxColInSaved < maxColumns - 2) {
                 oldMaxCols = maxColInSaved + 1;
             }
         }
 
-        let hasNewPositions = false;
+        let hasNewPositions = isCorrupted;
 
         // first pass: place items that already have valid saved positions
         for (let i = 0; i < rawItems.length; i++) {
@@ -241,6 +258,7 @@ Singleton {
     }
 
     function savePositions() {
+        if (maxColumns < 8 || maxRows < 4) return;
         iconPositions["_meta"] = { maxColumns: maxColumns, maxRows: maxRows };
         let json = JSON.stringify(iconPositions, null, 2);
         savePositionsProcess.command = [

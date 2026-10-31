@@ -84,21 +84,37 @@ PanelWindow {
 
         property int cellWidth: Config.desktop.iconSize + 48
         property int cellHeight: Config.desktop.iconSize + 56 + Config.desktop.spacingVertical
-        property int effectiveWidth: width > 100 ? width : (desktop.screen ? desktop.screen.width - 32 : 1920)
-        property int effectiveHeight: height > 100 ? height : (desktop.screen ? desktop.screen.height - (desktop.barSize + 32) : 1080)
+
+        readonly property int screenW: desktop.screen ? desktop.screen.width : (desktop.width > 500 ? desktop.width : 1920)
+        readonly property int screenH: desktop.screen ? desktop.screen.height : (desktop.height > 500 ? desktop.height : 1080)
+
+        property int effectiveWidth: {
+            if (desktop.barPosition === "left" || desktop.barPosition === "right") {
+                return screenW - desktop.barSize - 32;
+            }
+            return screenW - 32;
+        }
+
+        property int effectiveHeight: {
+            if (desktop.barPosition === "top" || desktop.barPosition === "bottom") {
+                return screenH - desktop.barSize - 32;
+            }
+            return screenH - 32;
+        }
+
         property int maxRows: Math.max(1, Math.floor(effectiveHeight / cellHeight))
         property int maxColumns: Math.max(1, Math.floor(effectiveWidth / cellWidth))
 
         onMaxRowsChanged: {
-            if (maxRows > 1) DesktopService.maxRows = maxRows;
+            if (maxRows >= 4) DesktopService.maxRows = maxRows;
         }
         onMaxColumnsChanged: {
-            if (maxColumns > 1) DesktopService.maxColumns = maxColumns;
+            if (maxColumns >= 8) DesktopService.maxColumns = maxColumns;
         }
 
         Component.onCompleted: {
-            if (maxRows > 1) DesktopService.maxRows = maxRows;
-            if (maxColumns > 1) DesktopService.maxColumns = maxColumns;
+            if (maxRows >= 4) DesktopService.maxRows = maxRows;
+            if (maxColumns >= 8) DesktopService.maxColumns = maxColumns;
         }
 
         DropArea {
