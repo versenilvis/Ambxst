@@ -133,12 +133,13 @@ impl ClipboardManager {
     }
 
     pub fn search_fuzzy(&self, query: &str) -> Result<Vec<ClipboardItem>, rusqlite::Error> {
-        if query.is_empty() {
+        let query_trimmed = query.trim();
+        if query_trimmed.is_empty() {
             return self.list(50, 0);
         }
-        
+
         let conn = self.conn.lock().unwrap();
-        // Fetch a larger chunk for fuzzy search, prioritizing pinned and newest
+        // fetch candidates for search, prioritizing pinned and newest
         let mut stmt = conn.prepare("
             select id, content_hash, mime_type, preview, coalesce(full_content, ''),
                    is_image, coalesce(binary_path, ''), size, pinned, alias,
@@ -165,43 +166,138 @@ impl ClipboardManager {
                 updated_at: row.get(12)?,
             })
         })?;
-        
-        let mut items = Vec::new();
+
+        let mut all_items = Vec::new();
         for r in rows {
-            items.push(r?);
+            all_items.push(r?);
         }
-        
-        let query_lower = query.to_lowercase();
-        
-        let mut scored_items: Vec<(i32, ClipboardItem)> = items.into_iter().filter_map(|item| {
-            let mut search_target = item.preview.to_lowercase();
-            if let Some(ref alias) = item.alias {
-                search_target.push_str(" ");
-                search_target.push_str(&alias.to_lowercase());
-            }
-            if !item.full_content.is_empty() {
-                // only search first 1000 chars of full content to avoid lag
-                let limit = std::cmp::min(item.full_content.len(), 1000);
-                if let Some(end) = item.full_content.char_indices().nth(limit).map(|(i, _)| i) {
-                    search_target.push_str(" ");
-                    search_target.push_str(&item.full_content[..end].to_lowercase());
-                } else {
-                    search_target.push_str(" ");
-                    search_target.push_str(&item.full_content.to_lowercase());
+
+        let q_lower = query_trimmed.to_lowercase();
+        let terms: Vec<String> = q_lower.split_whitespace().map(|s| s.to_string()).collect();
+
+        // pass 1: exact substring and multi-term matching
+        let mut scored_items: Vec<(i64, ClipboardItem)> = Vec::new();
+
+        for mut item in all_items.clone() {
+            let alias_lower = item.alias.as_deref().unwrap_or("").to_lowercase();
+            let preview_lower = item.preview.to_lowercase();
+            let full_lower = item.full_content.to_lowercase();
+
+            let mut tier: i64 = 0;
+            let mut bonus: i64 = 0;
+            let mut matched_in_full_only = false;
+
+            // tier 1: exact full query substring match anywhere in item
+            if (!alias_lower.is_empty() && alias_lower.contains(&q_lower))
+                || preview_lower.contains(&q_lower)
+                || full_lower.contains(&q_lower)
+            {
+                tier = 1_000_000_000_000_000;
+
+                if !alias_lower.is_empty() && alias_lower.contains(&q_lower) {
+                    bonus += 100_000_000_000_000;
+                }
+
+                // word boundary bonus
+                let is_word = is_word_boundary(&alias_lower, &q_lower)
+                    || is_word_boundary(&preview_lower, &q_lower)
+                    || is_word_boundary(&full_lower, &q_lower);
+                if is_word {
+                    bonus += 10_000_000_000_000;
+                }
+
+                if !preview_lower.contains(&q_lower) && full_lower.contains(&q_lower) {
+                    matched_in_full_only = true;
+                }
+            } else if terms.len() > 1 {
+                // tier 2: multi-term match (all terms present in item)
+                let mut matched_terms = 0;
+                for term in &terms {
+                    if (!alias_lower.is_empty() && alias_lower.contains(term))
+                        || preview_lower.contains(term)
+                        || full_lower.contains(term)
+                    {
+                        matched_terms += 1;
+                    }
+                }
+                if matched_terms == terms.len() {
+                    tier = 500_000_000_000_000;
+                    if !preview_lower.contains(&terms[0]) && full_lower.contains(&terms[0]) {
+                        matched_in_full_only = true;
+                    }
                 }
             }
-            
-            if let Some(score) = crate::app_search::fff_match(&query_lower, &search_target) {
-                Some((score, item))
-            } else {
-                None
+
+            if tier > 0 {
+                // generate dynamic snippet if the match is inside full_content and not visible in preview
+                if matched_in_full_only {
+                    let first_term = terms.first().map(|s| s.as_str()).unwrap_or(&q_lower);
+                    let snippet = create_snippet(&item.full_content, first_term);
+                    if !snippet.is_empty() {
+                        item.preview = snippet;
+                    }
+                }
+
+                if item.pinned == 1 {
+                    bonus += 500_000_000_000_000;
+                }
+
+                // recency determines ranking within the same match quality tier
+                let final_score = tier + bonus + item.updated_at;
+                scored_items.push((final_score, item));
             }
-        }).collect();
-        
-        // Sort by highest score first
+        }
+
+        // pass 2: fallback to smart word fuzzy search only if pass 1 found 0 results
+        if scored_items.is_empty() && q_lower.chars().count() >= 3 {
+            for mut item in all_items {
+                let alias_lower = item.alias.as_deref().unwrap_or("").to_lowercase();
+                let preview_lower = item.preview.to_lowercase();
+                let full_lower = item.full_content.to_lowercase();
+
+                let mut fuzzy_tier: i64 = 0;
+                let mut matched_in_full_only = false;
+
+                let check_text = |text: &str| -> bool {
+                    for word in text.split(|c: char| !c.is_alphanumeric() && c != '_' && c != '-') {
+                        if !word.is_empty() && is_fuzzy_word_match(&q_lower, word) {
+                            return true;
+                        }
+                    }
+                    false
+                };
+
+                if (!alias_lower.is_empty() && check_text(&alias_lower))
+                    || check_text(&preview_lower)
+                    || check_text(&full_lower)
+                {
+                    fuzzy_tier = 100_000_000_000_000;
+                    if !check_text(&preview_lower) && check_text(&full_lower) {
+                        matched_in_full_only = true;
+                    }
+                }
+
+                if fuzzy_tier > 0 {
+                    if matched_in_full_only {
+                        let snippet = create_snippet(&item.full_content, &q_lower);
+                        if !snippet.is_empty() {
+                            item.preview = snippet;
+                        }
+                    }
+                    let mut bonus: i64 = 0;
+                    if item.pinned == 1 {
+                        bonus += 500_000_000_000_000;
+                    }
+                    let final_score = fuzzy_tier + bonus + item.updated_at;
+                    scored_items.push((final_score, item));
+                }
+            }
+        }
+
+        // sort by highest score first
         scored_items.sort_by(|a, b| b.0.cmp(&a.0));
-        
-        // Return top 50
+
+        // return top 50
         Ok(scored_items.into_iter().map(|(_, item)| item).take(50).collect())
     }
 
@@ -1015,4 +1111,118 @@ pub fn clear_system_clipboard_if_matches(hash: &str) {
             }
         }
     });
+}
+
+fn is_word_boundary(haystack: &str, needle: &str) -> bool {
+    let mut start = 0;
+    while let Some(pos) = haystack[start..].find(needle) {
+        let abs_pos = start + pos;
+        let before_ok = if abs_pos == 0 {
+            true
+        } else {
+            let prev_char = haystack[..abs_pos].chars().last().unwrap_or(' ');
+            !prev_char.is_alphanumeric()
+        };
+        let after_pos = abs_pos + needle.len();
+        let after_ok = if after_pos >= haystack.len() {
+            true
+        } else {
+            let next_char = haystack[after_pos..].chars().next().unwrap_or(' ');
+            !next_char.is_alphanumeric()
+        };
+
+        if before_ok && after_ok {
+            return true;
+        }
+        start = abs_pos + 1;
+        if start >= haystack.len() {
+            break;
+        }
+    }
+    false
+}
+
+fn create_snippet(content: &str, query: &str) -> String {
+    let content_lower = content.to_lowercase();
+    let query_lower = query.to_lowercase();
+
+    let match_byte_idx = if let Some(idx) = content_lower.find(&query_lower) {
+        idx
+    } else {
+        let first_term = query_lower.split_whitespace().next().unwrap_or("");
+        if !first_term.is_empty() {
+            content_lower.find(first_term).unwrap_or(0)
+        } else {
+            0
+        }
+    };
+
+    let char_indices: Vec<(usize, char)> = content.char_indices().collect();
+    if char_indices.is_empty() {
+        return String::new();
+    }
+
+    let match_char_idx = char_indices.iter().position(|(b, _)| *b >= match_byte_idx).unwrap_or(0);
+    let start_char = match_char_idx.saturating_sub(25);
+    let end_char = std::cmp::min(char_indices.len(), match_char_idx + 85);
+
+    let start_byte = char_indices[start_char].0;
+    let end_byte = if end_char < char_indices.len() {
+        char_indices[end_char].0
+    } else {
+        content.len()
+    };
+
+    let raw_slice = &content[start_byte..end_byte];
+    let cleaned = raw_slice.replace(['\n', '\r', '\t'], " ");
+    let trimmed = cleaned.trim();
+
+    let mut snippet = String::new();
+    if start_char > 0 {
+        snippet.push_str("...");
+    }
+    snippet.push_str(trimmed);
+    if end_char < char_indices.len() {
+        snippet.push_str("...");
+    }
+    snippet
+}
+
+fn levenshtein(a: &str, b: &str) -> usize {
+    let b_chars: Vec<char> = b.chars().collect();
+    let b_len = b_chars.len();
+    if b_len == 0 {
+        return a.chars().count();
+    }
+    let mut prev_row: Vec<usize> = (0..=b_len).collect();
+    let mut curr_row: Vec<usize> = vec![0; b_len + 1];
+
+    for (i, ca) in a.chars().enumerate() {
+        curr_row[0] = i + 1;
+        for (j, &cb) in b_chars.iter().enumerate() {
+            let cost = if ca == cb { 0 } else { 1 };
+            curr_row[j + 1] = std::cmp::min(
+                std::cmp::min(curr_row[j] + 1, prev_row[j + 1] + 1),
+                prev_row[j] + cost,
+            );
+        }
+        prev_row.copy_from_slice(&curr_row);
+    }
+    prev_row[b_len]
+}
+
+fn is_fuzzy_word_match(query: &str, word: &str) -> bool {
+    let q_len = query.chars().count();
+    let w_len = word.chars().count();
+    if q_len < 3 || w_len < 3 {
+        return false;
+    }
+    if q_len.abs_diff(w_len) > 2 {
+        return false;
+    }
+    if word.starts_with(query) {
+        return true;
+    }
+    let max_dist = if q_len <= 5 { 1 } else { 2 };
+    levenshtein(query, word) <= max_dist
 }

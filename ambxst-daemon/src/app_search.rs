@@ -83,16 +83,38 @@ impl AppSearcher {
         }
 
         let query_lower = query.to_lowercase();
-        
+
         let mut scored_apps: Vec<(i32, AppEntry)> = lock.iter().filter_map(|app| {
+            let name_lower = app.name.to_lowercase();
+            let mut prefix_bonus = 0;
+
+            if name_lower == query_lower {
+                prefix_bonus += 10000;
+            } else if name_lower.starts_with(&query_lower) {
+                prefix_bonus += 5000;
+            } else if name_lower.contains(&query_lower) {
+                prefix_bonus += 2000;
+            }
+
+            if let Some(ref gn) = app.generic_name {
+                let gn_lower = gn.to_lowercase();
+                if gn_lower.starts_with(&query_lower) {
+                    prefix_bonus += 1500;
+                } else if gn_lower.contains(&query_lower) {
+                    prefix_bonus += 800;
+                }
+            }
+
             if let Some(score) = fff_match(&query_lower, &app.search_string) {
-                Some((score, app.clone()))
+                Some((score + prefix_bonus, app.clone()))
+            } else if prefix_bonus > 0 {
+                Some((prefix_bonus, app.clone()))
             } else {
                 None
             }
         }).collect();
 
-        // Sort by highest score first, then alphabetically
+        // sort by highest score first, then alphabetically
         scored_apps.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.name.cmp(&b.1.name)));
 
         scored_apps.into_iter().map(|(_, app)| app).collect()
