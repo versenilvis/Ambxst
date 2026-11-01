@@ -48,26 +48,133 @@ Singleton {
         return "image-missing";
     }
 
+    function findApp(appId) {
+        if (!appId || appId.length === 0) return null;
+
+        const raw = String(appId).trim();
+        const lower = raw.toLowerCase();
+
+        // check regex and direct substitutions
+        let resolvedQuery = raw;
+        for (let i = 0; i < regexSubstitutions.length; i++) {
+            const sub = regexSubstitutions[i];
+            const replaced = raw.replace(sub.regex, sub.replace);
+            if (replaced !== raw) {
+                resolvedQuery = replaced;
+                break;
+            }
+        }
+        if (substitutions[raw]) resolvedQuery = substitutions[raw];
+        else if (substitutions[lower]) resolvedQuery = substitutions[lower];
+
+        const queryLower = resolvedQuery.toLowerCase();
+        const withoutDesktop = queryLower.replace(/(\.desktop)+$/, "");
+        const withDesktop = withoutDesktop + ".desktop";
+        const baseName = withoutDesktop.split('/').pop();
+        const lastSegment = withoutDesktop.split('.').pop();
+
+        // 1. match against allApps loaded from daemon
+        if (root.allApps && root.allApps.length > 0) {
+            // exact id / filename match
+            for (let i = 0; i < root.allApps.length; i++) {
+                const app = root.allApps[i];
+                const idLower = (app.id || "").toLowerCase();
+                const idClean = idLower.replace(/(\.desktop)+$/, "");
+                if (idLower === queryLower || idLower === withDesktop || idClean === withoutDesktop) {
+                    return app;
+                }
+            }
+
+            // startup_wm_class match
+            for (let i = 0; i < root.allApps.length; i++) {
+                const app = root.allApps[i];
+                if (app.startupWmClass) {
+                    const swc = app.startupWmClass.toLowerCase();
+                    if (swc === lower || swc === queryLower || swc === withoutDesktop) {
+                        return app;
+                    }
+                }
+            }
+
+            // executable basename match
+            for (let i = 0; i < root.allApps.length; i++) {
+                const app = root.allApps[i];
+                if (!app.execString) continue;
+                const execBase = app.execString.trim().split(/\s+/)[0].split('/').pop().toLowerCase();
+                if (execBase && (execBase === queryLower || execBase === withoutDesktop || execBase === baseName)) {
+                    return app;
+                }
+                if (execBase && execBase.length >= 3) {
+                    if (queryLower.startsWith(execBase) || withoutDesktop.startsWith(execBase) || execBase.startsWith(withoutDesktop)) {
+                        return app;
+                    }
+                }
+            }
+
+            // app name match
+            for (let i = 0; i < root.allApps.length; i++) {
+                const app = root.allApps[i];
+                const nameLower = (app.name || "").toLowerCase();
+                if (nameLower === queryLower || nameLower === withoutDesktop) {
+                    return app;
+                }
+            }
+
+            // last reverse-DNS segment match
+            for (let i = 0; i < root.allApps.length; i++) {
+                const app = root.allApps[i];
+                const idClean = (app.id || "").toLowerCase().replace(/(\.desktop)+$/, "");
+                const seg = idClean.split('.').pop();
+                if (seg === withoutDesktop || seg === lastSegment) {
+                    return app;
+                }
+            }
+
+            // token combination match (e.g. ida + pro in class com.hex_rays.ida.pro._9_4)
+            const tokens = lower.split(/[^a-z0-9]+/).filter(t => t.length > 1 && !["com", "org", "net", "io", "github", "gitlab"].includes(t));
+            if (tokens.length >= 2) {
+                for (let i = 0; i < root.allApps.length; i++) {
+                    const app = root.allApps[i];
+                    const target = ((app.id || "") + " " + (app.name || "")).toLowerCase();
+                    if (tokens.every(token => target.includes(token))) {
+                        return app;
+                    }
+                }
+            }
+        }
+
+        // 2. fallback to quickshell desktop entries heuristic
+        const entry = DesktopEntries.heuristicLookup(raw) || DesktopEntries.heuristicLookup(withoutDesktop);
+        if (entry) return entry;
+
+        return null;
+    }
+
     function getIconFromDesktopEntry(className) {
         if (!className || className.length === 0) return null;
 
-        const normalizedClassName = className.toLowerCase();
+        const app = findApp(className);
+        if (app && app.icon && app.icon !== "application-x-executable" && app.icon !== "image-missing") {
+            return app.icon;
+        }
+
+        const normalizedClassName = className.toLowerCase().replace(/(\.desktop)+$/, "");
 
         for (let i = 0; i < list.length; i++) {
-            const app = list[i];
-            if (app.command && app.command.length > 0) {
-                const executableLower = app.command[0].toLowerCase();
+            const item = list[i];
+            if (item.command && item.command.length > 0) {
+                const executableLower = item.command[0].toLowerCase().split('/').pop();
                 if (executableLower === normalizedClassName) {
-                    return app.icon || "application-x-executable";
+                    return item.icon || "application-x-executable";
                 }
             }
-            if (app.name && app.name.toLowerCase() === normalizedClassName) {
-                return app.icon || "application-x-executable";
+            if (item.name && item.name.toLowerCase() === normalizedClassName) {
+                return item.icon || "application-x-executable";
             }
-            if (app.keywords && app.keywords.length > 0) {
-                for (let j = 0; j < app.keywords.length; j++) {
-                    if (app.keywords[j].toLowerCase() === normalizedClassName) {
-                        return app.icon || "application-x-executable";
+            if (item.keywords && item.keywords.length > 0) {
+                for (let j = 0; j < item.keywords.length; j++) {
+                    if (item.keywords[j].toLowerCase() === normalizedClassName) {
+                        return item.icon || "application-x-executable";
                     }
                 }
             }
@@ -76,32 +183,42 @@ Singleton {
     }
 
     function guessIcon(str) {
-        if (!str || str.length == 0) return "image-missing";
+        if (!str || str.length === 0) return "image-missing";
 
-        const desktopIcon = getIconFromDesktopEntry(str);
+        const raw = String(str).trim();
+        const lower = raw.toLowerCase();
+        const withoutDesktop = lower.replace(/(\.desktop)+$/, "");
+
+        // check direct desktop entry lookup first
+        const desktopIcon = getIconFromDesktopEntry(raw) || getIconFromDesktopEntry(withoutDesktop);
         if (desktopIcon) return desktopIcon;
 
-        if (substitutions[str])
-            return substitutions[str];
+        if (substitutions[raw]) return substitutions[raw];
+        if (substitutions[lower]) return substitutions[lower];
+        if (substitutions[withoutDesktop]) return substitutions[withoutDesktop];
 
         for (let i = 0; i < regexSubstitutions.length; i++) {
             const substitution = regexSubstitutions[i];
-            const replacedName = str.replace(
+            const replacedName = raw.replace(
                 substitution.regex,
                 substitution.replace,
             );
-            if (replacedName != str) return replacedName;
+            if (replacedName !== raw) return replacedName;
         }
 
-        if (iconExists(str)) return str;
+        if (iconExists(withoutDesktop)) return withoutDesktop;
+        if (iconExists(raw)) return raw;
 
-        const extensionGuess = str.split('.').pop().toLowerCase();
+        const extensionGuess = withoutDesktop.split('.').pop();
         if (iconExists(extensionGuess)) return extensionGuess;
 
-        const dashedGuess = str.toLowerCase().replace(/\s+/g, "-");
+        const hyphenGuess = withoutDesktop.split('-')[0];
+        if (iconExists(hyphenGuess)) return hyphenGuess;
+
+        const dashedGuess = withoutDesktop.replace(/\s+/g, "-");
         if (iconExists(dashedGuess)) return dashedGuess;
 
-        return str;
+        return withoutDesktop;
     }
 
     property var substitutions: ({
@@ -113,6 +230,7 @@ Singleton {
         "wpsoffice": "wps-office2019-kprometheus",
         "footclient": "foot",
         "zen": "zen-browser",
+        "antigravity-ide": "antigravity",
     })
     property list<var> regexSubstitutions: [
         {
@@ -130,6 +248,10 @@ Singleton {
         {
             "regex": /gcr.prompter/,
             "replace": "system-lock-screen"
+        },
+        {
+            "regex": /.*hex_rays.*ida.*/i,
+            "replace": "ida-pro"
         }
     ]
 
@@ -304,6 +426,8 @@ Singleton {
                 categories: entry.categories || [],
                 runInTerminal: false,
                 usageScore: 0,
+                startupWmClass: "",
+                desktop_path: "",
                 _searchString: (entry.name + " " + (entry.comment || "") + " " + cmdStr).toLowerCase(),
                 execute: () => {
                     entry.execute();
@@ -348,6 +472,8 @@ Singleton {
                     categories: app.categories || [],
                     runInTerminal: false,
                     usageScore: 0,
+                    startupWmClass: app.startup_wm_class || "",
+                    desktop_path: app.desktop_path || "",
                     _searchString: searchStr,
                     execute: () => {
                         DaemonClient.sendCommand({

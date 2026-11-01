@@ -14,6 +14,7 @@ pub struct AppEntry {
     pub keywords: Vec<String>,
     pub categories: Vec<String>,
     pub desktop_path: String,
+    pub startup_wm_class: Option<String>,
     #[serde(skip)]
     pub search_string: String,
 }
@@ -151,6 +152,8 @@ fn parse_desktop_file(path: &Path) -> Option<AppEntry> {
         .map(|s| s.split(';').map(|k| k.trim().to_string()).filter(|k| !k.is_empty()).collect())
         .unwrap_or_default();
 
+    let startup_wm_class = section.get("StartupWMClass").map(|s| s.to_string());
+
     let id = path.file_name()?.to_string_lossy().to_string();
 
     let mut search_string = name.to_lowercase();
@@ -164,6 +167,10 @@ fn parse_desktop_file(path: &Path) -> Option<AppEntry> {
         search_string.push_str(" ");
         search_string.push_str(&k.as_str().to_lowercase());
     }
+    if let Some(ref swc) = startup_wm_class {
+        search_string.push_str(" ");
+        search_string.push_str(&swc.to_lowercase());
+    }
 
     Some(AppEntry {
         id,
@@ -174,6 +181,7 @@ fn parse_desktop_file(path: &Path) -> Option<AppEntry> {
         keywords,
         categories,
         desktop_path: path.to_string_lossy().to_string(),
+        startup_wm_class,
         search_string,
     })
 }

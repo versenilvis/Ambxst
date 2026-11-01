@@ -5,34 +5,66 @@ import QtQuick
 import Quickshell
 import Quickshell.Wayland
 import qs.config
+import qs.modules.services
 
 Singleton {
     id: root
 
+    // check if two app identifiers refer to the same application
+    function isSameApp(appId1, appId2) {
+        if (!appId1 || !appId2) return false;
+        const a1 = appId1.toLowerCase();
+        const a2 = appId2.toLowerCase();
+        if (a1 === a2) return true;
+
+        const clean1 = a1.replace(/(\.desktop)+$/, "");
+        const clean2 = a2.replace(/(\.desktop)+$/, "");
+        if (clean1 === clean2) return true;
+
+        const entry1 = AppSearch.findApp(appId1);
+        const entry2 = AppSearch.findApp(appId2);
+        if (entry1 && entry2) {
+            if (entry1.id && entry2.id && entry1.id.toLowerCase() === entry2.id.toLowerCase()) return true;
+            if (entry1.desktop_path && entry2.desktop_path && entry1.desktop_path === entry2.desktop_path) return true;
+        }
+        if (entry1) {
+            if (entry1.startupWmClass && entry1.startupWmClass.toLowerCase() === a2) return true;
+            const execBase = entry1.execString ? entry1.execString.trim().split(/\s+/)[0].split('/').pop().toLowerCase() : "";
+            if (execBase && (execBase === a2 || execBase === clean2 || a2.startsWith(execBase))) return true;
+        }
+        if (entry2) {
+            if (entry2.startupWmClass && entry2.startupWmClass.toLowerCase() === a1) return true;
+            const execBase = entry2.execString ? entry2.execString.trim().split(/\s+/)[0].split('/').pop().toLowerCase() : "";
+            if (execBase && (execBase === a1 || execBase === clean1 || a1.startsWith(execBase))) return true;
+        }
+        return false;
+    }
+
     // Check if an app is pinned
     function isPinned(appId) {
         const pinnedApps = Config.pinnedApps?.apps || [];
-        return pinnedApps.some(id => id.toLowerCase() === appId.toLowerCase());
+        return pinnedApps.some(id => isSameApp(id, appId));
     }
 
     // Toggle pin status of an app
     function togglePin(appId) {
         let pinnedApps = Config.pinnedApps?.apps || [];
-        const normalizedAppId = appId.toLowerCase();
         
         if (isPinned(appId)) {
             // Remove from pinned
-            Config.pinnedApps.apps = pinnedApps.filter(id => id.toLowerCase() !== normalizedAppId);
+            Config.pinnedApps.apps = pinnedApps.filter(id => !isSameApp(id, appId));
         } else {
             // Add to pinned
-            Config.pinnedApps.apps = pinnedApps.concat([appId]);
+            const entry = AppSearch.findApp(appId);
+            const idToPin = (entry && entry.id) ? entry.id : appId;
+            Config.pinnedApps.apps = pinnedApps.concat([idToPin]);
         }
     }
 
     // Get desktop entry for an app
     function getDesktopEntry(appId) {
         if (!appId) return null;
-        return DesktopEntries.heuristicLookup(appId) || null;
+        return AppSearch.findApp(appId) || DesktopEntries.heuristicLookup(appId) || null;
     }
 
     // Launch an app by its ID
@@ -102,25 +134,34 @@ Singleton {
             // Skip ignored apps
             if (ignoredRegexes.some(re => re.test(toplevel.appId))) continue;
             
-            const key = toplevel.appId.toLowerCase();
-            
-            // Check if this app is already in map (pinned)
-            if (map.has(key)) {
-                // Add toplevel to existing pinned app
-                map.get(key).toplevels.push(toplevel);
-            } else {
-                // Track as unpinned running app
-                const existing = unpinnedRunningApps.find(app => app.key === key);
-                if (!existing) {
-                    unpinnedRunningApps.push({
-                        key: key,
-                        appId: toplevel.appId,
-                        toplevels: [toplevel]
-                    });
-                } else {
-                    existing.toplevels.push(toplevel);
+            // Check if this toplevel matches any pinned app
+            let matchedPinned = false;
+            for (const [key, value] of map) {
+                if (value.pinned && isSameApp(value.appId, toplevel.appId)) {
+                    value.toplevels.push(toplevel);
+                    matchedPinned = true;
+                    break;
                 }
             }
+            if (matchedPinned) continue;
+
+            // Check if this toplevel matches an existing unpinned running app
+            let matchedUnpinned = false;
+            for (let j = 0; j < unpinnedRunningApps.length; j++) {
+                if (isSameApp(unpinnedRunningApps[j].appId, toplevel.appId)) {
+                    unpinnedRunningApps[j].toplevels.push(toplevel);
+                    matchedUnpinned = true;
+                    break;
+                }
+            }
+            if (matchedUnpinned) continue;
+
+            // Track as new unpinned running app
+            unpinnedRunningApps.push({
+                key: toplevel.appId.toLowerCase(),
+                appId: toplevel.appId,
+                toplevels: [toplevel]
+            });
         }
 
         // Add separator only if there are pinned apps AND unpinned running apps

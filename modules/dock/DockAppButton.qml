@@ -28,7 +28,7 @@ Button {
     readonly property bool isVertical: isLeft || isRight
 
     readonly property bool isSeparator: appToplevel?.appId === "SEPARATOR"
-    readonly property var desktopEntry: (isSeparator || !appToplevel) ? null : DesktopEntries.heuristicLookup(appToplevel.appId)
+    readonly property var desktopEntry: (isSeparator || !appToplevel) ? null : (AppSearch.findApp(appToplevel.appId) || DesktopEntries.heuristicLookup(appToplevel.appId))
     readonly property bool appIsActive: !isSeparator && (appToplevel?.toplevels?.some(t => t.activated === true) ?? false)
     readonly property bool appIsRunning: !isSeparator && (appToplevel?.toplevelCount ?? 0) > 0
 
@@ -100,7 +100,14 @@ Button {
                     Image {
                         id: appIcon
                         anchors.fill: parent
-                        source: "image://icon/" + appIconContainer.iconName
+                        source: {
+                            const name = appIconContainer.iconName;
+                            if (!name || name.length === 0) return "image://icon/application-x-executable";
+                            if (name.startsWith("/") || name.startsWith("file://") || name.startsWith("image://")) {
+                                return name.startsWith("/") ? ("file://" + name) : name;
+                            }
+                            return "image://icon/" + name;
+                        }
                         sourceSize.width: root.iconSize * 2
                         sourceSize.height: root.iconSize * 2
                         fillMode: Image.PreserveAspectFit
