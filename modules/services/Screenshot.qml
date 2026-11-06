@@ -284,7 +284,7 @@ QtObject {
 
         // disable software cursor during capture without warping pointer so edge panels do not expand
         var fullCmd = `PREV=$(hyprctl getoption cursor:no_hardware_cursors -j 2>/dev/null | jq -r '.int'); ` +
-                      `if [ "$PREV" = "1" ]; then ${hideCursor}; sleep 0.04; fi; ` +
+                      `if [ "$PREV" = "1" ]; then ${hideCursor}; sleep 0.08; fi; ` +
                       `${grimCmds}; ` +
                       `if [ "$PREV" = "1" ]; then ${restoreCursor}; fi`;
 
@@ -394,8 +394,19 @@ QtObject {
         // Or better: Re-run grim without -o to get the full stitched image again?
         // That duplicates work but is safest for "Full Screenshot".
         
-        var cmd = ["grim", root.finalPath];
-        cropProcess.command = cmd;
+        const isLua = GlobalStates.isLuaParser;
+        const hideCursor = isLua
+            ? "hyprctl eval 'hl.config({ cursor = { no_hardware_cursors = false } })' >/dev/null 2>&1"
+            : "hyprctl keyword cursor:no_hardware_cursors false >/dev/null 2>&1";
+        const restoreCursor = isLua
+            ? "hyprctl eval 'hl.config({ cursor = { no_hardware_cursors = true } })' >/dev/null 2>&1"
+            : "hyprctl keyword cursor:no_hardware_cursors true >/dev/null 2>&1";
+
+        var fullCmd = `PREV=$(hyprctl getoption cursor:no_hardware_cursors -j 2>/dev/null | jq -r '.int'); ` +
+                      `if [ "$PREV" = "1" ]; then ${hideCursor}; sleep 0.08; fi; ` +
+                      `grim "${root.finalPath}"; ` +
+                      `if [ "$PREV" = "1" ]; then ${restoreCursor}; fi`;
+        cropProcess.command = ["bash", "-c", fullCmd];
         cropProcess.running = true;
     }
     
