@@ -89,6 +89,7 @@ ActionGrid {
         console.log("Tools action triggered:", action.tooltip);
 
         if (action.tooltip === "Screenshot") {
+            GlobalStates.screenshotCaptureMode = "region";
             GlobalStates.screenshotToolVisible = true;
             root.itemSelected();
         } else if (action.tooltip === "Screen Recorder") {

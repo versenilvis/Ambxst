@@ -160,10 +160,13 @@ PanelWindow {
     }
 
     function open() {
-        screenshotPopup.currentMode = GlobalStates.screenshotCaptureMode || "region";
+        screenshotPopup.currentMode = "region";
+        GlobalStates.screenshotCaptureMode = "region";
         screenshotPopup.state = "loading";
         screenshotPopup.countdownActive = false;
         screenshotPopup.remainingCountdown = 0;
+        Screenshot.selectionW = 0;
+        Screenshot.selectionH = 0;
         Screenshot.freezeScreen();
     }
 
@@ -171,6 +174,8 @@ PanelWindow {
         countdownTimer.stop();
         screenshotPopup.countdownActive = false;
         screenshotPopup.state = "idle";
+        screenshotPopup.currentMode = "region";
+        GlobalStates.screenshotCaptureMode = "region";
         GlobalStates.screenshotToolVisible = false;
     }
 

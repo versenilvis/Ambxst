@@ -72,9 +72,15 @@ Item {
                 }
                 break;
             case "powermenu": toggleSimpleModule("powermenu"); break;
-            case "tools": GlobalStates.screenshotToolVisible = true; break;
+            case "tools": 
+                GlobalStates.screenshotCaptureMode = "region";
+                GlobalStates.screenshotToolVisible = true; 
+                break;
             case "config": GlobalStates.settingsVisible = !GlobalStates.settingsVisible; break;
-            case "screenshot": GlobalStates.screenshotToolVisible = true; break;
+            case "screenshot": 
+                GlobalStates.screenshotCaptureMode = "region";
+                GlobalStates.screenshotToolVisible = true; 
+                break;
             case "screenrecord": GlobalStates.screenRecordToolVisible = true; break;
             case "lens": 
                 Screenshot.captureMode = "lens";
@@ -233,7 +239,10 @@ Item {
         name: "tools"
         description: "Open screenshot toolbar"
 
-        onPressed: GlobalStates.screenshotToolVisible = true
+        onPressed: {
+            GlobalStates.screenshotCaptureMode = "region";
+            GlobalStates.screenshotToolVisible = true;
+        }
     }
 
     GlobalShortcut {
@@ -241,7 +250,10 @@ Item {
         name: "screenshot"
         description: "Open screenshot tool"
 
-        onPressed: GlobalStates.screenshotToolVisible = true
+        onPressed: {
+            GlobalStates.screenshotCaptureMode = "region";
+            GlobalStates.screenshotToolVisible = true;
+        }
     }
 
     GlobalShortcut {

@@ -9,6 +9,9 @@ ToggleButton {
     buttonIcon: Icons.camera
     tooltipText: "Screenshot"
     onToggle: function () {
+        if (!GlobalStates.screenshotToolVisible) {
+            GlobalStates.screenshotCaptureMode = "region";
+        }
         GlobalStates.screenshotToolVisible = !GlobalStates.screenshotToolVisible;
     }
 }
