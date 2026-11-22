@@ -261,6 +261,7 @@ Singleton {
     property var allApps: []
     property var searchResults: []
     property var _defaultSortedApps: []
+    property var _queryCache: ({})
     property string _currentQuery: ""
 
     // fast fuzzy matching algorithm
@@ -324,6 +325,10 @@ Singleton {
             return root._defaultSortedApps;
         }
 
+        if (root._queryCache[q]) {
+            return root._queryCache[q];
+        }
+
         const usageScores = {};
         const topList = UsageTracker.topAppsList || [];
         for (let i = 0; i < topList.length; i++) {
@@ -333,10 +338,10 @@ Singleton {
         const scored = [];
         for (let i = 0; i < root.allApps.length; i++) {
             const app = root.allApps[i];
-            const nameLower = (app.name || "").toLowerCase();
-            const idLower = (app.id || "").toLowerCase();
-            const execLower = (app.execString || "").toLowerCase();
-            const commentLower = (app.comment || "").toLowerCase();
+            const nameLower = app.nameLower || (app.name || "").toLowerCase();
+            const idLower = app.idLower || (app.id || "").toLowerCase();
+            const execLower = app.execLower || (app.execString || "").toLowerCase();
+            const commentLower = app.commentLower || (app.comment || "").toLowerCase();
 
             let score = -1;
 
@@ -345,7 +350,7 @@ Singleton {
             } else if (nameLower.startsWith(q)) {
                 score = 5000 + (50 - Math.min(50, nameLower.length));
             } else {
-                const words = nameLower.split(/[\s\-_.]+/);
+                const words = app.nameWords || nameLower.split(/[\s\-_.]+/);
                 for (let w = 0; w < words.length; w++) {
                     if (words[w].startsWith(q)) {
                         score = 3500 + (50 - Math.min(50, words[w].length));
@@ -405,7 +410,9 @@ Singleton {
             return a.app.name.localeCompare(b.app.name);
         });
 
-        return scored.map(item => item.app);
+        const results = scored.map(item => item.app);
+        root._queryCache[q] = results;
+        return results;
     }
 
     function searchApps(query) {
@@ -423,6 +430,7 @@ Singleton {
 
     function invalidateCache() {
         root._defaultSortedApps = [];
+        root._queryCache = ({});
         root.searchResults = localFilter(root._currentQuery);
     }
 
@@ -436,6 +444,13 @@ Singleton {
             const iconName = entry.icon || "application-x-executable";
             const validatedIcon = getCachedIcon(iconName);
             const cmdStr = (entry.command && entry.command.length > 0) ? entry.command.join(" ") : "";
+            const nameLower = (entry.name || "").toLowerCase();
+            const idLower = (entry.id || entry.name || "").toLowerCase();
+            const execLower = cmdStr.toLowerCase();
+            const commentLower = (entry.comment || "").toLowerCase();
+            const nameWords = nameLower.split(/[\s\-_.]+/).filter(w => w.length > 0);
+            const searchStr = (nameLower + " " + commentLower + " " + execLower);
+
             mapped.push({
                 id: entry.id || entry.name,
                 name: entry.name,
@@ -447,12 +462,19 @@ Singleton {
                 usageScore: 0,
                 startupWmClass: "",
                 desktop_path: "",
-                _searchString: (entry.name + " " + (entry.comment || "") + " " + cmdStr).toLowerCase(),
+                nameLower: nameLower,
+                idLower: idLower,
+                execLower: execLower,
+                commentLower: commentLower,
+                nameWords: nameWords,
+                _searchString: searchStr,
                 execute: () => {
                     entry.execute();
                 }
             });
         }
+        root._defaultSortedApps = [];
+        root._queryCache = ({});
         root.allApps = mapped;
         root.searchResults = localFilter(root._currentQuery);
     }
@@ -480,7 +502,12 @@ Singleton {
                     iconToUse = validated;
                 }
 
-                const searchStr = (app.name + " " + (app.generic_name || "") + " " + (app.exec || "") + " " + (app.keywords ? app.keywords.join(" ") : "")).toLowerCase();
+                const nameLower = (app.name || "").toLowerCase();
+                const idLower = (app.id || "").toLowerCase();
+                const execLower = (app.exec || "").toLowerCase();
+                const commentLower = (app.generic_name || "").toLowerCase();
+                const nameWords = nameLower.split(/[\s\-_.]+/).filter(w => w.length > 0);
+                const searchStr = (nameLower + " " + commentLower + " " + execLower + (app.keywords ? " " + app.keywords.join(" ").toLowerCase() : ""));
 
                 return {
                     id: app.id,
@@ -493,6 +520,11 @@ Singleton {
                     usageScore: 0,
                     startupWmClass: app.startup_wm_class || "",
                     desktop_path: app.desktop_path || "",
+                    nameLower: nameLower,
+                    idLower: idLower,
+                    execLower: execLower,
+                    commentLower: commentLower,
+                    nameWords: nameWords,
                     _searchString: searchStr,
                     execute: () => {
                         DaemonClient.sendCommand({
@@ -508,6 +540,7 @@ Singleton {
             });
             
             root._defaultSortedApps = [];
+            root._queryCache = ({});
             root.allApps = mapped;
             root.searchResults = localFilter(root._currentQuery);
         }

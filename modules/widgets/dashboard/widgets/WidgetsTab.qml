@@ -118,22 +118,10 @@ Rectangle {
 
             Timer {
                 id: searchDebounceTimer
-                interval: 20
+                interval: 15
                 repeat: false
                 onTriggered: {
                     appLauncher.updateFilteredApps();
-                }
-            }
-
-            Timer {
-                id: fileSearchFallbackTimer
-                interval: 150
-                repeat: false
-                onTriggered: {
-                    if (appLauncher.searchText.length > 0 && appLauncher.filteredApps.length === 0) {
-                        appLauncher.isShowingFiles = true;
-                        FileSearch.searchFiles(appLauncher.searchText);
-                    }
                 }
             }
 
@@ -174,7 +162,6 @@ Rectangle {
                     }
                 } else {
                     isShowingFiles = false;
-                    FileSearch.clearSearch();
                     if (searchText.length > 0) {
                         AppSearch.searchApps(searchText);
                     } else {
@@ -200,14 +187,8 @@ Rectangle {
                     appLauncher.selectedIndex = 0;
                     resultsList.currentIndex = 0;
                 }
-                if (appLauncher.searchText.length > 0 && appLauncher.filteredApps.length === 0) {
-                    fileSearchFallbackTimer.restart();
-                } else {
-                    fileSearchFallbackTimer.stop();
-                    appLauncher.isShowingFiles = false;
-                    FileSearch.clearSearch();
-                    updateAppsModel();
-                }
+                appLauncher.isShowingFiles = false;
+                updateAppsModel();
             }
 
             Connections {
@@ -271,27 +252,47 @@ Rectangle {
                 for (let i = 0; i < newApps.length; i++) {
                     appsById[newApps[i].id] = newApps[i];
                 }
-
-                appsModel.clear();
                 
                 let isSearch = appLauncher.searchText.length > 0;
-                let initialBatch = isSearch ? Math.min(35, newApps.length) : Math.min(appLauncher.batchSize, newApps.length);
-                for (let i = 0; i < initialBatch; i++) {
+                let targetCount = isSearch ? Math.min(25, newApps.length) : Math.min(appLauncher.batchSize, newApps.length);
+                let currentCount = appsModel.count;
+                let updateCount = Math.min(currentCount, targetCount);
+
+                for (let i = 0; i < updateCount; i++) {
+                    let app = newApps[i];
+                    appsModel.set(i, {
+                        appId: app.id,
+                        appName: app.name,
+                        appIcon: app.icon,
+                        appComment: app.comment || "",
+                        appExecString: app.execString || "",
+                        appCategories: app.categories || [],
+                        appRunInTerminal: app.runInTerminal || false,
+                        isFile: false,
+                        filePath: ""
+                    });
+                }
+
+                for (let i = currentCount; i < targetCount; i++) {
                     let app = newApps[i];
                     appsModel.append({
                         appId: app.id,
                         appName: app.name,
                         appIcon: app.icon,
-                        appComment: app.comment,
-                        appExecString: app.execString,
-                        appCategories: app.categories,
-                        appRunInTerminal: app.runInTerminal,
+                        appComment: app.comment || "",
+                        appExecString: app.execString || "",
+                        appCategories: app.categories || [],
+                        appRunInTerminal: app.runInTerminal || false,
                         isFile: false,
                         filePath: ""
                     });
                 }
+
+                while (appsModel.count > targetCount) {
+                    appsModel.remove(appsModel.count - 1);
+                }
                 
-                appLauncher.loadedCount = initialBatch;
+                appLauncher.loadedCount = targetCount;
                 
                 if (!isSearch && appLauncher.loadedCount < newApps.length) {
                     incrementalLoader.start();
@@ -353,7 +354,6 @@ Rectangle {
                     searchDebounceTimer.restart();
                 } else {
                     searchDebounceTimer.stop();
-                    fileSearchFallbackTimer.stop();
                     GlobalStates.launcherSelectedIndex = -1;
                     appLauncher.selectedIndex = -1;
                     resultsList.currentIndex = -1;
@@ -804,17 +804,20 @@ Rectangle {
                                     color: Colors.outline
                                 }
 
-                                Tinted {
+                                Loader {
                                     anchors.fill: parent
+                                    active: Config.tintIcons
                                     visible: Config.tintIcons
-                                    sourceItem: Image {
-                                        id: tintedAppIcon
-                                        source: "image://icon/" + appIcon
-                                        fillMode: Image.PreserveAspectFit
-                                        
-                                        onStatusChanged: {
-                                            if (status === Image.Error) {
-                                                source = "image://icon/image-missing";
+                                    sourceComponent: Tinted {
+                                        sourceItem: Image {
+                                            id: tintedAppIcon
+                                            source: "image://icon/" + appIcon
+                                            fillMode: Image.PreserveAspectFit
+                                            
+                                            onStatusChanged: {
+                                                if (status === Image.Error) {
+                                                    source = "image://icon/image-missing";
+                                                }
                                             }
                                         }
                                     }
@@ -879,217 +882,218 @@ Rectangle {
                             }
                         }
 
-                        RowLayout {
+                        Loader {
+                            id: optionsLoader
                             anchors.left: parent.left
                             anchors.right: parent.right
                             anchors.bottom: parent.bottom
                             anchors.leftMargin: 8
                             anchors.rightMargin: 8
                             anchors.bottomMargin: 8
-                            spacing: 4
+                            active: isExpanded
                             visible: isExpanded
-                            opacity: isExpanded ? 1 : 0
+                            sourceComponent: optionsComponent
+                        }
 
-                            Behavior on opacity {
-                                enabled: Config.animDuration > 0
-                                NumberAnimation {
-                                    duration: Config.animDuration
-                                    easing.type: Easing.OutQuart
-                                }
-                            }
+                        Component {
+                            id: optionsComponent
 
-                            ClippingRectangle {
-                                Layout.fillWidth: true
-                                Layout.preferredHeight: 36 * 3
-                                color: Colors.background
-                                radius: Styling.radius(0)
+                            RowLayout {
+                                spacing: 4
 
-                                ListView {
-                                    id: optionsListView
-                                    anchors.fill: parent
-                                    clip: true
-                                    interactive: false
-                                    boundsBehavior: Flickable.StopAtBounds
-                                    model: isFile ? [
-                                        {
-                                            text: "Open File",
-                                            icon: Icons.launch,
-                                            highlightColor: Styling.srItem("overprimary"),
-                                            textColor: Styling.srItem("primary"),
-                                            action: function () {
-                                                appLauncher.openFile(filePath || appId);
-                                                GlobalStates.commandPaletteVisible = false;
-                                            }
-                                        },
-                                        {
-                                            text: "Show in File Manager",
-                                            icon: Icons.folder,
-                                            highlightColor: Colors.tertiary,
-                                            textColor: Styling.srItem("tertiary"),
-                                            action: function () {
-                                                appLauncher.revealFileInManager(filePath || appId);
-                                                appLauncher.expandedItemIndex = -1;
-                                            }
-                                        },
-                                        {
-                                            text: "Pin to Desktop",
-                                            icon: Icons.shortcut,
-                                            highlightColor: Colors.secondary,
-                                            textColor: Styling.srItem("secondary"),
-                                            action: function () {
-                                                DesktopService.addFileShortcut(filePath || appId, appName);
-                                                appLauncher.expandedItemIndex = -1;
-                                            }
-                                        }
-                                    ] : [
-                                        {
-                                            text: "Launch",
-                                            icon: Icons.launch,
-                                            highlightColor: Styling.srItem("overprimary"),
-                                            textColor: Styling.srItem("primary"),
-                                            action: function () {
-                                                appLauncher.executeApp(appId);
-                                                GlobalStates.commandPaletteVisible = false;
-                                            }
-                                        },
-                                        {
-                                            text: TaskbarApps.isPinned(appId) ? "Unpin from Dock" : "Pin to Dock",
-                                            icon: TaskbarApps.isPinned(appId) ? Icons.unpin : Icons.pin,
-                                            highlightColor: TaskbarApps.isPinned(appId) ? Colors.error : Colors.tertiary,
-                                            textColor: TaskbarApps.isPinned(appId) ? Styling.srItem("error") : Styling.srItem("tertiary"),
-                                            action: function () {
-                                                TaskbarApps.togglePin(appId);
-                                                appLauncher.expandedItemIndex = -1;
-                                            }
-                                        },
-                                        {
-                                            text: "Create Shortcut",
-                                            icon: Icons.shortcut,
-                                            highlightColor: Colors.secondary,
-                                            textColor: Styling.srItem("secondary"),
-                                            action: function () {
-                                                let desktopDir = Quickshell.env("XDG_DESKTOP_DIR") || Quickshell.env("HOME") + "/Desktop";
-                                                let fileName = appId.endsWith(".desktop") ? appId : (appId + ".desktop");
-                                                let filePath = desktopDir + "/" + fileName;
+                                ClippingRectangle {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 36 * 3
+                                    color: Colors.background
+                                    radius: Styling.radius(0)
 
-                                                let desktopContent = "[Desktop Entry]\n" + "Version=1.0\n" + "Type=Application\n" + "Name=" + appName + "\n" + "Exec=" + appExecString + "\n" + "Icon=" + appIcon + "\n" + (appComment ? "Comment=" + appComment + "\n" : "") + (appCategories.length > 0 ? "Categories=" + appCategories.join(";") + ";\n" : "") + (appRunInTerminal ? "Terminal=true\n" : "Terminal=false\n");
-
-                                                let writeCmd = "printf '%s' '" + desktopContent.replace(/'/g, "'\\''") + "' > \"" + filePath + "\" && chmod 755 \"" + filePath + "\" && gio set \"" + filePath + "\" metadata::trusted true";
-                                                copyProcess.command = ["sh", "-c", writeCmd];
-                                                copyProcess.running = true;
-                                                appLauncher.expandedItemIndex = -1;
-                                            }
-                                        }
-                                    ]
-                                    currentIndex: appLauncher.selectedOptionIndex
-                                    highlightFollowsCurrentItem: true
-                                    highlightRangeMode: ListView.ApplyRange
-                                    preferredHighlightBegin: 0
-                                    preferredHighlightEnd: height
-
-                                    highlight: StyledRect {
-                                        variant: {
-                                            if (optionsListView.currentIndex >= 0 && optionsListView.currentIndex < optionsListView.count) {
-                                                var item = optionsListView.model[optionsListView.currentIndex];
-                                                if (item && item.highlightColor) {
-                                                    if (item.highlightColor === Colors.secondary)
-                                                        return "secondary";
-                                                    if (item.highlightColor === Colors.tertiary)
-                                                        return "tertiary";
-                                                    if (item.highlightColor === Colors.error)
-                                                        return "error";
-                                                    return "primary";
+                                    ListView {
+                                        id: optionsListView
+                                        anchors.fill: parent
+                                        clip: true
+                                        interactive: false
+                                        boundsBehavior: Flickable.StopAtBounds
+                                        model: isFile ? [
+                                            {
+                                                text: "Open File",
+                                                icon: Icons.launch,
+                                                highlightColor: Styling.srItem("overprimary"),
+                                                textColor: Styling.srItem("primary"),
+                                                action: function () {
+                                                    appLauncher.openFile(filePath || appId);
+                                                    GlobalStates.commandPaletteVisible = false;
+                                                }
+                                            },
+                                            {
+                                                text: "Show in File Manager",
+                                                icon: Icons.folder,
+                                                highlightColor: Colors.tertiary,
+                                                textColor: Styling.srItem("tertiary"),
+                                                action: function () {
+                                                    appLauncher.revealFileInManager(filePath || appId);
+                                                    appLauncher.expandedItemIndex = -1;
+                                                }
+                                            },
+                                            {
+                                                text: "Pin to Desktop",
+                                                icon: Icons.shortcut,
+                                                highlightColor: Colors.secondary,
+                                                textColor: Styling.srItem("secondary"),
+                                                action: function () {
+                                                    DesktopService.addFileShortcut(filePath || appId, appName);
+                                                    appLauncher.expandedItemIndex = -1;
                                                 }
                                             }
-                                            return "primary";
+                                        ] : [
+                                            {
+                                                text: "Launch",
+                                                icon: Icons.launch,
+                                                highlightColor: Styling.srItem("overprimary"),
+                                                textColor: Styling.srItem("primary"),
+                                                action: function () {
+                                                    appLauncher.executeApp(appId);
+                                                    GlobalStates.commandPaletteVisible = false;
+                                                }
+                                            },
+                                            {
+                                                text: TaskbarApps.isPinned(appId) ? "Unpin from Dock" : "Pin to Dock",
+                                                icon: TaskbarApps.isPinned(appId) ? Icons.unpin : Icons.pin,
+                                                highlightColor: TaskbarApps.isPinned(appId) ? Colors.error : Colors.tertiary,
+                                                textColor: TaskbarApps.isPinned(appId) ? Styling.srItem("error") : Styling.srItem("tertiary"),
+                                                action: function () {
+                                                    TaskbarApps.togglePin(appId);
+                                                    appLauncher.expandedItemIndex = -1;
+                                                }
+                                            },
+                                            {
+                                                text: "Create Shortcut",
+                                                icon: Icons.shortcut,
+                                                highlightColor: Colors.secondary,
+                                                textColor: Styling.srItem("secondary"),
+                                                action: function () {
+                                                    let desktopDir = Quickshell.env("XDG_DESKTOP_DIR") || Quickshell.env("HOME") + "/Desktop";
+                                                    let fileName = appId.endsWith(".desktop") ? appId : (appId + ".desktop");
+                                                    let filePath = desktopDir + "/" + fileName;
+
+                                                    let desktopContent = "[Desktop Entry]\n" + "Version=1.0\n" + "Type=Application\n" + "Name=" + appName + "\n" + "Exec=" + appExecString + "\n" + "Icon=" + appIcon + "\n" + (appComment ? "Comment=" + appComment + "\n" : "") + (appCategories.length > 0 ? "Categories=" + appCategories.join(";") + ";\n" : "") + (appRunInTerminal ? "Terminal=true\n" : "Terminal=false\n");
+
+                                                    let writeCmd = "printf '%s' '" + desktopContent.replace(/'/g, "'\\''") + "' > \"" + filePath + "\" && chmod 755 \"" + filePath + "\" && gio set \"" + filePath + "\" metadata::trusted true";
+                                                    copyProcess.command = ["sh", "-c", writeCmd];
+                                                    copyProcess.running = true;
+                                                    appLauncher.expandedItemIndex = -1;
+                                                }
+                                            }
+                                        ]
+                                        currentIndex: appLauncher.selectedOptionIndex
+                                        highlightFollowsCurrentItem: true
+                                        highlightRangeMode: ListView.ApplyRange
+                                        preferredHighlightBegin: 0
+                                        preferredHighlightEnd: height
+
+                                        highlight: StyledRect {
+                                            variant: {
+                                                if (optionsListView.currentIndex >= 0 && optionsListView.currentIndex < optionsListView.count) {
+                                                    var item = optionsListView.model[optionsListView.currentIndex];
+                                                    if (item && item.highlightColor) {
+                                                        if (item.highlightColor === Colors.secondary)
+                                                            return "secondary";
+                                                        if (item.highlightColor === Colors.tertiary)
+                                                            return "tertiary";
+                                                        if (item.highlightColor === Colors.error)
+                                                            return "error";
+                                                        return "primary";
+                                                    }
+                                                }
+                                                return "primary";
+                                            }
+                                            radius: Styling.radius(0)
+                                            visible: optionsListView.currentIndex >= 0
+                                            z: -1
                                         }
-                                        radius: Styling.radius(0)
-                                        visible: optionsListView.currentIndex >= 0
-                                        z: -1
-                                    }
 
-                                    highlightMoveDuration: Config.animDuration > 0 ? Config.animDuration / 2 : 0
-                                    highlightMoveVelocity: -1
-                                    highlightResizeDuration: Config.animDuration / 2
-                                    highlightResizeVelocity: -1
+                                        highlightMoveDuration: Config.animDuration > 0 ? Config.animDuration / 2 : 0
+                                        highlightMoveVelocity: -1
+                                        highlightResizeDuration: Config.animDuration / 2
+                                        highlightResizeVelocity: -1
 
-                                    delegate: Item {
-                                        required property var modelData
-                                        required property int index
+                                        delegate: Item {
+                                            required property var modelData
+                                            required property int index
 
-                                        width: optionsListView.width
-                                        height: 36
+                                            width: optionsListView.width
+                                            height: 36
 
-                                        Rectangle {
-                                            anchors.fill: parent
-                                            color: "transparent"
-
-                                            RowLayout {
+                                            Rectangle {
                                                 anchors.fill: parent
-                                                anchors.margins: 8
-                                                spacing: 8
+                                                color: "transparent"
 
-                                                Text {
-                                                    text: modelData && modelData.icon ? modelData.icon : ""
-                                                    font.family: Icons.font
-                                                    font.pixelSize: 14
-                                                    font.weight: Font.Bold
-                                                    textFormat: Text.RichText
-                                                    color: {
-                                                        if (optionsListView.currentIndex === index && modelData && modelData.textColor) {
-                                                            return modelData.textColor;
+                                                RowLayout {
+                                                    anchors.fill: parent
+                                                    anchors.margins: 8
+                                                    spacing: 8
+
+                                                    Text {
+                                                        text: modelData && modelData.icon ? modelData.icon : ""
+                                                        font.family: Icons.font
+                                                        font.pixelSize: 14
+                                                        font.weight: Font.Bold
+                                                        textFormat: Text.RichText
+                                                        color: {
+                                                            if (optionsListView.currentIndex === index && modelData && modelData.textColor) {
+                                                                return modelData.textColor;
+                                                            }
+                                                            return Colors.overSurface;
                                                         }
-                                                        return Colors.overSurface;
+
+                                                        Behavior on color {
+                                                            enabled: Config.animDuration > 0
+                                                            ColorAnimation {
+                                                                duration: Config.animDuration / 2
+                                                                easing.type: Easing.OutQuart
+                                                            }
+                                                        }
                                                     }
 
-                                                    Behavior on color {
-                                                        enabled: Config.animDuration > 0
-                                                        ColorAnimation {
-                                                            duration: Config.animDuration / 2
-                                                            easing.type: Easing.OutQuart
+                                                    Text {
+                                                        Layout.fillWidth: true
+                                                        text: modelData && modelData.text ? modelData.text : ""
+                                                        font.family: Config.theme.font
+                                                        font.pixelSize: Config.theme.fontSize
+                                                        font.weight: optionsListView.currentIndex === index ? Font.Bold : Font.Normal
+                                                        color: {
+                                                            if (optionsListView.currentIndex === index && modelData && modelData.textColor) {
+                                                                return modelData.textColor;
+                                                            }
+                                                            return Colors.overSurface;
+                                                        }
+                                                        elide: Text.ElideRight
+                                                        maximumLineCount: 1
+
+                                                        Behavior on color {
+                                                            enabled: Config.animDuration > 0
+                                                            ColorAnimation {
+                                                                duration: Config.animDuration / 2
+                                                                easing.type: Easing.OutQuart
+                                                            }
                                                         }
                                                     }
                                                 }
 
-                                                Text {
-                                                    Layout.fillWidth: true
-                                                    text: modelData && modelData.text ? modelData.text : ""
-                                                    font.family: Config.theme.font
-                                                    font.pixelSize: Config.theme.fontSize
-                                                    font.weight: optionsListView.currentIndex === index ? Font.Bold : Font.Normal
-                                                    color: {
-                                                        if (optionsListView.currentIndex === index && modelData && modelData.textColor) {
-                                                            return modelData.textColor;
-                                                        }
-                                                        return Colors.overSurface;
+                                                MouseArea {
+                                                    anchors.fill: parent
+                                                    hoverEnabled: true
+                                                    cursorShape: Qt.PointingHandCursor
+
+                                                    onEntered: {
+                                                        optionsListView.currentIndex = index;
+                                                        appLauncher.selectedOptionIndex = index;
+                                                        appLauncher.keyboardNavigation = false;
                                                     }
-                                                    elide: Text.ElideRight
-                                                    maximumLineCount: 1
 
-                                                    Behavior on color {
-                                                        enabled: Config.animDuration > 0
-                                                        ColorAnimation {
-                                                            duration: Config.animDuration / 2
-                                                            easing.type: Easing.OutQuart
+                                                    onClicked: {
+                                                        if (modelData && modelData.action) {
+                                                            modelData.action();
                                                         }
-                                                    }
-                                                }
-                                            }
-
-                                            MouseArea {
-                                                anchors.fill: parent
-                                                hoverEnabled: true
-                                                cursorShape: Qt.PointingHandCursor
-
-                                                onEntered: {
-                                                    optionsListView.currentIndex = index;
-                                                    appLauncher.selectedOptionIndex = index;
-                                                    appLauncher.keyboardNavigation = false;
-                                                }
-
-                                                onClicked: {
-                                                    if (modelData && modelData.action) {
-                                                        modelData.action();
                                                     }
                                                 }
                                             }
