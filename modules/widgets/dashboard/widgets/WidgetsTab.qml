@@ -29,8 +29,14 @@ Rectangle {
     // The palette owns the visible search field, so it forwards navigation keys
     // here; re-emit them on the (hidden) internal input that already has all the
     // list-navigation wiring attached.
-    function navUp() { searchInput.upPressed(); }
-    function navDown() { searchInput.downPressed(); }
+    function navUp() {
+        resultsList.enableHighlightAnimation = true;
+        searchInput.upPressed();
+    }
+    function navDown() {
+        resultsList.enableHighlightAnimation = true;
+        searchInput.downPressed();
+    }
     function navLeft() { searchInput.leftPressed(); }
     function navRight() { searchInput.rightPressed(); }
     function navAccept() { searchInput.accepted(); }
@@ -73,15 +79,16 @@ Rectangle {
             // animated model for smooth filtering
             property var filteredApps: []
             property var appsById: ({})
+            readonly property bool isSearching: searchText.length > 0
 
             // incremental loading state
             property var pendingApps: []
             property int loadedCount: 0
-            property int batchSize: 10
+            property int batchSize: 25
 
             Timer {
                 id: incrementalLoader
-                interval: 100
+                interval: 60
                 repeat: true
                 running: false
                 onTriggered: {
@@ -109,12 +116,34 @@ Rectangle {
                 }
             }
 
+            Timer {
+                id: searchDebounceTimer
+                interval: 20
+                repeat: false
+                onTriggered: {
+                    appLauncher.updateFilteredApps();
+                }
+            }
+
+            Timer {
+                id: fileSearchFallbackTimer
+                interval: 150
+                repeat: false
+                onTriggered: {
+                    if (appLauncher.searchText.length > 0 && appLauncher.filteredApps.length === 0) {
+                        appLauncher.isShowingFiles = true;
+                        FileSearch.searchFiles(appLauncher.searchText);
+                    }
+                }
+            }
+
             property bool filesMode: false
             property bool isShowingFiles: filesMode
 
             function toggleSearchMode() {
                 filesMode = !filesMode;
                 isShowingFiles = filesMode;
+                resultsList.enableHighlightAnimation = false;
                 resultsList.enableScrollAnimation = false;
                 resultsList.contentY = 0;
                 if (filesMode) {
@@ -132,9 +161,6 @@ Rectangle {
                 GlobalStates.launcherSelectedIndex = 0;
                 selectedIndex = 0;
                 resultsList.currentIndex = 0;
-                Qt.callLater(() => {
-                    resultsList.enableScrollAnimation = true;
-                });
             }
 
             function updateFilteredApps() {
@@ -166,6 +192,7 @@ Rectangle {
 
             onFilteredAppsChanged: {
                 if (appLauncher.filesMode) return;
+                resultsList.enableHighlightAnimation = false;
                 resultsList.enableScrollAnimation = false;
                 resultsList.contentY = 0;
                 if (appLauncher.searchText.length > 0) {
@@ -174,16 +201,13 @@ Rectangle {
                     resultsList.currentIndex = 0;
                 }
                 if (appLauncher.searchText.length > 0 && appLauncher.filteredApps.length === 0) {
-                    appLauncher.isShowingFiles = true;
-                    FileSearch.searchFiles(appLauncher.searchText);
+                    fileSearchFallbackTimer.restart();
                 } else {
+                    fileSearchFallbackTimer.stop();
                     appLauncher.isShowingFiles = false;
                     FileSearch.clearSearch();
                     updateAppsModel();
                 }
-                Qt.callLater(() => {
-                    resultsList.enableScrollAnimation = true;
-                });
             }
 
             Connections {
@@ -250,8 +274,8 @@ Rectangle {
 
                 appsModel.clear();
                 
-                let loadAll = (appLauncher.searchText.length > 0) || (newApps.length <= 100);
-                let initialBatch = loadAll ? newApps.length : Math.min(appLauncher.batchSize, newApps.length);
+                let isSearch = appLauncher.searchText.length > 0;
+                let initialBatch = isSearch ? Math.min(35, newApps.length) : Math.min(appLauncher.batchSize, newApps.length);
                 for (let i = 0; i < initialBatch; i++) {
                     let app = newApps[i];
                     appsModel.append({
@@ -269,7 +293,7 @@ Rectangle {
                 
                 appLauncher.loadedCount = initialBatch;
                 
-                if (appLauncher.loadedCount < newApps.length) {
+                if (!isSearch && appLauncher.loadedCount < newApps.length) {
                     incrementalLoader.start();
                 }
             }
@@ -320,16 +344,21 @@ Rectangle {
             }
 
             onSearchTextChanged: {
+                resultsList.enableHighlightAnimation = false;
+                resultsList.enableScrollAnimation = false;
                 if (searchText.length > 0) {
                     GlobalStates.launcherSelectedIndex = 0;
                     appLauncher.selectedIndex = 0;
                     resultsList.currentIndex = 0;
+                    searchDebounceTimer.restart();
                 } else {
+                    searchDebounceTimer.stop();
+                    fileSearchFallbackTimer.stop();
                     GlobalStates.launcherSelectedIndex = -1;
                     appLauncher.selectedIndex = -1;
                     resultsList.currentIndex = -1;
+                    updateFilteredApps();
                 }
-                updateFilteredApps();
             }
 
             onSelectedIndexChanged: {
@@ -379,14 +408,6 @@ Rectangle {
                     resultsList.contentY = itemY;
                 } else if (itemBottom > viewportBottom) {
                     resultsList.contentY = Math.min(itemBottom - resultsList.height, maxContentY);
-                }
-            }
-
-            Behavior on height {
-                enabled: Config.animDuration > 0
-                NumberAnimation {
-                    duration: Config.animDuration
-                    easing.type: Easing.OutQuart
                 }
             }
 
@@ -522,6 +543,8 @@ Rectangle {
                     }
 
                     onDownPressed: {
+                        resultsList.enableHighlightAnimation = true;
+                        resultsList.enableScrollAnimation = true;
                         if (appLauncher.expandedItemIndex >= 0) {
                             if (appLauncher.selectedOptionIndex < 2) {
                                 appLauncher.selectedOptionIndex++;
@@ -541,6 +564,8 @@ Rectangle {
                     }
 
                     onUpPressed: {
+                        resultsList.enableHighlightAnimation = true;
+                        resultsList.enableScrollAnimation = true;
                         if (appLauncher.expandedItemIndex >= 0) {
                             if (appLauncher.selectedOptionIndex > 0) {
                                 appLauncher.selectedOptionIndex--;
@@ -558,6 +583,8 @@ Rectangle {
                     }
 
                     onPageDownPressed: {
+                        resultsList.enableHighlightAnimation = true;
+                        resultsList.enableScrollAnimation = true;
                         if (resultsList.count > 0) {
                             let visibleItems = Math.floor(resultsList.height / 48);
                             let newIndex = Math.min(appLauncher.selectedIndex + visibleItems, resultsList.count - 1);
@@ -571,6 +598,8 @@ Rectangle {
                     }
 
                     onPageUpPressed: {
+                        resultsList.enableHighlightAnimation = true;
+                        resultsList.enableScrollAnimation = true;
                         if (resultsList.count > 0) {
                             let visibleItems = Math.floor(resultsList.height / 48);
                             let newIndex = Math.max(appLauncher.selectedIndex - visibleItems, 0);
@@ -618,10 +647,11 @@ Rectangle {
                     model: appsModel
                     currentIndex: appLauncher.selectedIndex
 
-                    property bool enableScrollAnimation: true
+                    property bool enableScrollAnimation: false
+                    property bool enableHighlightAnimation: false
 
                     Behavior on contentY {
-                        enabled: Config.animDuration > 0 && resultsList.enableScrollAnimation && !resultsList.moving
+                        enabled: Config.animDuration > 0 && resultsList.enableScrollAnimation && !resultsList.moving && appLauncher.searchText.length === 0
                         NumberAnimation {
                             duration: Config.animDuration / 2
                             easing.type: Easing.OutCubic
@@ -635,24 +665,18 @@ Rectangle {
                         }
 
                         if (currentIndex >= 0) {
-                            var itemY = 0;
-                            for (var i = 0; i < currentIndex && i < appsModel.count; i++) {
-                                var itemHeight = 48;
-                                if (i === appLauncher.expandedItemIndex) {
-                                    var listHeight = 36 * 3;
-                                    itemHeight = 48 + 4 + listHeight + 8;
+                            let itemY = 0;
+                            if (appLauncher.expandedItemIndex === -1) {
+                                itemY = currentIndex * 48;
+                            } else {
+                                for (let i = 0; i < currentIndex && i < appsModel.count; i++) {
+                                    itemY += (i === appLauncher.expandedItemIndex) ? (48 + 4 + 36 * 3 + 8) : 48;
                                 }
-                                itemY += itemHeight;
                             }
 
-                            var currentItemHeight = 48;
-                            if (currentIndex === appLauncher.expandedItemIndex) {
-                                var listHeight = 36 * 3;
-                                currentItemHeight = 48 + 4 + listHeight + 8;
-                            }
-
-                            var viewportTop = resultsList.contentY;
-                            var viewportBottom = viewportTop + resultsList.height;
+                            let currentItemHeight = (currentIndex === appLauncher.expandedItemIndex) ? (48 + 4 + 36 * 3 + 8) : 48;
+                            let viewportTop = resultsList.contentY;
+                            let viewportBottom = viewportTop + resultsList.height;
 
                             if (itemY < viewportTop) {
                                 resultsList.contentY = itemY;
@@ -688,7 +712,7 @@ Rectangle {
                         color: "transparent"
 
                         Behavior on height {
-                            enabled: Config.animDuration > 0
+                            enabled: Config.animDuration > 0 && isExpanded
                             NumberAnimation {
                                 duration: Config.animDuration
                                 easing.type: Easing.OutQuart
@@ -704,10 +728,11 @@ Rectangle {
                             hoverEnabled: !resultsList.isScrolling
                             acceptedButtons: Qt.LeftButton | Qt.RightButton
 
-                            onEntered: {
+                            onPositionChanged: {
                                 if (resultsList.isScrolling)
                                     return;
-                                if (appLauncher.expandedItemIndex === -1) {
+                                if (appLauncher.expandedItemIndex === -1 && resultsList.currentIndex !== index) {
+                                    resultsList.enableHighlightAnimation = false;
                                     GlobalStates.launcherSelectedIndex = index;
                                     appLauncher.selectedIndex = index;
                                     resultsList.currentIndex = index;
@@ -818,7 +843,7 @@ Rectangle {
                                     elide: Text.ElideRight
 
                                     Behavior on color {
-                                        enabled: Config.animDuration > 0
+                                        enabled: Config.animDuration > 0 && !appLauncher.isSearching
                                         ColorAnimation {
                                             duration: Config.animDuration / 2
                                             easing.type: Easing.OutCubic
@@ -844,7 +869,7 @@ Rectangle {
                                     visible: text !== ""
 
                                     Behavior on color {
-                                        enabled: Config.animDuration > 0
+                                        enabled: Config.animDuration > 0 && !appLauncher.isSearching
                                         ColorAnimation {
                                             duration: Config.animDuration / 2
                                             easing.type: Easing.OutCubic
@@ -1087,6 +1112,10 @@ Rectangle {
                         }
 
                         y: {
+                            if (resultsList.currentIndex < 0) return 0;
+                            if (appLauncher.expandedItemIndex === -1) {
+                                return resultsList.currentIndex * 48;
+                            }
                             var yPos = 0;
                             for (var i = 0; i < resultsList.currentIndex && i < appsModel.count; i++) {
                                 var itemHeight = 48;
@@ -1100,7 +1129,7 @@ Rectangle {
                         }
 
                         Behavior on y {
-                            enabled: Config.animDuration > 0
+                            enabled: Config.animDuration > 0 && resultsList.enableHighlightAnimation && appLauncher.expandedItemIndex === -1
                             NumberAnimation {
                                 duration: Config.animDuration / 2
                                 easing.type: Easing.OutCubic
@@ -1108,7 +1137,7 @@ Rectangle {
                         }
 
                         Behavior on height {
-                            enabled: Config.animDuration > 0
+                            enabled: Config.animDuration > 0 && appLauncher.expandedItemIndex >= 0
                             NumberAnimation {
                                 duration: Config.animDuration
                                 easing.type: Easing.OutQuart

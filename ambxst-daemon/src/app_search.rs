@@ -38,9 +38,9 @@ impl AppSearcher {
         let home_dir = std::env::var("HOME").unwrap_or_default();
         let local_apps = format!("{}/.local/share/applications", home_dir);
         let dirs = vec![
-            "/usr/share/applications".to_string(),
-            "/usr/local/share/applications".to_string(),
             local_apps,
+            "/usr/local/share/applications".to_string(),
+            "/usr/share/applications".to_string(),
             "/var/lib/flatpak/exports/share/applications".to_string(),
             "/var/lib/snapd/desktop/applications".to_string(),
         ];

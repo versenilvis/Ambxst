@@ -260,6 +260,7 @@ Singleton {
 
     property var allApps: []
     property var searchResults: []
+    property var _defaultSortedApps: []
     property string _currentQuery: ""
 
     // fast fuzzy matching algorithm
@@ -306,12 +307,27 @@ Singleton {
 
         const q = (query || "").trim().toLowerCase();
         if (q.length === 0) {
-            return root.allApps.slice().sort((a, b) => {
-                const uA = UsageTracker.getUsageScore(a.id) || 0;
-                const uB = UsageTracker.getUsageScore(b.id) || 0;
+            if (root._defaultSortedApps && root._defaultSortedApps.length > 0) {
+                return root._defaultSortedApps;
+            }
+            const usageScores = {};
+            const topList = UsageTracker.topAppsList || [];
+            for (let i = 0; i < topList.length; i++) {
+                usageScores[topList[i].app_id] = topList[i].score || 0;
+            }
+            root._defaultSortedApps = root.allApps.slice().sort((a, b) => {
+                const uA = usageScores[a.id] || 0;
+                const uB = usageScores[b.id] || 0;
                 if (uB !== uA) return uB - uA;
                 return a.name.localeCompare(b.name);
             });
+            return root._defaultSortedApps;
+        }
+
+        const usageScores = {};
+        const topList = UsageTracker.topAppsList || [];
+        for (let i = 0; i < topList.length; i++) {
+            usageScores[topList[i].app_id] = topList[i].score || 0;
         }
 
         const scored = [];
@@ -374,16 +390,18 @@ Singleton {
             }
 
             if (score >= 0) {
-                const usage = UsageTracker.getUsageScore(app.id) || 0;
-                scored.push({ app: app, score: score + Math.min(50, usage * 5) });
+                const usage = usageScores[app.id] || 0;
+                scored.push({
+                    app: app,
+                    score: score + Math.min(50, usage * 5),
+                    usage: usage
+                });
             }
         }
 
         scored.sort((a, b) => {
             if (b.score !== a.score) return b.score - a.score;
-            const uA = UsageTracker.getUsageScore(a.app.id) || 0;
-            const uB = UsageTracker.getUsageScore(b.app.id) || 0;
-            if (uB !== uA) return uB - uA;
+            if (b.usage !== a.usage) return b.usage - a.usage;
             return a.app.name.localeCompare(b.app.name);
         });
 
@@ -404,6 +422,7 @@ Singleton {
     }
 
     function invalidateCache() {
+        root._defaultSortedApps = [];
         root.searchResults = localFilter(root._currentQuery);
     }
 
@@ -488,6 +507,7 @@ Singleton {
                 };
             });
             
+            root._defaultSortedApps = [];
             root.allApps = mapped;
             root.searchResults = localFilter(root._currentQuery);
         }

@@ -103,6 +103,7 @@ FloatingWindow {
         const item = root.currentTabItem();
         if (root.currentTab === 0) {
             GlobalStates.launcherSearchText = text;
+            return;
         }
         if (item && item.searchText !== undefined) {
             item.searchText = text;
