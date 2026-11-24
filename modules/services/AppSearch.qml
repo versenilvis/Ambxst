@@ -441,7 +441,9 @@ Singleton {
         for (let i = 0; i < entries.length; i++) {
             const entry = entries[i];
             if (!entry || !entry.name) continue;
-            const iconName = entry.icon || "application-x-executable";
+            let iconName = entry.icon || "application-x-executable";
+            if (substitutions[iconName]) iconName = substitutions[iconName];
+            else if (substitutions[entry.id]) iconName = substitutions[entry.id];
             const validatedIcon = getCachedIcon(iconName);
             const cmdStr = (entry.command && entry.command.length > 0) ? entry.command.join(" ") : "";
             const nameLower = (entry.name || "").toLowerCase();
@@ -494,6 +496,8 @@ Singleton {
             if (!data || data.length === 0) return;
             let mapped = data.map(app => {
                 let iconToUse = app.icon || "application-x-executable";
+                if (substitutions[iconToUse]) iconToUse = substitutions[iconToUse];
+                else if (substitutions[app.id]) iconToUse = substitutions[app.id];
                 if (iconCache[iconToUse]) {
                     iconToUse = iconCache[iconToUse];
                 } else {

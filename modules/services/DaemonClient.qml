@@ -9,7 +9,7 @@ Singleton {
 
     // status properties
     property var socket: null
-    property bool daemonConnected: socket ? socket.connected : false
+    property bool daemonConnected: false
 
     // incoming event signals
     signal systemResourcesReceived(var data)
@@ -44,6 +44,9 @@ Singleton {
                 Socket {
                     path: "${Quickshell.env("XDG_RUNTIME_DIR")}/ambxst-daemon.sock"
                     connected: false
+                    onConnectedChanged: {
+                        root.daemonConnected = connected;
+                    }
                     parser: SplitParser {
                         splitMarker: "\\n"
                         onRead: text => {

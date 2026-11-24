@@ -37,13 +37,27 @@ impl AppSearcher {
         let mut apps = Vec::new();
         let home_dir = std::env::var("HOME").unwrap_or_default();
         let local_apps = format!("{}/.local/share/applications", home_dir);
-        let dirs = vec![
+        let user_flatpak = format!("{}/.local/share/flatpak/exports/share/applications", home_dir);
+        let mut dirs = vec![
             local_apps,
+            user_flatpak,
             "/usr/local/share/applications".to_string(),
             "/usr/share/applications".to_string(),
             "/var/lib/flatpak/exports/share/applications".to_string(),
             "/var/lib/snapd/desktop/applications".to_string(),
         ];
+
+        if let Ok(xdg_data_dirs) = std::env::var("XDG_DATA_DIRS") {
+            for d in xdg_data_dirs.split(':') {
+                let trimmed = d.trim().trim_end_matches('/');
+                if !trimmed.is_empty() {
+                    let app_dir = format!("{}/applications", trimmed);
+                    if !dirs.contains(&app_dir) {
+                        dirs.push(app_dir);
+                    }
+                }
+            }
+        }
 
         let mut seen_ids = std::collections::HashSet::new();
 
