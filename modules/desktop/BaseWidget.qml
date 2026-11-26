@@ -24,6 +24,14 @@ Item {
     property int defaultY: 32
     property bool draggable: true
     property bool locked: false
+    property bool persistToWidgetService: true
+    property bool disableAnimations: false
+    property bool _clamping: false
+    property real savedX: defaultX
+    property real savedY: defaultY
+
+    signal positionChangedByUser(real newX, real newY)
+    signal lockChangedByUser(bool isLocked)
 
     // Styling
     property bool hasCardBackground: true
@@ -33,7 +41,7 @@ Item {
 
     // Interaction states
     readonly property bool isHovered: hoverArea.containsMouse
-    readonly property bool isDragging: dragArea.drag.active
+    readonly property bool isDragging: dragArea.draggingActive
 
     // Main content slot
     default property alias content: contentContainer.data
@@ -52,7 +60,7 @@ Item {
     }
 
     Behavior on x {
-        enabled: !root.isDragging && Config.animDuration > 0
+        enabled: !root.isDragging && !root.disableAnimations && !root._clamping && Config.animDuration > 0
         NumberAnimation {
             duration: Config.animDuration
             easing.type: Easing.OutCubic
@@ -60,19 +68,46 @@ Item {
     }
 
     Behavior on y {
-        enabled: !root.isDragging && Config.animDuration > 0
+        enabled: !root.isDragging && !root.disableAnimations && !root._clamping && Config.animDuration > 0
         NumberAnimation {
             duration: Config.animDuration
             easing.type: Easing.OutCubic
         }
     }
 
+    function clampPositionToParent() {
+        if (!root.parent || root.parent.width <= 0 || root.parent.height <= 0) return;
+        root._clamping = true;
+        const maxX = Math.max(0, root.parent.width - root.width);
+        const maxY = Math.max(0, root.parent.height - root.height);
+        root.x = Math.max(0, Math.min(maxX, root.savedX));
+        root.y = Math.max(0, Math.min(maxY, root.savedY));
+        root._clamping = false;
+    }
+
     // Load saved position from WidgetService
     function applyPosition() {
+        if (!root.persistToWidgetService) return;
         let pos = WidgetService.getPosition(root.widgetId, root.defaultX, root.defaultY);
-        root.x = pos.x;
-        root.y = pos.y;
+        root.savedX = pos.x;
+        root.savedY = pos.y;
         root.locked = pos.locked;
+        root.clampPositionToParent();
+    }
+
+    Connections {
+        target: root.parent
+        ignoreUnknownSignals: true
+        function onWidthChanged() {
+            if (!root.isDragging && !root.disableAnimations) {
+                root.clampPositionToParent();
+            }
+        }
+        function onHeightChanged() {
+            if (!root.isDragging && !root.disableAnimations) {
+                root.clampPositionToParent();
+            }
+        }
     }
 
     Connections {
@@ -85,9 +120,14 @@ Item {
     }
 
     Component.onCompleted: {
+        WidgetService.registerWidget(root.widgetId, root);
         if (WidgetService.positionsLoaded) {
             root.applyPosition();
         }
+    }
+
+    Component.onDestruction: {
+        WidgetService.unregisterWidget(root.widgetId);
     }
 
     // Optional card background
@@ -108,17 +148,54 @@ Item {
         z: 0
         acceptedButtons: Qt.LeftButton | Qt.RightButton
 
-        drag.target: (root.draggable && !root.locked) ? root : null
-        drag.axis: Drag.XAndYAxis
-        drag.threshold: 8
-        drag.minimumX: 0
-        drag.maximumX: root.parent ? Math.max(0, root.parent.width - root.width) : 1920
-        drag.minimumY: 0
-        drag.maximumY: root.parent ? Math.max(0, root.parent.height - root.height) : 1080
+        property bool draggingActive: false
+        property point startMouse: Qt.point(0, 0)
+        property real startX: 0
+        property real startY: 0
+
+        onPressed: mouse => {
+            if (mouse.button !== Qt.LeftButton || !root.draggable || root.locked || !root.parent) return;
+            startMouse = mapToItem(root.parent, mouse.x, mouse.y);
+            startX = root.x;
+            startY = root.y;
+            draggingActive = false;
+        }
+
+        onPositionChanged: mouse => {
+            if (!(mouse.buttons & Qt.LeftButton) || !root.draggable || root.locked || !root.parent) return;
+            const cur = mapToItem(root.parent, mouse.x, mouse.y);
+            let dx = cur.x - startMouse.x;
+            let dy = cur.y - startMouse.y;
+            if (!draggingActive && Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+            draggingActive = true;
+
+            const axisLock = ((mouse.modifiers & Qt.ShiftModifier) !== 0) || ((Qt.application.keyboardModifiers & Qt.ShiftModifier) !== 0);
+            if (axisLock) {
+                if (Math.abs(dx) >= Math.abs(dy)) {
+                    dy = 0;
+                } else {
+                    dx = 0;
+                }
+            }
+
+            const maxX = Math.max(0, root.parent.width - root.width);
+            const maxY = Math.max(0, root.parent.height - root.height);
+            const rawX = Math.max(0, Math.min(maxX, startX + dx));
+            const rawY = Math.max(0, Math.min(maxY, startY + dy));
+            const snapped = WidgetService.computeSnapForMove(root.widgetId, rawX, rawY, root.width, root.height, 6);
+            root.x = Math.max(0, Math.min(maxX, (axisLock && dx === 0) ? startX : snapped.x));
+            root.y = Math.max(0, Math.min(maxY, (axisLock && dy === 0) ? startY : snapped.y));
+        }
 
         onReleased: {
-            if (drag.active) {
-                WidgetService.setPosition(root.widgetId, root.x, root.y, root.locked);
+            if (draggingActive) {
+                draggingActive = false;
+                root.savedX = root.x;
+                root.savedY = root.y;
+                root.positionChangedByUser(root.x, root.y);
+                if (root.persistToWidgetService) {
+                    WidgetService.setPosition(root.widgetId, root.x, root.y, root.locked);
+                }
             }
         }
 
@@ -199,7 +276,10 @@ Item {
                     cursorShape: Qt.PointingHandCursor
                     onClicked: {
                         root.locked = !root.locked;
-                        WidgetService.setPosition(root.widgetId, root.x, root.y, root.locked);
+                        root.lockChangedByUser(root.locked);
+                        if (root.persistToWidgetService) {
+                            WidgetService.setPosition(root.widgetId, root.x, root.y, root.locked);
+                        }
                     }
                 }
             }

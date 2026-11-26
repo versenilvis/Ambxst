@@ -59,7 +59,7 @@ PanelWindow {
 
     WlrLayershell.layer: WlrLayer.Bottom
     WlrLayershell.namespace: "quickshell:desktop"
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+    WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
     exclusionMode: ExclusionMode.Ignore
 
     visible: (Config.desktop?.enabled ?? true) && isWorkspaceEmptyOrFloating
@@ -72,6 +72,24 @@ PanelWindow {
         anchors.topMargin: desktop.barPosition === "top" ? desktop.barSize + 16 : 16
         anchors.leftMargin: desktop.barPosition === "left" ? desktop.barSize + 16 : 16
         anchors.rightMargin: desktop.barPosition === "right" ? desktop.barSize + 16 : 16
+
+        focus: desktop.visible
+
+        Keys.onPressed: event => {
+            if ((event.modifiers & Qt.ControlModifier) && !(event.modifiers & Qt.AltModifier)) {
+                if (event.key === Qt.Key_Z) {
+                    if (event.modifiers & Qt.ShiftModifier) {
+                        WidgetService.redo();
+                    } else {
+                        WidgetService.undo();
+                    }
+                    event.accepted = true;
+                } else if (event.key === Qt.Key_Y) {
+                    WidgetService.redo();
+                    event.accepted = true;
+                }
+            }
+        }
 
         opacity: desktop.isWorkspaceEmptyOrFloating ? 1 : 0
         Behavior on opacity {
@@ -264,6 +282,15 @@ PanelWindow {
             z: 2
             visible: Config.desktop?.calendarWidget ?? true
         }
+
+        Repeater {
+            model: WidgetService.photoWidgets
+            delegate: PhotoWidget {
+                required property var modelData
+                widgetData: modelData
+                z: 2
+            }
+        }
     }
 
     function openItemMenu(path, name, isDesktopFile) {
@@ -339,6 +366,15 @@ PanelWindow {
             isSeparator: false,
             onTriggered: function() {
                 DesktopService.browseAndAddApp();
+            }
+        });
+
+        menuItems.push({
+            text: "Add Photo Widget...",
+            icon: Icons.image,
+            isSeparator: false,
+            onTriggered: function() {
+                WidgetService.browseAndAddPhotoWidget(32, 300);
             }
         });
 
