@@ -97,7 +97,7 @@ Item {
                 font.family: Config.defaultFont
                 font.pixelSize: 8
                 font.weight: Font.Bold
-                color: "#ffffff"
+                color: "#000000"
             }
         }
 
