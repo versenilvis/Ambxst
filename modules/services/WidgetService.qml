@@ -22,9 +22,13 @@ Singleton {
 
     property var registeredWidgets: ({})
     property var selectedWidgetIds: []
+    property bool isInteracting: false
     property var _groupMoveStart: ({})
     property var _undoStack: []
     property var _redoStack: []
+    property int _historyVersion: 0
+    readonly property bool canUndo: _historyVersion >= 0 && _undoStack.length > 0
+    readonly property bool canRedo: _historyVersion >= 0 && _redoStack.length > 0
 
     signal positionsReady()
     signal photoWidgetsReady()
@@ -65,12 +69,14 @@ Singleton {
             _undoStack.shift();
         }
         _redoStack = [];
+        _historyVersion++;
     }
 
     function undo() {
         if (_undoStack.length === 0) return false;
         _redoStack.push(_cloneState());
         const prev = _undoStack.pop();
+        _historyVersion++;
         widgetPositions = prev.widgetPositions || {};
         photoWidgets = prev.photoWidgets || [];
         savePositions();
@@ -87,6 +93,7 @@ Singleton {
         if (_redoStack.length === 0) return false;
         _undoStack.push(_cloneState());
         const next = _redoStack.pop();
+        _historyVersion++;
         widgetPositions = next.widgetPositions || {};
         photoWidgets = next.photoWidgets || [];
         savePositions();

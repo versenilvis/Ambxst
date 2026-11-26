@@ -34,7 +34,7 @@ PanelWindow {
 
     color: "transparent"
 
-    WlrLayershell.keyboardFocus: screenNotchOpen ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
+    WlrLayershell.keyboardFocus: screenNotchOpen ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
     Shortcut {
         sequence: "Escape"

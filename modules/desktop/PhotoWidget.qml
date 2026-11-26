@@ -241,6 +241,7 @@ BaseWidget {
 
         onPressed: mouse => {
             if (!root.parent) return;
+            WidgetService.isInteracting = true;
             startMouse = mapToItem(root.parent, mouse.x, mouse.y);
             startX = root.x;
             startY = root.y;
@@ -386,6 +387,7 @@ BaseWidget {
         }
 
         onReleased: {
+            WidgetService.isInteracting = false;
             if (root.isResizing) {
                 root.isResizing = false;
                 root.isRatioLocked = false;

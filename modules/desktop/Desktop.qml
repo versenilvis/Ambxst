@@ -9,6 +9,7 @@ import qs.modules.bar.workspaces
 import qs.modules.desktop
 import qs.modules.services
 import qs.modules.theme
+import qs.modules.globals
 import qs.config
 
 PanelWindow {
@@ -67,7 +68,7 @@ PanelWindow {
 
     WlrLayershell.layer: WlrLayer.Bottom
     WlrLayershell.namespace: "quickshell:desktop"
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
+    WlrLayershell.keyboardFocus: (visible && WidgetService.isInteracting && !GlobalStates.commandPaletteVisible) ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
     exclusionMode: ExclusionMode.Ignore
 
     visible: (Config.desktop?.enabled ?? true) && isWorkspaceEmptyOrFloating
@@ -333,6 +334,7 @@ PanelWindow {
 
                     onPressed: mouse => {
                         if (mouse.button !== Qt.LeftButton) return;
+                        WidgetService.isInteracting = true;
                         startMouse = mapToItem(iconContainer, mouse.x, mouse.y);
                         draggingActive = false;
                         groupMode = iconDelegate.isMultiSelected && desktop.selectedPaths.length > 1;
@@ -427,6 +429,7 @@ PanelWindow {
                     }
 
                     onReleased: {
+                        WidgetService.isInteracting = false;
                         if (draggingActive) {
                             draggingActive = false;
                             if (groupMode && desktop.isGroupDraggingIcons) {
@@ -606,6 +609,33 @@ PanelWindow {
                 DesktopService.sortItems(true);
             }
         });
+
+        if (WidgetService.canUndo || WidgetService.canRedo) {
+            menuItems.push({
+                isSeparator: true,
+                text: ""
+            });
+            if (WidgetService.canUndo) {
+                menuItems.push({
+                    text: "Undo",
+                    icon: Icons.arrowCounterClockwise,
+                    isSeparator: false,
+                    onTriggered: function() {
+                        WidgetService.undo();
+                    }
+                });
+            }
+            if (WidgetService.canRedo) {
+                menuItems.push({
+                    text: "Redo",
+                    icon: Icons.sync,
+                    isSeparator: false,
+                    onTriggered: function() {
+                        WidgetService.redo();
+                    }
+                });
+            }
+        }
 
         menuItems.push({
             isSeparator: true,

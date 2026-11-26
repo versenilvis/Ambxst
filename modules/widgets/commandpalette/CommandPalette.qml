@@ -5,6 +5,7 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Widgets
 import Quickshell.Io
+import Quickshell.Hyprland
 import qs.modules.theme
 import qs.modules.components
 import qs.modules.globals
@@ -128,8 +129,24 @@ FloatingWindow {
         return null;
     }
 
+    Timer {
+        id: focusRetryTimer
+        interval: 40
+        repeat: false
+        onTriggered: {
+            if (root.visible) {
+                Hyprland.dispatch("focuswindow title:^(Command Palette)$");
+                root.requestActivate();
+                sharedSearch.forceActiveFocus();
+            }
+        }
+    }
+
     function focusCurrentTab() {
+        Hyprland.dispatch("focuswindow title:^(Command Palette)$");
+        root.requestActivate();
         Qt.callLater(() => sharedSearch.forceActiveFocus());
+        focusRetryTimer.restart();
     }
 
     onVisibleChanged: {
@@ -258,6 +275,7 @@ FloatingWindow {
 
                 TextField {
                     id: sharedSearch
+                    focus: true
                     Layout.fillWidth: true
                     background: null
                     color: Colors.overBackground

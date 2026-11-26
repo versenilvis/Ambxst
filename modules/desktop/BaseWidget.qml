@@ -158,6 +158,7 @@ Item {
 
         onPressed: mouse => {
             if (mouse.button !== Qt.LeftButton || !root.draggable || root.locked || !root.parent) return;
+            WidgetService.isInteracting = true;
             startMouse = mapToItem(root.parent, mouse.x, mouse.y);
             startX = root.x;
             startY = root.y;
@@ -203,6 +204,7 @@ Item {
         }
 
         onReleased: {
+            WidgetService.isInteracting = false;
             if (draggingActive) {
                 draggingActive = false;
                 if (groupDragging) {
