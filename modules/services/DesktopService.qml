@@ -99,8 +99,7 @@ Singleton {
             oldMaxCols = -1;
         }
 
-        // detect if saved coordinates were crushed into columns < 4 by dummy window bug
-        let isCorrupted = (savedMeta && savedMeta.maxColumns < 8) || (maxColumns >= 12 && maxColInSaved >= 0 && maxColInSaved < 4);
+        let isCorrupted = (savedMeta && typeof savedMeta.maxColumns === "number" && savedMeta.maxColumns < 8);
         if (isCorrupted) {
             iconPositions = {};
             occupied = {};
@@ -121,6 +120,8 @@ Singleton {
             let saved = iconPositions[item.path];
             let col = -1;
             let row = -1;
+            let posX = (saved && typeof saved.x === "number") ? saved.x : -1;
+            let posY = (saved && typeof saved.y === "number") ? saved.y : -1;
 
             if (saved && typeof saved.col === "number" && typeof saved.row === "number") {
                 let targetCol = saved.col;
@@ -133,7 +134,12 @@ Singleton {
                     }
                 }
 
-                if (targetCol >= 0 && targetCol < maxColumns && saved.row >= 0 && saved.row < maxRows) {
+                if (posX >= 0 && posY >= 0) {
+                    col = Math.max(0, Math.min(maxColumns - 1, targetCol));
+                    row = Math.max(0, Math.min(maxRows - 1, saved.row));
+                    occupied[col + "," + row] = true;
+                    iconPositions[item.path] = { col: col, row: row, x: posX, y: posY };
+                } else if (targetCol >= 0 && targetCol < maxColumns && saved.row >= 0 && saved.row < maxRows) {
                     let key = targetCol + "," + saved.row;
                     if (!occupied[key]) {
                         col = targetCol;
@@ -152,7 +158,9 @@ Singleton {
                 isDesktopFile: item.is_desktop_file === true,
                 sortOrder: typeof item.sort_order === "number" ? item.sort_order : 2,
                 col: col,
-                row: row
+                row: row,
+                posX: posX,
+                posY: posY
             });
         }
 
@@ -192,6 +200,26 @@ Singleton {
         return { col: 0, row: 0 };
     }
 
+    function getPositionsSnapshot() {
+        return JSON.parse(JSON.stringify(iconPositions || {}));
+    }
+
+    function restorePositionsSnapshot(snapshot) {
+        if (!snapshot) return;
+        iconPositions = JSON.parse(JSON.stringify(snapshot));
+        for (let i = 0; i < items.count; i++) {
+            const entry = items.get(i);
+            const saved = iconPositions[entry.path];
+            if (saved) {
+                if (typeof saved.col === "number") items.setProperty(i, "col", saved.col);
+                if (typeof saved.row === "number") items.setProperty(i, "row", saved.row);
+                items.setProperty(i, "posX", typeof saved.x === "number" ? saved.x : -1);
+                items.setProperty(i, "posY", typeof saved.y === "number" ? saved.y : -1);
+            }
+        }
+        savePositions();
+    }
+
     function updatePosition(path, targetCol, targetRow) {
         targetCol = Math.max(0, Math.min(targetCol, maxColumns - 1));
         targetRow = Math.max(0, Math.min(targetRow, maxRows - 1));
@@ -210,6 +238,8 @@ Singleton {
 
         if (sourceIndex === -1) return;
 
+        WidgetService.pushGlobalUndoSnapshot();
+
         let sourceItem = items.get(sourceIndex);
         let oldCol = sourceItem.col;
         let oldRow = sourceItem.row;
@@ -223,12 +253,144 @@ Singleton {
 
         items.setProperty(sourceIndex, "col", targetCol);
         items.setProperty(sourceIndex, "row", targetRow);
+        items.setProperty(sourceIndex, "posX", -1);
+        items.setProperty(sourceIndex, "posY", -1);
         iconPositions[path] = { col: targetCol, row: targetRow };
 
         savePositions();
     }
 
+    function updateFreePosition(path, newX, newY, cellWidth, cellHeight) {
+        const cw = cellWidth || 96;
+        const ch = cellHeight || 120;
+        for (let i = 0; i < items.count; i++) {
+            let entry = items.get(i);
+            if (entry.path === path) {
+                WidgetService.pushGlobalUndoSnapshot();
+                const rx = Math.max(0, Math.round(newX));
+                const ry = Math.max(0, Math.round(newY));
+                const col = Math.max(0, Math.min(maxColumns - 1, Math.floor((rx + cw / 2) / cw)));
+                const row = Math.max(0, Math.min(maxRows - 1, Math.floor((ry + ch / 2) / ch)));
+                items.setProperty(i, "col", col);
+                items.setProperty(i, "row", row);
+                items.setProperty(i, "posX", rx);
+                items.setProperty(i, "posY", ry);
+                iconPositions[path] = { col: col, row: row, x: rx, y: ry };
+                savePositions();
+                return;
+            }
+        }
+    }
+
+    function moveGroupFreePositions(paths, dx, dy, cellWidth, cellHeight) {
+        if (!paths || paths.length === 0) return;
+        if (Math.round(dx) === 0 && Math.round(dy) === 0) return;
+        WidgetService.pushGlobalUndoSnapshot();
+        const cw = cellWidth || 96;
+        const ch = cellHeight || 120;
+        let selectedSet = {};
+        for (let i = 0; i < paths.length; i++) {
+            selectedSet[paths[i]] = true;
+        }
+        for (let i = 0; i < items.count; i++) {
+            let entry = items.get(i);
+            if (!selectedSet[entry.path]) continue;
+            const curX = entry.posX >= 0 ? entry.posX : entry.col * cw;
+            const curY = entry.posY >= 0 ? entry.posY : entry.row * ch;
+            const rx = Math.max(0, Math.round(curX + dx));
+            const ry = Math.max(0, Math.round(curY + dy));
+            const col = Math.max(0, Math.min(maxColumns - 1, Math.floor((rx + cw / 2) / cw)));
+            const row = Math.max(0, Math.min(maxRows - 1, Math.floor((ry + ch / 2) / ch)));
+            items.setProperty(i, "col", col);
+            items.setProperty(i, "row", row);
+            items.setProperty(i, "posX", rx);
+            items.setProperty(i, "posY", ry);
+            iconPositions[entry.path] = { col: col, row: row, x: rx, y: ry };
+        }
+        savePositions();
+    }
+
+    function moveGroupPositions(paths, dCol, dRow) {
+        if (!paths || paths.length === 0) return;
+        let selectedSet = {};
+        for (let i = 0; i < paths.length; i++) {
+            selectedSet[paths[i]] = true;
+        }
+
+        let selectedItems = [];
+        let minCol = 1e9, maxCol = -1e9, minRow = 1e9, maxRow = -1e9;
+        for (let i = 0; i < items.count; i++) {
+            let entry = items.get(i);
+            if (selectedSet[entry.path]) {
+                selectedItems.push({ index: i, path: entry.path, col: entry.col, row: entry.row });
+                if (entry.col < minCol) minCol = entry.col;
+                if (entry.col > maxCol) maxCol = entry.col;
+                if (entry.row < minRow) minRow = entry.row;
+                if (entry.row > maxRow) maxRow = entry.row;
+            }
+        }
+        if (selectedItems.length === 0) return;
+
+        const clampedDCol = Math.max(-minCol, Math.min(maxColumns - 1 - maxCol, dCol));
+        const clampedDRow = Math.max(-minRow, Math.min(maxRows - 1 - maxRow, dRow));
+        if (clampedDCol === 0 && clampedDRow === 0) return;
+
+        WidgetService.pushGlobalUndoSnapshot();
+
+        let targetKeys = {};
+        let freedSlots = [];
+        for (let i = 0; i < selectedItems.length; i++) {
+            const it = selectedItems[i];
+            const nc = it.col + clampedDCol;
+            const nr = it.row + clampedDRow;
+            targetKeys[nc + "," + nr] = true;
+        }
+        for (let i = 0; i < selectedItems.length; i++) {
+            const it = selectedItems[i];
+            const oldKey = it.col + "," + it.row;
+            if (!targetKeys[oldKey]) {
+                freedSlots.push({ col: it.col, row: it.row });
+            }
+        }
+
+        // move any non-selected items occupying target cells into freed slots
+        let occupiedAfter = {};
+        for (let k in targetKeys) occupiedAfter[k] = true;
+        for (let i = 0; i < items.count; i++) {
+            let entry = items.get(i);
+            if (!selectedSet[entry.path]) {
+                const k = entry.col + "," + entry.row;
+                if (!targetKeys[k]) occupiedAfter[k] = true;
+            }
+        }
+
+        for (let i = 0; i < items.count; i++) {
+            let entry = items.get(i);
+            if (selectedSet[entry.path]) continue;
+            const k = entry.col + "," + entry.row;
+            if (targetKeys[k]) {
+                let slot = freedSlots.length > 0 ? freedSlots.shift() : findNextVacantSlot(occupiedAfter);
+                occupiedAfter[slot.col + "," + slot.row] = true;
+                items.setProperty(i, "col", slot.col);
+                items.setProperty(i, "row", slot.row);
+                iconPositions[entry.path] = { col: slot.col, row: slot.row };
+            }
+        }
+
+        for (let i = 0; i < selectedItems.length; i++) {
+            const it = selectedItems[i];
+            const nc = it.col + clampedDCol;
+            const nr = it.row + clampedDRow;
+            items.setProperty(it.index, "col", nc);
+            items.setProperty(it.index, "row", nr);
+            iconPositions[it.path] = { col: nc, row: nr };
+        }
+
+        savePositions();
+    }
+
     function sortItems(byKind) {
+        WidgetService.pushGlobalUndoSnapshot();
         let list = [];
         for (let i = 0; i < items.count; i++) {
             list.push(items.get(i));
@@ -248,6 +410,8 @@ Singleton {
                 if (items.get(j).path === list[i].path) {
                     items.setProperty(j, "col", col);
                     items.setProperty(j, "row", row);
+                    items.setProperty(j, "posX", -1);
+                    items.setProperty(j, "posY", -1);
                     iconPositions[list[i].path] = { col: col, row: row };
                     break;
                 }

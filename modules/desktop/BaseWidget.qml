@@ -27,6 +27,7 @@ Item {
     property bool persistToWidgetService: true
     property bool disableAnimations: false
     property bool _clamping: false
+    property bool _groupMoving: false
     property real savedX: defaultX
     property real savedY: defaultY
 
@@ -42,6 +43,7 @@ Item {
     // Interaction states
     readonly property bool isHovered: hoverArea.containsMouse
     readonly property bool isDragging: dragArea.draggingActive
+    readonly property bool isSelected: WidgetService.selectedWidgetIds.indexOf(root.widgetId) !== -1
 
     // Main content slot
     default property alias content: contentContainer.data
@@ -60,7 +62,7 @@ Item {
     }
 
     Behavior on x {
-        enabled: !root.isDragging && !root.disableAnimations && !root._clamping && Config.animDuration > 0
+        enabled: !root.isDragging && !root.disableAnimations && !root._clamping && !root._groupMoving && Config.animDuration > 0
         NumberAnimation {
             duration: Config.animDuration
             easing.type: Easing.OutCubic
@@ -68,7 +70,7 @@ Item {
     }
 
     Behavior on y {
-        enabled: !root.isDragging && !root.disableAnimations && !root._clamping && Config.animDuration > 0
+        enabled: !root.isDragging && !root.disableAnimations && !root._clamping && !root._groupMoving && Config.animDuration > 0
         NumberAnimation {
             duration: Config.animDuration
             easing.type: Easing.OutCubic
@@ -136,9 +138,9 @@ Item {
         anchors.fill: parent
         radius: root.cornerRadius
         color: root.cardBg
-        border.color: root.cardBorder
-        border.width: 1
-        visible: root.hasCardBackground
+        border.color: root.isSelected ? Colors.primary : root.cardBorder
+        border.width: root.isSelected ? 2 : 1
+        visible: root.hasCardBackground || root.isSelected
     }
 
     // Background drag mouse area
@@ -149,6 +151,7 @@ Item {
         acceptedButtons: Qt.LeftButton | Qt.RightButton
 
         property bool draggingActive: false
+        property bool groupDragging: false
         property point startMouse: Qt.point(0, 0)
         property real startX: 0
         property real startY: 0
@@ -159,6 +162,13 @@ Item {
             startX = root.x;
             startY = root.y;
             draggingActive = false;
+            groupDragging = root.isSelected && WidgetService.selectedWidgetIds.length > 1;
+            if (!root.isSelected) {
+                WidgetService.clearSelection();
+            }
+            if (groupDragging) {
+                WidgetService.beginGroupMove();
+            }
         }
 
         onPositionChanged: mouse => {
@@ -178,11 +188,16 @@ Item {
                 }
             }
 
+            if (groupDragging) {
+                WidgetService.moveGroupBy(dx, dy);
+                return;
+            }
+
             const maxX = Math.max(0, root.parent.width - root.width);
             const maxY = Math.max(0, root.parent.height - root.height);
             const rawX = Math.max(0, Math.min(maxX, startX + dx));
             const rawY = Math.max(0, Math.min(maxY, startY + dy));
-            const snapped = WidgetService.computeSnapForMove(root.widgetId, rawX, rawY, root.width, root.height, 6);
+            const snapped = WidgetService.computeSnapForMove(root.widgetId, rawX, rawY, root.width, root.height, 10);
             root.x = Math.max(0, Math.min(maxX, (axisLock && dx === 0) ? startX : snapped.x));
             root.y = Math.max(0, Math.min(maxY, (axisLock && dy === 0) ? startY : snapped.y));
         }
@@ -190,6 +205,11 @@ Item {
         onReleased: {
             if (draggingActive) {
                 draggingActive = false;
+                if (groupDragging) {
+                    groupDragging = false;
+                    WidgetService.commitGroupMove();
+                    return;
+                }
                 root.savedX = root.x;
                 root.savedY = root.y;
                 root.positionChangedByUser(root.x, root.y);
@@ -197,6 +217,7 @@ Item {
                     WidgetService.setPosition(root.widgetId, root.x, root.y, root.locked);
                 }
             }
+            groupDragging = false;
         }
 
         onClicked: mouse => {

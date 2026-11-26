@@ -284,6 +284,33 @@ ShellRoot {
         id: notificationSoundProc
     }
 
+    Component.onCompleted: {
+        Quickshell.watchFiles = false;
+    }
+
+    Timer {
+        id: debouncedReloadTimer
+        interval: 2000
+        repeat: false
+        onTriggered: Quickshell.reload(false)
+    }
+
+    Process {
+        id: fileWatchProc
+        running: true
+        command: [
+            "python3", "-u", "-c",
+            "import os, time\nroot = '" + Quickshell.shellDir + "'\nskip = {'.git', 'target', 'bin', 'node_modules'}\ndef snap():\n    m = {}\n    for d, dirs, files in os.walk(root):\n        dirs[:] = [x for x in dirs if x not in skip]\n        for f in files:\n            if f.endswith(('.qml', '.js')):\n                p = os.path.join(d, f)\n                try: m[p] = os.stat(p).st_mtime_ns\n                except OSError: pass\n    return m\nprev = snap()\nwhile True:\n    time.sleep(0.5)\n    cur = snap()\n    if cur != prev:\n        prev = cur\n        print('CHANGED', flush=True)\n"
+        ]
+        stdout: SplitParser {
+            onRead: line => {
+                if (line.trim() === "CHANGED") {
+                    debouncedReloadTimer.restart();
+                }
+            }
+        }
+    }
+
     Connections {
         target: Notifications
         ignoreUnknownSignals: true

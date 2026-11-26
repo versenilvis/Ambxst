@@ -170,9 +170,9 @@ BaseWidget {
         anchors.fill: parent
         radius: root.cornerRadius
         color: "transparent"
-        border.width: root.isResizing ? 2 : 1
+        border.width: (root.isResizing || root.isSelected) ? 2 : 1
         border.color: {
-            if (root.isResizing) return Colors.primary;
+            if (root.isResizing || root.isSelected) return Colors.primary;
             if (root.isHovered && !root.locked) return Qt.rgba(1, 1, 1, 0.28);
             return Qt.rgba(1, 1, 1, 0.08);
         }
